@@ -40,13 +40,23 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include <map>
+#include <optional>
+#include <limits>
 
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -60,33 +70,203 @@ using namespace llvm;
 
 namespace {
 
-  class AFLCoverage : public ModulePass {
+/* A custom entry keeps the original name[:argument] syntax. The optional third
+   field supplies a byte size when opaque IR genuinely carries no struct type. */
+struct CustomTrace {
+  int argument = -1;
+  std::optional<uint64_t> size;
+};
 
-    public:
-
-      static char ID;
-      AFLCoverage() : ModulePass(ID) { }
-
-      bool runOnModule(Module &M) override;
-
-      // StringRef getPassName() const override {
-      //  return "American Fuzzy Lop Instrumentation";
-      // }
-
-  };
-
+static void parseCustom(const char *text, std::map<std::string, CustomTrace> &out) {
+  if (!text) return;
+  SmallVector<StringRef, 8> entries;
+  StringRef(text).split(entries, ';', -1, false);
+  for (StringRef entry : entries) {
+    SmallVector<StringRef, 3> fields;
+    entry.split(fields, ':');
+    CustomTrace config;
+    if (fields.size() > 3 || fields[0].empty())
+      FATAL("Invalid custom trace entry '%s'", entry.str().c_str());
+    if (fields.size() >= 2 && !fields[1].empty()) {
+      int position;
+      if (fields[1].getAsInteger(10, position) || position < -1)
+        FATAL("Invalid custom trace argument in '%s'", entry.str().c_str());
+      config.argument = position;
+    }
+    if (fields.size() == 3) {
+      uint64_t size;
+      if (config.argument < 0 || fields[2].getAsInteger(10, size) || !size)
+        FATAL("Invalid explicit custom trace size in '%s'", entry.str().c_str());
+      config.size = size;
+    }
+    out.insert({fields[0].str(), config});
+    OKF("INSTRUMENTING CUSTOM FUNCTION '%s'", entry.str().c_str());
+  }
 }
 
+/* Recover only evidence of a struct object, never sizeof(pointer). At -O0 a
+   formal pointer is often spilled and reloaded before its typed GEP use. */
+static void collectStructTypes(Value *value, SmallPtrSetImpl<Value *> &seen,
+                               SmallPtrSetImpl<StructType *> &types,
+                               bool followUses) {
+  if (!seen.insert(value).second) return;
+  if (auto *alloc = dyn_cast<AllocaInst>(value)) {
+    if (auto *type = dyn_cast<StructType>(alloc->getAllocatedType()))
+      types.insert(type);
+  } else if (auto *global = dyn_cast<GlobalVariable>(value)) {
+    if (auto *type = dyn_cast<StructType>(global->getValueType()))
+      types.insert(type);
+  } else if (auto *gep = dyn_cast<GEPOperator>(value)) {
+    if (auto *type = dyn_cast<StructType>(gep->getResultElementType()))
+      types.insert(type);
+  } else if (auto *load = dyn_cast<LoadInst>(value)) {
+    Value *slot = load->getPointerOperand()->stripPointerCasts();
+    for (User *user : slot->users())
+      if (auto *store = dyn_cast<StoreInst>(user))
+        if (store->getPointerOperand()->stripPointerCasts() == slot)
+          collectStructTypes(store->getValueOperand(), seen, types, followUses);
+  } else if (auto *phi = dyn_cast<PHINode>(value)) {
+    for (Value *input : phi->incoming_values())
+      collectStructTypes(input, seen, types, followUses);
+  } else if (auto *select = dyn_cast<SelectInst>(value)) {
+    collectStructTypes(select->getTrueValue(), seen, types, followUses);
+    collectStructTypes(select->getFalseValue(), seen, types, followUses);
+  } else if (auto *cast = dyn_cast<CastInst>(value)) {
+    collectStructTypes(cast->getOperand(0), seen, types, followUses);
+  }
+  if (!followUses) return;
+  for (User *user : value->users()) {
+    if (auto *gep = dyn_cast<GetElementPtrInst>(user)) {
+      if (gep->getPointerOperand() == value)
+        if (auto *type = dyn_cast<StructType>(gep->getSourceElementType()))
+          types.insert(type);
+    } else if (auto *store = dyn_cast<StoreInst>(user)) {
+      if (store->getValueOperand() == value)
+        for (User *slotUser : store->getPointerOperand()->users())
+          if (auto *load = dyn_cast<LoadInst>(slotUser))
+            if (load->getType()->isPointerTy())
+              collectStructTypes(load, seen, types, true);
+    } else if (isa<CastInst>(user) || isa<PHINode>(user) || isa<SelectInst>(user)) {
+      collectStructTypes(cast<Value>(user), seen, types, true);
+    }
+  }
+}
 
-char AFLCoverage::ID = 0;
+static std::optional<uint64_t> debugTypeSize(DIType *type) {
+  /* Strip qualifiers and at most one pointer/reference. A pointer-to-pointer
+     must not be mistaken for a pointer to a struct in debug-only recovery. */
+  unsigned indirections = 0;
+  while (auto *derived = dyn_cast_or_null<DIDerivedType>(type)) {
+    unsigned tag = derived->getTag();
+    if (tag == dwarf::DW_TAG_pointer_type || tag == dwarf::DW_TAG_reference_type ||
+        tag == dwarf::DW_TAG_rvalue_reference_type)
+      if (++indirections > 1) return std::nullopt;
+    type = derived->getBaseType();
+  }
+  auto *structure = dyn_cast_or_null<DICompositeType>(type);
+  if (!structure || (structure->getTag() != dwarf::DW_TAG_structure_type &&
+                     structure->getTag() != dwarf::DW_TAG_class_type &&
+                     structure->getTag() != dwarf::DW_TAG_union_type) ||
+      !structure->getSizeInBits() || structure->getSizeInBits() % 8)
+    return std::nullopt;
+  return structure->getSizeInBits() / 8;
+}
 
+/* index 0 is the return type; formal argument n has debug type index n+1. */
+static std::optional<uint64_t> debugFunctionSize(Function &function, unsigned index) {
+  auto *subprogram = function.getSubprogram();
+  if (!subprogram || !subprogram->getType()) return std::nullopt;
+  auto parameters = subprogram->getType()->getTypeArray();
+  if (index >= parameters.size()) return std::nullopt;
+  return debugTypeSize(dyn_cast_or_null<DIType>(parameters[index]));
+}
 
-bool AFLCoverage::runOnModule(Module &M) {
+static std::optional<uint64_t> debugValueSize(Value *value,
+                                             SmallPtrSetImpl<Value *> &seen) {
+  if (!seen.insert(value).second) return std::nullopt;
+  SmallVector<DbgVariableIntrinsic *, 4> debugUsers;
+  findDbgUsers(debugUsers, value);
+  for (DbgVariableIntrinsic *debug : debugUsers)
+    if (auto size = debugTypeSize(debug->getVariable()->getType())) return size;
+  if (auto *argument = dyn_cast<Argument>(value))
+    return debugFunctionSize(*argument->getParent(), argument->getArgNo() + 1);
+  if (auto *load = dyn_cast<LoadInst>(value))
+    return debugValueSize(load->getPointerOperand(), seen);
+  if (auto *cast = dyn_cast<CastInst>(value))
+    return debugValueSize(cast->getOperand(0), seen);
+  if (auto *call = dyn_cast<CallBase>(value))
+    if (Function *callee = call->getCalledFunction())
+      return debugFunctionSize(*callee, 0);
+  return std::nullopt;
+}
+
+static std::optional<uint64_t> customStructSize(Module &module, CallBase &call,
+                                               Function &callee, unsigned arg) {
+  /* The original syntax describes the callee's formal struct parameter. Debug
+     signatures preserve that information even when a caller explicitly casts a
+     different backing object. They are stronger evidence than caller storage. */
+  if (auto size = debugFunctionSize(callee, arg + 1)) return size;
+  SmallPtrSet<Value *, 32> seen;
+  SmallPtrSet<StructType *, 4> types;
+  collectStructTypes(call.getArgOperand(arg), seen, types, true);
+  if (arg < callee.arg_size()) {
+    collectStructTypes(callee.getArg(arg), seen, types, true);
+    if (auto *type = dyn_cast_or_null<StructType>(callee.getParamByValType(arg)))
+      types.insert(type);
+    if (auto *type = dyn_cast_or_null<StructType>(callee.getParamStructRetType(arg)))
+      types.insert(type);
+  }
+  std::optional<uint64_t> result;
+  for (StructType *type : types) {
+    if (!type->isSized()) continue;
+    TypeSize size = module.getDataLayout().getTypeAllocSize(type);
+    if (size.isScalable())
+      FATAL("Scalable custom struct size for '%s'", callee.getName().str().c_str());
+    uint64_t bytes = size.getFixedValue();
+    if (result && *result != bytes)
+      FATAL("Ambiguous custom struct type for '%s'; supply name:argument:bytes",
+            callee.getName().str().c_str());
+    result = bytes;
+  }
+  if (!result) {
+    SmallPtrSet<Value *, 16> debugSeen;
+    result = debugValueSize(call.getArgOperand(arg), debugSeen);
+  }
+  return result;
+}
+
+static FunctionCallee traceFunction(Module &module, StringRef name,
+                                    FunctionType *type) {
+  if (Function *existing = module.getFunction(name))
+    if (existing->getFunctionType() != type)
+      FATAL("Incompatible runtime declaration '%s'", name.str().c_str());
+  return module.getOrInsertFunction(name, type);
+}
+
+static void setAfterCall(IRBuilder<> &builder, CallBase *call) {
+  if (auto *invoke = dyn_cast<InvokeInst>(call)) {
+    BasicBlock *edge = SplitEdge(invoke->getParent(), invoke->getNormalDest());
+    if (!edge) FATAL("Unable to split successful allocation invoke edge");
+    builder.SetInsertPoint(&*edge->getFirstInsertionPt());
+  } else {
+    auto *normal = cast<CallInst>(call);
+    if (normal->isMustTailCall())
+      FATAL("Cannot append allocation tracing to a musttail call");
+    builder.SetInsertPoint(normal->getNextNode());
+  }
+}
+
+static bool instrumentModule(Module &M) {
+  /* Also protects explicit opt pipelines and recompilation of instrumented IR. */
+  if (M.getNamedMetadata("stateafl.instrumented")) return false;
+  M.getOrInsertNamedMetadata("stateafl.instrumented")
+      ->addOperand(MDNode::get(M.getContext(), {}));
 
   LLVMContext &C = M.getContext();
 
   IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+  IntegerType *SizeTy = M.getDataLayout().getIntPtrType(C);
 
   /* Show a banner */
 
@@ -115,7 +295,7 @@ bool AFLCoverage::runOnModule(Module &M) {
      __afl_prev_loc is thread-local. */
 
   GlobalVariable *AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+      new GlobalVariable(M, PointerType::get(C, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
   GlobalVariable *AFLPrevLoc = new GlobalVariable(
@@ -124,76 +304,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   /* Get list of user-defined primitives for sending/receiving data */
 
-  char* trace_custom_receive = getenv("TRACE_CUSTOM_RECEIVE");
-  char* trace_custom_send = getenv("TRACE_CUSTOM_SEND");
-
-  std::map<StringRef, int> map_custom_receive;
-  std::map<StringRef, int> map_custom_send;
-
-  if (trace_custom_receive) {
-
-    StringRef custom_list = trace_custom_receive;
-    std::pair<StringRef, StringRef> splitted;
-
-    do {
- 
-      splitted = custom_list.split(';');
-
-      if(splitted.first != "") {
-
-        std::pair<StringRef, StringRef> item = splitted.first.split(':');
-
-        StringRef func_name = item.first;
-        int param_pos;
-        
-        if(item.second.empty()) {
-          param_pos = -1;
-        } else {
-          param_pos = atoi(std::string(item.second).c_str());
-        }
-
-        map_custom_receive.insert( std::pair<StringRef,int>(func_name, param_pos) );
-
-        OKF("INSTRUMENTING CUSTOM RECEIVE '%s'\n", std::string(splitted.first).c_str());
-      }
-
-      custom_list = splitted.second;
-
-    } while( custom_list != "");
-  }
-
-  if (trace_custom_send) {
-
-    StringRef custom_list = trace_custom_send;
-    std::pair<StringRef, StringRef> splitted;
-
-    do {
- 
-      splitted = custom_list.split(';');
-
-      if(splitted.first != "") {
-
-        std::pair<StringRef, StringRef> item = splitted.first.split(':');
-
-        StringRef func_name = item.first;
-        int param_pos;
-        
-        if(item.second.empty()) {
-          param_pos = -1;
-        } else {
-          param_pos = atoi(std::string(item.second).c_str());
-        }
-
-        map_custom_send.insert( std::pair<StringRef,int>(func_name, param_pos) );
-
-        OKF("INSTRUMENTING CUSTOM SEND '%s'\n", std::string(splitted.first).c_str());
-      }
-
-      custom_list = splitted.second;
-
-    } while( custom_list != "");
-  }
-
+  std::map<std::string, CustomTrace> map_custom_receive;
+  std::map<std::string, CustomTrace> map_custom_send;
+  parseCustom(getenv("TRACE_CUSTOM_RECEIVE"), map_custom_receive);
+  parseCustom(getenv("TRACE_CUSTOM_SEND"), map_custom_send);
 
   /* Instrument all the things! */
 
@@ -201,79 +315,88 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   for (auto &F : M) {
 
-    SmallVector<CallInst*, 16> stack_lookups;
+    SmallVector<CallBase*, 16> stack_lookups;
+    SmallVector<CallBase*, 32> original_calls;
   
     for (auto &BB : F) {
 
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
-      IRBuilder<> IRB(&(*IP));
+      if (IP != BB.end() && AFL_R(100) < inst_ratio) {
+        IRBuilder<> IRB(&(*IP));
 
-      if (AFL_R(100) >= inst_ratio) continue;
+        /* Make up cur_loc */
 
-      /* Make up cur_loc */
+        unsigned int cur_loc = AFL_R(MAP_SIZE);
 
-      unsigned int cur_loc = AFL_R(MAP_SIZE);
+        ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
-      ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
+        /* Load prev_loc */
 
-      /* Load prev_loc */
+        LoadInst *PrevLoc = IRB.CreateLoad(Int32Ty, AFLPrevLoc);
+        PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, {}));
+        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
-      LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
-      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+        /* Load SHM pointer */
 
-      /* Load SHM pointer */
+        LoadInst *MapPtr = IRB.CreateLoad(PointerType::get(C, 0), AFLMapPtr);
+        MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, {}));
+        Value *MapPtrIdx =
+            IRB.CreateGEP(Int8Ty, MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
-      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *MapPtrIdx =
-          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
+        /* Update bitmap */
 
-      /* Update bitmap */
+        LoadInst *Counter = IRB.CreateLoad(Int8Ty, MapPtrIdx);
+        Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, {}));
+        Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+        IRB.CreateStore(Incr, MapPtrIdx)
+            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, {}));
 
-      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        /* Set prev_loc to cur_loc >> 1 */
 
-      /* Set prev_loc to cur_loc >> 1 */
+        StoreInst *Store =
+            IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, {}));
 
-      StoreInst *Store =
-          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
-      Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        inst_blocks++;
+      }
 
-      inst_blocks++;
+      for (Instruction &instruction : BB)
+        if (auto *call = dyn_cast<CallBase>(&instruction))
+          original_calls.push_back(call);
+    }
 
-
-
-      for(BasicBlock::iterator it = BB.begin(); it != BB.end(); it++) {
-
-        /*
-        AllocaInst * alloca_inst = dyn_cast<AllocaInst>(it);
-
-        if(alloca_inst != nullptr) {
-
-          if( alloca_inst->getAllocatedType()->isStructTy() ) {
-
-            auto alloc_size = alloca_inst->getAllocationSizeInBits(M.getDataLayout()).getValue();
-
-            auto debugInfo = alloca_inst->getDebugLoc();
-            //OKF("Found stack allocation: %s:%d (%lu bytes)\n", debugInfo->getFilename().data(), debugInfo->getLine(), alloc_size*8);
-            OKF("Found stack allocation (%lu bytes)\n", alloc_size/8);
-          }
-        }
-        */
-
-        CallInst * call_instr = dyn_cast<CallInst>(it);
-
-        if(call_instr == nullptr)
-          continue;
-        
-        auto called_func = call_instr->getCalledFunction();
+    /* Walk only original calls: inserted helpers must never instrument themselves,
+       and invoke edge splitting must not invalidate the basic-block traversal. */
+    for (CallBase *call_instr : original_calls) {
+        auto called_func = dyn_cast<Function>(call_instr->getCalledOperand()->stripPointerCasts());
         if (called_func == nullptr)
           continue;
 
+
+        /* Clang may ABI-coerce an oversized scalar into several IR arguments.
+           Reject that layout rather than accidentally tracing only its low half. */
+        int expectedArguments = StringSwitch<int>(called_func->getName())
+            .Cases("malloc", "free", "close", "fclose", "_exit", 1)
+            .Cases("calloc", "realloc", 2)
+            .Cases("read", "write", "recvmsg", "sendmsg", "fgets", 3)
+            .Cases("recv", "send", "fread", "fwrite", 4)
+            .Cases("recvfrom", "sendto", 6).Default(-1);
+        if (expectedArguments >= 0 && call_instr->arg_size() != unsigned(expectedArguments))
+          FATAL("Unsupported argument layout for '%s'; cannot represent its byte count in the runtime ABI",
+                called_func->getName().str().c_str());
+
+        /* Older supplied fixtures use int-sized recv/send stubs. Widen their
+           nonnegative byte counts explicitly; never hide an oversized count by
+           truncating it to the target runtime ABI. */
+        auto byteCount = [&](unsigned position) -> Value * {
+          Value *value = call_instr->getArgOperand(position);
+          auto *integer = dyn_cast<IntegerType>(value->getType());
+          if (!integer || integer->getBitWidth() > SizeTy->getBitWidth())
+            FATAL("Byte count for '%s' cannot be represented by target size_t",
+                  called_func->getName().str().c_str());
+          IRBuilder<> builder(call_instr);
+          return builder.CreateZExt(value, SizeTy);
+        };
 
         std::string demangled;
         int demangled_status;
@@ -283,7 +406,9 @@ bool AFLCoverage::runOnModule(Module &M) {
           demangled = demangled_char;
         }
 
-        if ( called_func->getName().startswith("llvm.lifetime") ) {
+        free(demangled_char);
+
+        if ( called_func->getName().starts_with("llvm.lifetime") ) {
           OKF("FUNCTION LLVM: %s", called_func->getName().data() );
 
           stack_lookups.push_back(call_instr);
@@ -296,45 +421,42 @@ bool AFLCoverage::runOnModule(Module &M) {
             OKF("DEMANGLED FUNCTION: %s\n", demangled.c_str());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
-          auto * int32Ty = Type::getInt32Ty(M.getContext());
+          auto * int8PtrTy = PointerType::get(C, 0);
 
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy, int32Ty);
-          auto helper_malloc = M.getOrInsertFunction("new_heap_alloc_record", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, Type::getInt64Ty(C)}, false);
+          auto helper_malloc = traceFunction(M, "new_heap_alloc_record", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.SetInsertPoint(call_instr->getNextNode());
-          builder.CreateCall(helper_malloc, {call_instr, call_instr->getOperand(0)});
+          setAfterCall(builder, call_instr);
+          builder.CreateCall(helper_malloc, {call_instr, builder.CreateZExt(byteCount(0), Type::getInt64Ty(C))});
 
         }
         if ( called_func->getName() == "calloc" ) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
-          auto * int32Ty = Type::getInt32Ty(M.getContext());
+          auto * int8PtrTy = PointerType::get(C, 0);
 
-          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, int32Ty, int32Ty}, false);
-          auto helper_malloc = M.getOrInsertFunction("trace_calloc", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, SizeTy, SizeTy}, false);
+          auto helper_malloc = traceFunction(M, "trace_calloc", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.SetInsertPoint(call_instr->getNextNode());
-          builder.CreateCall(helper_malloc, {call_instr, call_instr->getOperand(1), call_instr->getOperand(0)});
+          setAfterCall(builder, call_instr);
+          builder.CreateCall(helper_malloc, {call_instr, byteCount(1), byteCount(0)});
 
         }
         if ( called_func->getName() == "realloc" ) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
-          auto * int32Ty = Type::getInt32Ty(M.getContext());
+          auto * int8PtrTy = PointerType::get(C, 0);
 
-          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, int32Ty, int8PtrTy}, false);
-          auto helper_malloc = M.getOrInsertFunction("trace_realloc", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, SizeTy, int8PtrTy}, false);
+          auto helper_malloc = traceFunction(M, "trace_realloc", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.SetInsertPoint(call_instr->getNextNode());
-          builder.CreateCall(helper_malloc, {call_instr, call_instr->getOperand(1), call_instr->getOperand(0)});
+          setAfterCall(builder, call_instr);
+          builder.CreateCall(helper_malloc, {call_instr, byteCount(1), call_instr->getArgOperand(0)});
 
         }
         else if ( called_func->getName() == "free" || demangled.find("operator delete") != std::string::npos ) {
@@ -344,13 +466,13 @@ bool AFLCoverage::runOnModule(Module &M) {
             OKF("DEMANGLED FUNCTION: %s\n", demangled.c_str());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
+          auto * int8PtrTy = PointerType::get(C, 0);
 
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy);
-          auto helper_free = M.getOrInsertFunction("free_heap_alloc_record", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, Type::getInt64Ty(C)}, false);
+          auto helper_free = traceFunction(M, "free_heap_alloc_record", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.CreateCall(helper_free, {call_instr->getOperand(0)});
+          builder.CreateCall(helper_free, {call_instr->getArgOperand(0), ConstantInt::get(Type::getInt64Ty(C), 0)});
 
         }
         else if(  called_func->getName() == "recv"
@@ -359,48 +481,20 @@ bool AFLCoverage::runOnModule(Module &M) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext()); /* pass buffer address */
-          auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
+          auto * int8PtrTy = PointerType::get(C, 0); /* pass buffer address */
 
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy, int32Ty);
-          auto helper = M.getOrInsertFunction("trace_receive", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, SizeTy}, false);
+          auto helper = traceFunction(M, "trace_receive", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.CreateCall(helper, {call_instr->getOperand(1), call_instr->getOperand(2)});
+          builder.CreateCall(helper, {call_instr->getArgOperand(1), byteCount(2)});
 
         }
-        else if( called_func->getName() == "recvmsg" )
-        {
-          OKF("Found function call: %s\n", called_func->getName().data());
-
-          auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext()); /* pass buffer address */
-          auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
-
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy, int32Ty);
-          auto helper = M.getOrInsertFunction("trace_receive", helperTy);
-
-          Value * buf_size;
-          int struct_size;
-          Type * T = call_instr->getOperand(1)->getType();
-
-          if( !T->isPointerTy() || !T->getContainedType(0)->isStructTy() ) {
-
-            WARNF("Error in recvmsg(): non-pointer input parameter\n");
-            continue;
-          }
-
-          Type * PT = T->getContainedType(0);
-          llvm::DataLayout* dl = new llvm::DataLayout(&M);
-          struct_size = dl->getTypeAllocSize(PT);
-
-          //WARNF("Type %s size: %d\n", PT->getStructName().data(), struct_size);
-
-          buf_size = llvm::ConstantInt::get(int32Ty, struct_size, true);
-
+        else if (called_func->getName() == "recvmsg") {
+          auto *helperTy = FunctionType::get(Type::getVoidTy(C), {PointerType::get(C, 0)}, false);
+          auto helper = traceFunction(M, "trace_recvmsg", helperTy);
           IRBuilder<> builder(call_instr);
-          builder.CreateCall(helper, {call_instr->getOperand(1), buf_size});
-
+          builder.CreateCall(helper, {call_instr->getArgOperand(1)});
         }
         else if(  called_func->getName() == "send" 
                || called_func->getName() == "sendto" )
@@ -408,153 +502,70 @@ bool AFLCoverage::runOnModule(Module &M) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext()); /* pass buffer address */
-          auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
+          auto * int8PtrTy = PointerType::get(C, 0); /* pass buffer address */
 
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy, int32Ty);
-          auto helper = M.getOrInsertFunction("trace_send", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, SizeTy}, false);
+          auto helper = traceFunction(M, "trace_send", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.CreateCall(helper, {call_instr->getOperand(1), call_instr->getOperand(2)});
+          builder.CreateCall(helper, {call_instr->getArgOperand(1), byteCount(2)});
 
         }
-        else if(  called_func->getName() == "sendmsg" )
-        {
-          OKF("Found function call: %s\n", called_func->getName().data());
-
-          auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext()); /* pass buffer address */
-          auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
-
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy, int32Ty);
-          auto helper = M.getOrInsertFunction("trace_send", helperTy);
-
-          Value * buf_size;
-          int struct_size;
-          Type * T = call_instr->getOperand(1)->getType();
-
-          if( !T->isPointerTy() || !T->getContainedType(0)->isStructTy() ) {
-
-            WARNF("Error in sendmsg(): non-pointer input parameter\n");
-            continue;
-          }
-
-          Type * PT = T->getContainedType(0);
-          llvm::DataLayout* dl = new llvm::DataLayout(&M);
-          struct_size = dl->getTypeAllocSize(PT);
-
-          //WARNF("Type %s size: %d\n", PT->getStructName().data(), struct_size);
-
-          buf_size = llvm::ConstantInt::get(int32Ty, struct_size, true);
-
+        else if (called_func->getName() == "sendmsg") {
+          auto *helperTy = FunctionType::get(Type::getVoidTy(C), {PointerType::get(C, 0)}, false);
+          auto helper = traceFunction(M, "trace_sendmsg", helperTy);
           IRBuilder<> builder(call_instr);
-          builder.CreateCall(helper, {call_instr->getOperand(1), buf_size});
-
+          builder.CreateCall(helper, {call_instr->getArgOperand(1)});
         }
-        else if(   map_custom_receive.count(called_func->getName().data()) 
-                || map_custom_send.count(called_func->getName()) )
-        {
-          OKF("Found function call: %s\n", called_func->getName().data());
-
-          auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext()); /* pass buffer address */
-          auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
-
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy, int32Ty);
-
-          const char * trace_func;
-          int param_pos;
-
-
-          if( map_custom_receive.count(called_func->getName().data()) ) {
-
-            trace_func = "trace_receive";
-
-            auto it = map_custom_receive.find(called_func->getName().data());
-            param_pos = it->second;
-
+        else if (map_custom_receive.count(called_func->getName().str()) ||
+                 map_custom_send.count(called_func->getName().str())) {
+          bool receive = map_custom_receive.count(called_func->getName().str());
+          const CustomTrace &config = receive
+              ? map_custom_receive.at(called_func->getName().str())
+              : map_custom_send.at(called_func->getName().str());
+          auto *pointerTy = PointerType::get(C, 0);
+          Value *buffer = ConstantPointerNull::get(pointerTy);
+          uint64_t size = 0;
+          if (config.argument >= 0) {
+            unsigned position = config.argument;
+            if (position >= call_instr->arg_size())
+              FATAL("Custom function '%s' argument %u is out of range",
+                    called_func->getName().str().c_str(), position);
+            buffer = call_instr->getArgOperand(position);
+            if (!buffer->getType()->isPointerTy())
+              FATAL("Custom function '%s' argument %u is not a pointer",
+                    called_func->getName().str().c_str(), position);
+            auto inferred = config.size ? config.size
+                : customStructSize(M, *call_instr, *called_func, position);
+            if (!inferred)
+              FATAL("Cannot recover struct type for custom function '%s' argument %u; "
+                    "use name:argument:bytes or retain debug/type-bearing IR",
+                    called_func->getName().str().c_str(), position);
+            size = *inferred;
+            if (SizeTy->getBitWidth() < 64 && size > UINT32_MAX)
+              FATAL("Custom buffer size exceeds target size_t for '%s'",
+                    called_func->getName().str().c_str());
           } else {
-
-            trace_func = "trace_send";
-
-            auto it = map_custom_send.find(called_func->getName().data());
-            param_pos = it->second;
+            WARNF("NO BUFFER POINTER PROVIDED FOR CUSTOM FUNCTION %s (PASSING NULL, size = 0)",
+                  called_func->getName().str().c_str());
           }
-
-          auto helper = M.getOrInsertFunction(trace_func, helperTy);
-
-
-          Value * buf_operand;
-          Value * buf_size;
-          int struct_size;
-
-          if(param_pos != -1) {
-
-			auto arg = called_func->arg_begin();
-			int arg_no = 0;
-
-			while(arg != called_func->arg_end() && arg_no < param_pos) {
-			  arg++;
-			  arg_no++;
-			}
-
-
-            Type * T = arg->getType();
-
-
-            if( T->isPointerTy() ) {
-              if( T->getContainedType(0)->isStructTy() ) {
-
-                Type * PT = T->getContainedType(0);
-                llvm::DataLayout* dl = new llvm::DataLayout(&M);
-                struct_size = dl->getTypeAllocSize(PT); 
-
-                //WARNF("Type %s size: %d\n", PT->getStructName().data(), struct_size);
-
-                buf_operand = call_instr->getOperand(param_pos);
-                buf_size = llvm::ConstantInt::get(int32Ty, struct_size, true);
-
-              } else {
-                //T->getContainedType(0)->isIntegerTy(8) || T->getContainedType(0)->isVoidTy()
-
-                WARNF("Non-struct pointer types (char*, void*) at custom function %s at position %d not yet supported (PASSING NULL, size = 0)\n", called_func->getName().data(), param_pos);
-
-                buf_operand = ConstantPointerNull::get( PointerType::get(voidTy, 0));
-                buf_size = llvm::ConstantInt::get(int32Ty, 0, true);
-              }
-            }
-            else {
-              WARNF("No pointer type found for custom function %s at position %d (PASSING NULL, size = 0)\n", called_func->getName().data(), param_pos);
-
-              buf_operand = ConstantPointerNull::get( PointerType::get(voidTy, 0));
-              buf_size = llvm::ConstantInt::get(int32Ty, 0, true);
-            }
-
-
-          } else {
-
-            WARNF("NO BUFFER POINTER PROVIDED FOR CUSTOM FUNCTION %s (PASSING NULL, size = 0)\n", called_func->getName().data());
-            buf_operand = ConstantPointerNull::get( PointerType::get(voidTy, 0));
-            buf_size = llvm::ConstantInt::get(int32Ty, 0, true);
-          }
-
-
+          auto helper = traceFunction(M, receive ? "trace_receive" : "trace_send",
+              FunctionType::get(Type::getVoidTy(C), {pointerTy, SizeTy}, false));
           IRBuilder<> builder(call_instr);
-          builder.CreateCall(helper, {buf_operand, buf_size});
-
+          builder.CreateCall(helper, {buffer, ConstantInt::get(SizeTy, size)});
         }
         else if( called_func->getName() == "read" ) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
           auto * int32Ty = Type::getInt32Ty(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext()); /* pass buffer address */
+          auto * int8PtrTy = PointerType::get(C, 0); /* pass buffer address */
 
-          auto * helperTy = FunctionType::get(voidTy, {int32Ty, int8PtrTy, int32Ty}, false);
-          auto helper_read = M.getOrInsertFunction("trace_read", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int32Ty, int8PtrTy, SizeTy}, false);
+          auto helper_read = traceFunction(M, "trace_read", helperTy);
 
-          /* Note: Operand 2 (size_t) is 64 bit wide */
-          std::vector<Value *> call_args = {call_instr->getOperand(0), call_instr->getOperand(1), call_instr->getOperand(2)};
+          /* Preserve the target size_t width, including 32-bit IR. */
+          std::vector<Value *> call_args = {call_instr->getArgOperand(0), call_instr->getArgOperand(1), byteCount(2)};
           
           IRBuilder<> builder(call_instr);
           builder.CreateCall(helper_read, call_args);
@@ -565,12 +576,12 @@ bool AFLCoverage::runOnModule(Module &M) {
 
           auto * voidTy = Type::getVoidTy(M.getContext());
           auto * int32Ty = Type::getInt32Ty(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext()); /* pass buffer address */
+          auto * int8PtrTy = PointerType::get(C, 0); /* pass buffer address */
 
-          auto * helperTy = FunctionType::get(voidTy, {int32Ty, int8PtrTy, int32Ty}, false);
-          auto helper_write = M.getOrInsertFunction("trace_write", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int32Ty, int8PtrTy, SizeTy}, false);
+          auto helper_write = traceFunction(M, "trace_write", helperTy);
 
-          std::vector<Value *> call_args = {call_instr->getOperand(0), call_instr->getOperand(1), call_instr->getOperand(2)};
+          std::vector<Value *> call_args = {call_instr->getArgOperand(0), call_instr->getArgOperand(1), byteCount(2)};
 
           IRBuilder<> builder(call_instr);
           builder.CreateCall(helper_write, call_args);
@@ -580,16 +591,16 @@ bool AFLCoverage::runOnModule(Module &M) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
+          auto * int8PtrTy = PointerType::get(C, 0);
           auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
 
           auto * helperTy = FunctionType::get(voidTy, { int8PtrTy, int8PtrTy, int32Ty }, false);
-          auto helper = M.getOrInsertFunction("trace_fprintf", helperTy);
+          auto helper = traceFunction(M, "trace_fprintf", helperTy);
 
-          std::vector<Value *> call_args = {call_instr->getOperand(0), call_instr->getOperand(1), call_instr};
+          std::vector<Value *> call_args = {call_instr->getArgOperand(0), call_instr->getArgOperand(1), call_instr};
 
           IRBuilder<> builder(call_instr);
-          builder.SetInsertPoint(call_instr->getNextNode());
+          setAfterCall(builder, call_instr);
           builder.CreateCall(helper, call_args);
 
         }
@@ -597,16 +608,15 @@ bool AFLCoverage::runOnModule(Module &M) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
+          auto * int8PtrTy = PointerType::get(C, 0);
           auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
 
           auto * helperTy = FunctionType::get(voidTy, { int8PtrTy, int8PtrTy, int32Ty }, false);
-          auto helper = M.getOrInsertFunction("trace_fgets", helperTy);
+          auto helper = traceFunction(M, "trace_fgets", helperTy);
 
-          std::vector<Value *> call_args = {call_instr->getOperand(2), call_instr->getOperand(0), call_instr->getOperand(1)};
+          std::vector<Value *> call_args = {call_instr->getArgOperand(2), call_instr->getArgOperand(0), call_instr->getArgOperand(1)};
 
           IRBuilder<> builder(call_instr);
-          //builder.SetInsertPoint(call_instr->getNextNode());
           builder.CreateCall(helper, call_args);
 
         }
@@ -614,16 +624,14 @@ bool AFLCoverage::runOnModule(Module &M) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
-          auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
+          auto * int8PtrTy = PointerType::get(C, 0);
 
-          auto * helperTy = FunctionType::get(voidTy, { int8PtrTy, int8PtrTy, int32Ty, int32Ty }, false);
-          auto helper = M.getOrInsertFunction("trace_fwrite", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, { int8PtrTy, int8PtrTy, SizeTy, SizeTy }, false);
+          auto helper = traceFunction(M, "trace_fwrite", helperTy);
 
-          std::vector<Value *> call_args = {call_instr->getOperand(3), call_instr->getOperand(0), call_instr->getOperand(1), call_instr->getOperand(2)};
+          std::vector<Value *> call_args = {call_instr->getArgOperand(3), call_instr->getArgOperand(0), byteCount(1), byteCount(2)};
 
           IRBuilder<> builder(call_instr);
-          //builder.SetInsertPoint(call_instr->getNextNode());
           builder.CreateCall(helper, call_args);
 
         }
@@ -631,16 +639,14 @@ bool AFLCoverage::runOnModule(Module &M) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
-          auto * int32Ty = Type::getInt32Ty(M.getContext()); /* pass buffer size */
+          auto * int8PtrTy = PointerType::get(C, 0);
 
-          auto * helperTy = FunctionType::get(voidTy, { int8PtrTy, int8PtrTy, int32Ty, int32Ty }, false);
-          auto helper = M.getOrInsertFunction("trace_fread", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, { int8PtrTy, int8PtrTy, SizeTy, SizeTy }, false);
+          auto helper = traceFunction(M, "trace_fread", helperTy);
 
-          std::vector<Value *> call_args = {call_instr->getOperand(3), call_instr->getOperand(0), call_instr->getOperand(1), call_instr->getOperand(2)};
+          std::vector<Value *> call_args = {call_instr->getArgOperand(3), call_instr->getArgOperand(0), byteCount(1), byteCount(2)};
 
           IRBuilder<> builder(call_instr);
-          //builder.SetInsertPoint(call_instr->getNextNode());
           builder.CreateCall(helper, call_args);
 
         }
@@ -649,8 +655,8 @@ bool AFLCoverage::runOnModule(Module &M) {
 
           auto * voidTy = Type::getVoidTy(M.getContext());
 
-          auto * helperTy = FunctionType::get(voidTy, voidTy);
-          auto helper = M.getOrInsertFunction("end_state_tracer", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, false);
+          auto helper = traceFunction(M, "end_state_tracer", helperTy);
 
           IRBuilder<> builder(call_instr);
           builder.CreateCall(helper, {});
@@ -662,63 +668,59 @@ bool AFLCoverage::runOnModule(Module &M) {
           auto * voidTy = Type::getVoidTy(M.getContext());
           auto * int32Ty = Type::getInt32Ty(M.getContext());
 
-          auto * helperTy = FunctionType::get(voidTy, int32Ty);
-          auto helper_read = M.getOrInsertFunction("trace_close", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int32Ty}, false);
+          auto helper_read = traceFunction(M, "trace_close", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.SetInsertPoint(call_instr->getNextNode());
-          builder.CreateCall(helper_read, {call_instr->getOperand(0)});
+          builder.CreateCall(helper_read, {call_instr->getArgOperand(0)});
 
         }
         else if( called_func->getName() == "fclose" ) {
           OKF("Found function call: %s\n", called_func->getName().data());
 
           auto * voidTy = Type::getVoidTy(M.getContext());
-          auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
+          auto * int8PtrTy = PointerType::get(C, 0);
 
-          auto * helperTy = FunctionType::get(voidTy, int8PtrTy);
-          auto helper = M.getOrInsertFunction("trace_fclose", helperTy);
+          auto * helperTy = FunctionType::get(voidTy, {int8PtrTy}, false);
+          auto helper = traceFunction(M, "trace_fclose", helperTy);
 
           IRBuilder<> builder(call_instr);
-          builder.SetInsertPoint(call_instr->getNextNode());
-          builder.CreateCall(helper, {call_instr->getOperand(0)});
+          builder.CreateCall(helper, {call_instr->getArgOperand(0)});
 
         }
 
 
-      }
-
     }
 
-    for (SmallVectorImpl<CallInst*>::iterator it=stack_lookups.begin(), 
+    for (SmallVectorImpl<CallBase*>::iterator it=stack_lookups.begin(),
           e=stack_lookups.end() ; e!=it ; it++) {
 
-      CallInst * call_instr = *it;
-      auto called_func = call_instr->getCalledFunction();
+      CallBase * call_instr = *it;
+      auto called_func = dyn_cast<Function>(call_instr->getCalledOperand()->stripPointerCasts());
 
       auto * voidTy = Type::getVoidTy(M.getContext());
-      auto * int8PtrTy = Type::getInt8PtrTy(M.getContext());
+      auto * int8PtrTy = PointerType::get(C, 0);
       auto * int64Ty = Type::getInt64Ty(M.getContext());
 
 
-      auto * helperTy = FunctionType::get(voidTy, int8PtrTy, int64Ty);
+      auto * helperTy = FunctionType::get(voidTy, {int8PtrTy, int64Ty}, false);
 
       IRBuilder<> builder(call_instr);
 
       // test if allocated stack size is greater or equal than threshold
-      auto stack_size_cmp = builder.CreateICmpUGE(call_instr->getOperand(0), ConstantInt::get(int64Ty, MIN_STACK_ALLOC_SIZE));
+      auto stack_size_cmp = builder.CreateICmpUGE(call_instr->getArgOperand(0), ConstantInt::get(int64Ty, MIN_STACK_ALLOC_SIZE));
       auto split_before = SplitBlockAndInsertIfThen(stack_size_cmp, call_instr, false);
       builder.SetInsertPoint(split_before);
 
       if( called_func->getName().find("start") != StringRef::npos ) {
 
-        auto helper_malloc = M.getOrInsertFunction("new_stack_alloc_record", helperTy);
-        builder.CreateCall(helper_malloc, {call_instr->getOperand(1), call_instr->getOperand(0)});
+        auto helper_malloc = traceFunction(M, "new_stack_alloc_record", helperTy);
+        builder.CreateCall(helper_malloc, {call_instr->getArgOperand(1), call_instr->getArgOperand(0)});
 
       } else {
 
-        auto helper_malloc = M.getOrInsertFunction("free_stack_alloc_record", helperTy);
-        builder.CreateCall(helper_malloc, {call_instr->getOperand(1), call_instr->getOperand(0)});
+        auto helper_malloc = traceFunction(M, "free_stack_alloc_record", helperTy);
+        builder.CreateCall(helper_malloc, {call_instr->getArgOperand(1), call_instr->getArgOperand(0)});
       }
 
     }
@@ -741,16 +743,32 @@ bool AFLCoverage::runOnModule(Module &M) {
 }
 
 
-static void registerAFLPass(const PassManagerBuilder &,
-                            legacy::PassManagerBase &PM) {
+class AFLCoverage : public PassInfoMixin<AFLCoverage> {
+ public:
+  PreservedAnalyses run(Module &module, ModuleAnalysisManager &) {
+    return instrumentModule(module) ? PreservedAnalyses::none()
+                                    : PreservedAnalyses::all();
+  }
+  static bool isRequired() { return true; }
+};
 
-  PM.add(new AFLCoverage());
+} // namespace
 
+extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
+  return {LLVM_PLUGIN_API_VERSION, "StateAFL", LLVM_VERSION_STRING,
+          [](PassBuilder &builder) {
+            /* Earlier than SROA/inlining: retain allocations and lifetime events
+               at O0 as well as O1-O3. One callback is sufficient at every level. */
+            builder.registerPipelineStartEPCallback(
+                [](ModulePassManager &manager, OptimizationLevel) {
+                  manager.addPass(AFLCoverage());
+                });
+            builder.registerPipelineParsingCallback(
+                [](StringRef name, ModulePassManager &manager,
+                   ArrayRef<PassBuilder::PipelineElement>) {
+                  if (name != "stateafl") return false;
+                  manager.addPass(AFLCoverage());
+                  return true;
+                });
+          }};
 }
-
-
-static RegisterStandardPasses RegisterAFLPass(
-    PassManagerBuilder::EP_ModuleOptimizerEarly, registerAFLPass);
-
-static RegisterStandardPasses RegisterAFLPass0(
-    PassManagerBuilder::EP_EnabledOnOptLevel0, registerAFLPass);

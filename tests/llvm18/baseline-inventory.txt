@@ -133,7 +133,7 @@ afl-as.c:172:#ifdef __APPLE__
 afl-as.c:239:#ifdef __APPLE__
 afl-as.c:391:#ifdef __APPLE__
 afl-as.c:411:#ifdef __APPLE__
-afl-as.c:466:             getenv("AFL_HARDEN") ? "hardened" : 
+afl-as.c:466:             getenv("AFL_HARDEN") ? "hardened" :
 afl-as.c:482:  u8* inst_ratio_str = getenv("AFL_INST_RATIO");
 afl-as.c:487:  clang_mode = !!getenv(CLANG_ENV_VAR);
 afl-as.c:489:  if (isatty(2) && !getenv("AFL_QUIET")) {
@@ -421,3 +421,96 @@ llvm_mode/Makefile:139:test_build: $(PROGS)
 llvm_mode/Makefile:150:all_done: test_build
 llvm_mode/Makefile:153:.NOTPARALLEL: clean
 llvm_mode/Makefile:155:clean:
+
+CLI PARSERS AND BASE CONFIGURATION
+afl-analyze.c:962:  while ((opt = getopt(argc,argv,"+i:f:m:t:eQ")) > 0)
+afl-fuzz.c:10086:  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:r:w:e:P:KEq:s:RFc:l:u:U:")) > 0)
+afl-showmap.c:637:  while ((opt = getopt(argc,argv,"+o:m:t:A:eqZQbc")) > 0)
+afl-tmin.c:989:  while ((opt = getopt(argc,argv,"+i:o:f:m:t:B:xeQ")) > 0)
+config.h:25:#define _HAVE_CONFIG_H
+config.h:31:#define VERSION             "2.56b"
+config.h:42:#define USE_COLOR
+config.h:46:#define FANCY_BOXES
+config.h:51:#define EXEC_TIMEOUT        1000
+config.h:55:#define EXEC_TM_ROUND       20
+config.h:59:#define WORD_SIZE_64 1
+config.h:72:#define MEM_LIMIT_QEMU      200
+config.h:77:#define CAL_CYCLES          8
+config.h:78:#define CAL_CYCLES_LONG     40
+config.h:82:#define TMOUT_LIMIT         250
+config.h:86:#define KEEP_UNIQUE_HANG    500
+config.h:87:#define KEEP_UNIQUE_CRASH   5000
+config.h:91:#define HAVOC_CYCLES        256
+config.h:92:#define HAVOC_CYCLES_INIT   1024
+config.h:97:#define HAVOC_MAX_MULT      16
+config.h:101:#define HAVOC_MIN           16
+config.h:112:#define HAVOC_STACK_POW2    7
+config.h:118:#define HAVOC_BLK_SMALL     32
+config.h:119:#define HAVOC_BLK_MEDIUM    128
+config.h:120:#define HAVOC_BLK_LARGE     1500
+config.h:124:#define HAVOC_BLK_XL        32768
+config.h:129:#define SKIP_TO_NEW_PROB    99 /* ...when there are new, pending favorites */
+config.h:130:#define SKIP_NFAV_OLD_PROB  95 /* ...no new favs, cur entry already fuzzed */
+config.h:131:#define SKIP_NFAV_NEW_PROB  75 /* ...no new favs, cur entry not fuzzed yet */
+config.h:135:#define SPLICE_CYCLES       15
+config.h:139:#define SPLICE_HAVOC        32
+config.h:143:#define ARITH_MAX           35
+config.h:148:#define TRIM_MIN_BYTES      4
+config.h:149:#define TRIM_START_STEPS    16
+config.h:150:#define TRIM_END_STEPS      1024
+config.h:154:#define MAX_FILE            (1 * 1024 * 1024)
+config.h:158:#define TMIN_MAX_FILE       (10 * 1024 * 1024)
+config.h:162:#define TMIN_SET_MIN_SIZE   4
+config.h:163:#define TMIN_SET_STEPS      128
+config.h:167:#define MAX_DICT_FILE       128
+config.h:171:#define MIN_AUTO_EXTRA      3
+config.h:172:#define MAX_AUTO_EXTRA      32
+config.h:178:#define MAX_DET_EXTRAS      200
+config.h:184:#define USE_AUTO_EXTRAS     50
+config.h:185:#define MAX_AUTO_EXTRAS     (USE_AUTO_EXTRAS * 10)
+config.h:191:#define EFF_MAP_SCALE2      3
+config.h:195:#define EFF_MIN_LEN         128
+config.h:200:#define EFF_MAX_PERC        90
+config.h:204:#define UI_TARGET_HZ        5
+config.h:208:#define STATS_UPDATE_SEC    60
+config.h:209:#define PLOT_UPDATE_SEC     5
+config.h:213:#define AVG_SMOOTHING       16
+config.h:217:#define SYNC_INTERVAL       5
+config.h:221:#define OUTPUT_GRACE        25
+config.h:229:#define INTERESTING_8 \
+config.h:240:#define INTERESTING_16 \
+config.h:252:#define INTERESTING_32 \
+config.h:270:#define RESEED_RNG          10000
+config.h:275:#define MAX_LINE            8192
+config.h:279:#define SHM_ENV_VAR         "__AFL_SHM_ID"
+config.h:283:#define CLANG_ENV_VAR       "__AFL_CLANG_MODE"
+config.h:284:#define AS_LOOP_ENV_VAR     "__AFL_AS_LOOPCHECK"
+config.h:285:#define PERSIST_ENV_VAR     "__AFL_PERSISTENT"
+config.h:286:#define DEFER_ENV_VAR       "__AFL_DEFER_FORKSRV"
+config.h:290:#define PERSIST_SIG         "##SIG_AFL_PERSISTENT##"
+config.h:291:#define DEFER_SIG           "##SIG_AFL_DEFER_FORKSRV##"
+config.h:295:#define EXEC_FAIL_SIG       0xfee1dead
+config.h:299:#define MSAN_ERROR          86
+config.h:304:#define FORKSRV_FD          198
+config.h:309:#define FORK_WAIT_MULT      10
+config.h:315:#define CAL_TMOUT_PERC      125
+config.h:316:#define CAL_TMOUT_ADD       50
+config.h:320:#define CAL_CHANCES         3
+config.h:328:#define MAP_SIZE_POW2       16
+config.h:329:#define MAP_SIZE            (1 << MAP_SIZE_POW2)
+config.h:331:#define STATE_STR_LEN 16
+config.h:335:#define MAX_ALLOC           0x40000000
+config.h:339:#define HASH_CONST          0xa5b35705
+config.h:343:#define  CTEST_TARGET_MS    5000
+config.h:344:#define  CTEST_CORE_TRG_MS  1000
+config.h:345:#define  CTEST_BUSY_CYCLES  (10 * 1000 * 1000)
+llvm_mode/state-tracer.h:2:#define _H_STATE_TRACER_
+llvm_mode/state-tracer.h:4:#define SHM_STATE_ENV_VAR "STATE_SHM_ID"
+llvm_mode/state-tracer.h:6:#define MVP_RADIUS_ENV_VAR "MVP_RADIUS"
+llvm_mode/state-tracer.h:7:#define MVP_CALIBRATION_ENV_VAR "MVP_CALIBRATION_SHM_ID"
+llvm_mode/state-tracer.h:8:#define AFL_OUTDIR_ENV_VAR "AFL_OUTDIR"
+llvm_mode/state-tracer.h:10:#define MIN_STACK_ALLOC_SIZE 64
+llvm_mode/state-tracer.h:12:#define TLSH_SIZE 72
+llvm_mode/state-tracer.h:14:#define MAX_NUM_STATES 100
+llvm_mode/state-tracer.h:15:#define MAX_REPETITIONS 1000
+llvm_mode/state-tracer.h:17:#define RATE_LIMIT 5

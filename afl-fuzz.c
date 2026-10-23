@@ -80,6 +80,7 @@
 
 #ifdef __linux__
 #  define HAVE_AFFINITY 1
+#  include <sys/personality.h>
 #endif /* __linux__ */
 
 /* A toggle to export some variables when building as a library. Not very
@@ -9612,7 +9613,13 @@ static void check_aslr(void) {
 
 #ifdef __linux__
 
-  /* This is Linux specific */
+  /* setarch -R disables ASLR for this process and inherited target execs,
+     even when the system-wide sysctl remains enabled. */
+  int process_personality = personality(0xffffffffUL);
+  if (process_personality != -1 && (process_personality & ADDR_NO_RANDOMIZE)) {
+    OKF("ASLR disabled for this process (ADDR_NO_RANDOMIZE).");
+    return;
+  }
 
   s32 fd = open("/proc/sys/kernel/randomize_va_space", O_RDONLY);
   u8  fchar;
@@ -9628,7 +9635,8 @@ static void check_aslr(void) {
          "    This can cause non-deterministic variations at run-time (e.g., pointers)\n"
          "    that can affect state analysis.\n\n"
 
-         "    To disable ASLR, please log in as root\n"
+         "    Disable ASLR per process with: setarch $(uname -m) -R afl-fuzz ...\n\n"
+         "    Alternatively, please log in as root\n"
          "    and temporarily modify /proc/sys/kernel/randomize_va_space, like so:\n\n"
 
          "    echo 0 | sudo tee /proc/sys/kernel/randomize_va_space\n");

@@ -1,6 +1,10 @@
 #ifndef _H_STATE_TRACER_
 #define _H_STATE_TRACER_
 
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+
 #define SHM_STATE_ENV_VAR "STATE_SHM_ID"
 
 #define MVP_RADIUS_ENV_VAR "MVP_RADIUS"
@@ -44,5 +48,36 @@ struct calibration {
     /* Rate limiting to prevent state explosion */
     int rate_limit;
 };
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Keep these declarations in sync with the LLVM pass.  Object sizes are u64
+ * because llvm.lifetime uses i64; C library byte counts use target size_t. */
+void init_state_tracer(void);
+void end_state_tracer(void);
+void new_heap_alloc_record(void *, uint64_t);
+void free_heap_alloc_record(void *, uint64_t);
+void new_stack_alloc_record(void *, uint64_t);
+void free_stack_alloc_record(void *, uint64_t);
+void trace_calloc(void *, size_t, size_t);
+void trace_realloc(void *, size_t, void *);
+void trace_receive(void *, size_t);
+void trace_send(void *, size_t);
+void trace_recvmsg(void *);
+void trace_sendmsg(void *);
+void trace_read(int, void *, size_t);
+void trace_write(int, void *, size_t);
+void trace_fprintf(void *, void *, int);
+void trace_fgets(void *, void *, int);
+void trace_fread(void *, void *, size_t, size_t);
+void trace_fwrite(void *, void *, size_t, size_t);
+void trace_close(int);
+void trace_fclose(FILE *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
