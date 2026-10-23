@@ -1,5 +1,8 @@
 # LLVM18 evidence
 
+Latest system-command rebuild: see [system-toolchain](system-toolchain/README.md),
+with its own SHA256 manifest. The files below preserve the first migration run.
+
 These are outputs from the actual Ubuntu 24.04 / LLVM 18.1.3 runs, not expected
 output templates. `verified-suite.log` records the final complete suite;
 `e2e-result.json`, `state-feedback.json`, `ipsm.dot` and `fuzzer_stats` provide

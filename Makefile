@@ -13,6 +13,11 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
+# Default to the system Clang command, while honoring environment/CLI overrides.
+ifeq "$(origin CC)" "default"
+  CC = clang
+endif
+
 PROGNAME    = afl
 VERSION     = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
 

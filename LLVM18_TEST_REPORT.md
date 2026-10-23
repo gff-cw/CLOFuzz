@@ -1,5 +1,7 @@
 # LLVM 18 迁移测试报告
 
+以下首先保留首次迁移的历史实测记录；最新系统命令复验见文末“系统工具链复验”，当前构建不再使用临时工具链或环境脚本。
+
 测试日期：2026-10-23。基线 `598effa072eef993aa134a5f7ebb5518da8fc289`，分支 `llvm18-preserve`。最终干净构建成功，统一脚本 `bash tests/llvm18/run_all.sh tests/llvm18/out/verified-suite` **退出 0，所有组通过**。
 
 归档证据位于 [tests/llvm18/evidence](tests/llvm18/evidence/README.md)，含日志、实际 argv、IR、状态序列、DOT、统计及 SHA256SUMS。完整生成产物保留在本机 `tests/llvm18/out/verified-suite/`，未提交二进制/庞大的临时输出。归档文本只移除终端颜色码及行末空白，原始输出仍保留。
@@ -74,3 +76,24 @@ Clang包 `1:18.1.3-1ubuntu1`，CMake `3.28.3-1build7`，Graphviz `2.42.2-9ubuntu
 - ASAN目标测试关闭leak detection；不声称修完运行时所有既有资源释放问题。短期本机服务通过不等于任意目标的长期稳定性证明。
 
 本次验收支持 **Ubuntu24.04 x86_64 / LLVM18的默认完整StateAFL路径**，包含覆盖率和实际状态反馈。对上述边界不作未执行的成功声明。
+
+## 系统工具链复验（后续更改，当前默认方式）
+
+本节取代早期临时工具链的构建方式；前文日志仅保留为第一次迁移历史。此轮在没有CC/CXX/CLANG/LLVM_CONFIG或库搜索路径覆盖变量的环境中，先删除临时工具链，再执行`make clean`、`make -j2`、`make -C llvm_mode -j2`以及完整回归。
+
+| 项目 | 实际结果 | 证据 | 状态 |
+|---|---|---|---|
+| 系统入口 | `/usr/bin/clang`、`clang++`、`llvm-config`、`opt`、`llvm-dis`；LLVM/Clang均18.1.3 | [版本及系统包归属](tests/llvm18/evidence/system-toolchain/toolchain.log) | 通过 |
+| 清理额外副本 | `/tmp/stateafl-deps`、`/tmp/stateafl-packages`、`/tmp/stateafl-env.sh`、`/tmp/stateafl-install`均已删除 | [实际删除记录](tests/llvm18/evidence/system-toolchain/system-selection-and-cleanup.json) | 通过 |
+| 默认干净构建 | 未指定版本化二进制、前缀或工具链脚本；根工具/Pass/运行时/依赖及原覆盖率自检成功 | [根构建](tests/llvm18/evidence/system-toolchain/root-build.log)、[LLVM构建](tests/llvm18/evidence/system-toolchain/llvm-build.log) | 通过 |
+| 无旧前缀及CMake缓存 | 五个构建产物不含删除的临时前缀，CMake编译器为`/usr/bin/clang` | [产物检查](tests/llvm18/evidence/system-toolchain/artifact-paths.json) | 通过 |
+| PATH默认选择 | 不设置AFL_CC/CXX，C/C++版本查询与真实对象编译四次均经过PATH探针 | [真实调用记录](tests/llvm18/evidence/system-toolchain/path-compiler-calls.jsonl) | 通过 |
+| 版本匹配保护 | 模拟Clang17、系统LLVM18时构建前检查明确拒绝 | [拒绝日志](tests/llvm18/evidence/system-toolchain/version-mismatch.log) | 通过，预期拒绝 |
+| IR与边界 | 非版本化`opt`验证：主矩阵21/21、边缘11/11 | [IR](tests/llvm18/evidence/system-toolchain/ir-result.json)、[边缘](tests/llvm18/evidence/system-toolchain/pass-edges-result.json) | 通过 |
+| 工具链与安全配置 | 原36项与新增四次PATH调用，共40/40；ASAN/MSAN实际构建运行保留 | [工具链结果](tests/llvm18/evidence/system-toolchain/features-result.json) | 通过 |
+| 内存及全部I/O | 原对象断言、io/cpp/memory/custom四组真实插桩测试通过 | [动态结果](tests/llvm18/evidence/system-toolchain/dynamic-results.json)、[对象日志](tests/llvm18/evidence/system-toolchain/runtime-records.log) | 通过 |
+| 真实状态反馈 | 七轮SHM/TLSH/MVP/校准通过，序列仍为`[0,1,2,3]`与`[0,4,5,6]`并重复复用 | [状态证据](tests/llvm18/evidence/system-toolchain/state-feedback.json) | 通过 |
+| 端到端45秒 | 443执行、queue13、状态0–8、校准半径5、stability100%、crash/hang0，18项断言通过 | [结果](tests/llvm18/evidence/system-toolchain/e2e-result.json)、[状态图](tests/llvm18/evidence/system-toolchain/ipsm.dot)、[统计](tests/llvm18/evidence/system-toolchain/fuzzer_stats) | 通过 |
+| 完整脚本 | `bash tests/llvm18/run_all.sh tests/llvm18/out/system-toolchain`退出0 | [完整执行日志](tests/llvm18/evidence/system-toolchain/suite.log) | 通过 |
+
+`/usr/lib/llvm-18`属于任务开始前已有的系统包，且系统入口通过符号链接依赖它；本轮没有将该目录误作额外安装删除，也没有下载或手工安装另一份LLVM。构建仍使用系统`llvm-config`返回的合法头文件/库路径。此前32位完整运行时、极大快照等限制不变。

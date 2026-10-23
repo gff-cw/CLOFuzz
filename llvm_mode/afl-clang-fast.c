@@ -41,10 +41,10 @@
 #include <string.h>
 
 #ifndef AFL_DEFAULT_CC
-#  define AFL_DEFAULT_CC "clang-18"
+#  define AFL_DEFAULT_CC "clang"
 #endif
 #ifndef AFL_DEFAULT_CXX
-#  define AFL_DEFAULT_CXX "clang++-18"
+#  define AFL_DEFAULT_CXX "clang++"
 #endif
 
 static u8*  obj_path;               /* Path to runtime libraries         */

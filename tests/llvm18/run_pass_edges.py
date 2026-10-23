@@ -16,8 +16,8 @@ FIXTURES = ROOT / "tests/llvm18"
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--opt", default=shutil.which("opt-18") or "opt-18")
-    parser.add_argument("--cc", default=os.environ.get("CC", "clang-18"))
+    parser.add_argument("--opt", default=shutil.which("opt") or "opt")
+    parser.add_argument("--cc", default=os.environ.get("CC", "clang"))
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)

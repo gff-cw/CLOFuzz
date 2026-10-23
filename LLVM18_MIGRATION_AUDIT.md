@@ -102,3 +102,15 @@ wrapper → Clang加载ModulePass → 边覆盖及内存/I/O/lifetime事件 → 
 最后一轮之前的统一E2E曾明确失败（半径595、状态被合并），没有将其标为成功。精确复现证明测试服务器把TCP分段当消息：同6字节合并发送仅1响应，逐字节发送6响应。仅修复测试服务为固定2字节MSG_WAITALL帧、最多8帧，poll从2ms改20ms，增加合并/分片发送的真实SHM一致性预检；两者均3个相同响应及 `[0,1,2,3]`。状态算法/校准半径未调整，重新运行完整套件后原算法得到半径5。测试解析器也兼容原引擎有时输出的尾随连字符，没有改引擎的状态序列格式。
 
 ASLR证据已严格区分：最终Python启动器personality为0，fuzzer实际由setarch -R启动，其自身检查确认ADDR_NO_RANDOMIZE；不能把早先整进程树运行时的父进程属性作为最终子进程证据。全部边缘、主矩阵和E2E断言继续保留。
+
+## 后续变更：直接使用本机系统命令
+
+用户要求默认使用本机已有的LLVM18.1.3。此轮基线为 `06ef9e7`，不改插桩/状态算法，只调整工具链选择、相应测试和说明。
+
+- 根构建默认`clang`；LLVM构建默认`llvm-config`、`clang`、`clang++`，通过PATH解析，不再从LLVM_BINDIR拼接编译器路径或要求`*-18`命令。wrapper的直接编译fallback也使用非版本化名称。
+- `llvm-config --cxxflags/--ldflags`仍提供与系统安装匹配的头文件和链接参数。构建检查实际默认target Clang与llvm-config的主版本匹配；显式CC/CXX、CLANG/CLANGXX和运行时AFL_CC/AFL_CXX覆盖保留。配置戳记录PATH解析结果，避免复用旧前缀的产物。
+- 本机`/usr/bin/clang`和`/usr/bin/llvm-config`均是系统包管理的符号链接，其真实程序位于任务开始前已存在的`/usr/lib/llvm-18`。删除该系统目录会同时破坏用户指定保留的系统命令，因此没有将其当额外安装删除。
+- 已实际删除上一轮额外解包的`/tmp/stateafl-deps`、下载包`/tmp/stateafl-packages`、环境脚本`/tmp/stateafl-env.sh`和旧暂存安装`/tmp/stateafl-install`，再不带工具链覆盖变量执行干净重建。删除及系统包归属证据见`tests/llvm18/evidence/system-toolchain/`。
+- 新增四次PATH探针：C/C++各执行版本查询与真实对象编译，探针记录参数后转到原系统编译器。与只检查版本相比，这能发现仍硬编码临时或安装前缀的包装器。所有旧功能回归继续保留。
+
+此轮系统命令复验已全部完成：干净构建成功，IR21/21、边缘11/11、工具链40/40；内存、全部I/O、SHM/TLSH/MVP与校准通过；45秒443执行、queue13、状态0–8、stability100%、crash/hang0。临时路径确已删除且五个新产物均无该前缀。原共享协议与状态算法没有变化；全部原环境变量和覆盖机制保留。新证据及独立SHA256清单位于`tests/llvm18/evidence/system-toolchain`。

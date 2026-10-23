@@ -43,33 +43,42 @@ AFLNet scheduling. The default instrumentation is StateAFL's own New PM plugin.
 See [the source audit](LLVM18_MIGRATION_AUDIT.md) and
 [the measured test report](LLVM18_TEST_REPORT.md) for scope and evidence.
 
+Use the existing system LLVM 18.1.3 toolchain. No separate LLVM download,
+versioned executable name, or manual installation into `/usr/lib/llvm-18` is
+required. Check that the normal commands on PATH match:
+
 ```bash
-sudo apt-get update
-sudo apt-get install build-essential clang-18 llvm-18-dev llvm-18-tools \
-  cmake libgraphviz-dev binutils git python3
+command -v clang clang++ llvm-config opt llvm-dis cmake
+clang --version
+clang++ --version
+llvm-config --version
+opt --version
 
-# Run inside this checkout. The three submodule revisions are pinned.
+# Run inside this checkout. The three source dependency revisions are pinned.
 git submodule update --init --recursive
-llvm-config-18 --version
-clang-18 --version
-clang++-18 --version
-opt-18 --version
-
-# Build the base tools first, then the compiler wrapper, plugin and runtimes.
 make clean
-make -j2 CC=clang-18
-make -C llvm_mode clean
-make -C llvm_mode -j2 LLVM_CONFIG=llvm-config-18
+make -j2
+make -C llvm_mode -j2
 ```
 
-`LLVM_CONFIG` may also name `llvm-config` if it reports 18.x. The LLVM build
-selects `clang`/`clang++` from its `--bindir`. `CC`/`CXX` select the compilers used
-for building StateAFL; `CLANG`/`CLANGXX` select the wrapper's compiled-in defaults
-when those paths need to be overridden. At target compilation time, the original
-`AFL_CC`/`AFL_CXX` overrides still take priority. `AFL_PATH` still locates the
-plugin and runtime objects. Explicit `-O0` through `-O3` and `-g0` are honored;
-without explicit flags, the wrapper retains its original `-O3 -g` defaults.
-`AFL_DONT_OPTIMIZE`, ASAN/MSAN, hardening and the other original options remain.
+The defaults are `CC=clang`, `CXX=clang++`, `LLVM_CONFIG=llvm-config`,
+`CLANG=clang`, and `CLANGXX=clang++`, resolved through PATH. The LLVM build checks
+that the selected Clang commands and LLVM configuration have matching major
+versions. It obtains the required header and linker flags from the system
+`llvm-config`; a package-managed path such as `/usr/lib/llvm-18` in those flags
+is the system package layout, not a separately downloaded toolchain.
+
+`CC`/`CXX` still allow explicit build compiler overrides; `CLANG`/`CLANGXX`
+override the wrapper's default target compiler commands. At target compilation
+time, the original `AFL_CC`/`AFL_CXX` overrides take priority. `AFL_PATH` still
+locates the plugin and runtime objects. Explicit `-O0` through `-O3` and `-g0`
+are honored; without explicit flags, the wrapper retains its original `-O3 -g`
+defaults. `AFL_DONT_OPTIMIZE`, ASAN/MSAN, hardening and the other original options remain.
+
+Other build dependencies are a C/C++ development environment, CMake, Graphviz
+development headers, binutils, git, and Python 3. This machine already provides
+them. Do not delete a system package directory targeted by `/usr/bin/clang` or
+`/usr/bin/llvm-config`: that would remove the working system toolchain.
 
 The dependency libraries are rebuilt from source in `llvm_mode/.build`; the old
 tracked archives are not used. A small patch to the pinned TLSH C wrapper adds
@@ -92,7 +101,7 @@ afl-clang-fast -O2 -g tests/llvm18/network_server.c -o /tmp/stateafl-server
 
 # Obtain LLVM IR and verify it independently with the matching LLVM version.
 afl-clang-fast -O1 -g0 -S -emit-llvm tests/llvm18/state_fixture.c -o /tmp/stateafl.ll
-opt-18 -passes=verify -disable-output /tmp/stateafl.ll
+opt -passes=verify -disable-output /tmp/stateafl.ll
 ```
 
 For configure/CMake projects use `CC=$STATEAFL/afl-clang-fast` and
