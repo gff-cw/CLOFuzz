@@ -40,6 +40,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef AFL_DEFAULT_CC
+#  define AFL_DEFAULT_CC "clang-18"
+#endif
+#ifndef AFL_DEFAULT_CXX
+#  define AFL_DEFAULT_CXX "clang++-18"
+#endif
+
 static u8*  obj_path;               /* Path to runtime libraries         */
 static u8** cc_params;              /* Parameters passed to the real CC  */
 static u32  cc_par_cnt = 1;         /* Param count, including argv0      */
@@ -103,7 +110,7 @@ static void find_obj(u8* argv0) {
 
 static void edit_params(u32 argc, char** argv) {
 
-  u8 fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1, bit_mode = 0;
+  u8 fortify_set = 0, asan_set = 0, x_set = 0, maybe_linking = 1, bit_mode = 0, opt_set = 0, debug_set = 0;
   u8 *name;
 
   cc_params = ck_alloc((argc + 128) * sizeof(u8*));
@@ -113,10 +120,10 @@ static void edit_params(u32 argc, char** argv) {
 
   if (!strcmp(name, "afl-clang-fast++")) {
     u8* alt_cxx = getenv("AFL_CXX");
-    cc_params[0] = alt_cxx ? alt_cxx : (u8*)"clang++";
+    cc_params[0] = alt_cxx ? alt_cxx : (u8*)AFL_DEFAULT_CXX;
   } else {
     u8* alt_cc = getenv("AFL_CC");
-    cc_params[0] = alt_cc ? alt_cc : (u8*)"clang";
+    cc_params[0] = alt_cc ? alt_cc : (u8*)AFL_DEFAULT_CC;
   }
 
   /* There are two ways to compile afl-clang-fast. In the traditional mode, we
@@ -129,19 +136,16 @@ static void edit_params(u32 argc, char** argv) {
 #ifdef USE_TRACE_PC
   cc_params[cc_par_cnt++] = "-fsanitize-coverage=trace-pc-guard";
   cc_params[cc_par_cnt++] = "-mllvm";
-  cc_params[cc_par_cnt++] = "-sanitizer-coverage-block-threshold=0";
+  cc_params[cc_par_cnt++] = "-sanitizer-coverage-prune-blocks=0";
 #else
-  cc_params[cc_par_cnt++] = "-Xclang";
-  cc_params[cc_par_cnt++] = "-load";
-  cc_params[cc_par_cnt++] = "-Xclang";
-  cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
+  cc_params[cc_par_cnt++] = alloc_printf("-fpass-plugin=%s/afl-llvm-pass.so", obj_path);
 #endif /* ^USE_TRACE_PC */
 
   cc_params[cc_par_cnt++] = "-Qunused-arguments";
 
   /* Detect stray -v calls from ./configure scripts. */
 
-  if (argc == 1 && !strcmp(argv[1], "-v")) maybe_linking = 0;
+  if (argc == 2 && (!strcmp(argv[1], "-v") || !strcmp(argv[1], "--version"))) maybe_linking = 0;
 
   while (--argc) {
     u8* cur = *(++argv);
@@ -151,6 +155,8 @@ static void edit_params(u32 argc, char** argv) {
     if (!strcmp(cur, "-m64")) bit_mode = 64;
 
     if (!strcmp(cur, "-x")) x_set = 1;
+    if (!strncmp(cur, "-O", 2)) opt_set = 1;
+    if (!strncmp(cur, "-g", 2)) debug_set = 1;
 
     if (!strcmp(cur, "-c") || !strcmp(cur, "-S") || !strcmp(cur, "-E"))
       maybe_linking = 0;
@@ -215,8 +221,8 @@ static void edit_params(u32 argc, char** argv) {
 
   if (!getenv("AFL_DONT_OPTIMIZE")) {
 
-    cc_params[cc_par_cnt++] = "-g";
-    cc_params[cc_par_cnt++] = "-O3";
+    if (!debug_set) cc_params[cc_par_cnt++] = "-g";
+    if (!opt_set) cc_params[cc_par_cnt++] = "-O3";
     cc_params[cc_par_cnt++] = "-funroll-loops";
 
   }

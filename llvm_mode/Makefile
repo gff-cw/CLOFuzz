@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := all
+
 #
 # american fuzzy lop - LLVM instrumentation
 # -----------------------------------------
@@ -22,7 +24,11 @@ BIN_PATH     = $(PREFIX)/bin
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
-LLVM_CONFIG ?= llvm-config
+LLVM_CONFIG ?= llvm-config-18
+LLVM_BINDIR := $(shell $(LLVM_CONFIG) --bindir)
+CLANG ?= $(LLVM_BINDIR)/clang
+CLANGXX ?= $(LLVM_BINDIR)/clang++
+CMAKE ?= cmake
 
 CFLAGS      ?= -O3 -funroll-loops
 CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
@@ -46,14 +52,15 @@ ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 endif
 
-# We were using llvm-config --bindir to get the location of clang, but
-# this seems to be busted on some distros, so using the one in $PATH is
-# probably better.
-
+# Default to the compiler shipped with the selected LLVM, independently for C/C++.
 ifeq "$(origin CC)" "default"
-  CC         = clang
-  CXX        = clang++
+  CC = $(CLANG)
 endif
+ifeq "$(origin CXX)" "default"
+  CXX = $(CLANGXX)
+endif
+CFLAGS += -DAFL_DEFAULT_CC=\"$(CLANG)\" \
+          -DAFL_DEFAULT_CXX=\"$(CLANGXX)\"
 
 ifndef AFL_TRACE_PC
   PROGS      = ../afl-clang-fast ../afl-llvm-pass.so ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../afl-llvm-rt-state-tracer.o ../afl-llvm-rt-state-tracer.o.cpp.o
@@ -61,17 +68,30 @@ else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o ../afl-llvm-rt-state-tracer.o ../afl-llvm-rt-state-tracer.o.cpp.o
 endif
 
-CONTAINERS = ./containers.a
-TLSH = ./libtlsh.a
-MVPTREE = ./libmvptree.a
-STDCXX = $(shell find /usr/lib -name "libstdc++.a" | grep x86_64 | grep -v 32 | head -n 1)
+# Build from pinned source; never reuse the historical tracked binary archives.
+BUILD_DIR = .build
+CONTAINERS = $(BUILD_DIR)/containers.a
+TLSH = $(BUILD_DIR)/libtlsh.a
+MVPTREE = $(BUILD_DIR)/libmvptree.a
+CONTAINER_SOURCES = $(wildcard Containers/src/*.c)
+CONTAINER_OBJECTS = $(patsubst Containers/src/%.c,$(BUILD_DIR)/containers/%.o,$(CONTAINER_SOURCES))
+STDCXX = $(shell $(CXX) -print-file-name=libstdc++.a)
 
-all: test_deps $(PROGS) test_build all_done obj_section_rename
+# Changing compiler, LLVM version, flags or the optional mode rebuilds all artifacts.
+.PHONY: FORCE test_deps obj_section_rename test_build all_done
+FORCE:
+$(BUILD_DIR)/config: FORCE
+	@mkdir -p $(BUILD_DIR)
+	@{ echo '$(LLVM_CONFIG) $(shell $(LLVM_CONFIG) --version)'; echo '$(CC) $(shell $(CC) --version | head -n 1)'; echo '$(CXX) $(shell $(CXX) --version | head -n 1)'; echo '$(CLANG) $(CLANGXX)'; echo '$(CFLAGS) $(CXXFLAGS) $(LDFLAGS) $(AFL_TRACE_PC)'; } > $@.tmp
+	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
+
+all: test_deps $(PROGS) test_build all_done
 
 test_deps:
 ifndef AFL_TRACE_PC
 	@echo "[*] Checking for working 'llvm-config'..."
 	@which $(LLVM_CONFIG) >/dev/null 2>&1 || ( echo "[-] Oops, can't find 'llvm-config'. Install clang or set \$$LLVM_CONFIG or \$$PATH beforehand."; echo "    (Sometimes, the binary will be named llvm-config-3.5 or something like that.)"; exit 1 )
+	@test "`$(LLVM_CONFIG) --version | cut -d. -f1`" = 18 || ( echo "[-] This pass requires LLVM 18; set LLVM_CONFIG."; exit 1 )
 else
 	@echo "[!] Note: using -fsanitize=trace-pc mode (this will fail with older LLVM)."
 endif
@@ -81,62 +101,64 @@ endif
 	@test -f ../afl-showmap || ( echo "[-] Oops, can't find '../afl-showmap'. Be sure to compile AFL first."; exit 1 )
 	@echo "[+] All set and ready to build."
 
-../afl-clang-fast: afl-clang-fast.c | test_deps
+../afl-clang-fast: afl-clang-fast.c $(BUILD_DIR)/config | test_deps
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 	ln -sf afl-clang-fast ../afl-clang-fast++
 
-../afl-llvm-pass.so: afl-llvm-pass.so.cc | test_deps
+../afl-llvm-pass.so: afl-llvm-pass.so.cc state-tracer.h $(BUILD_DIR)/config | test_deps
 	$(CXX) $(CLANG_CFL) -shared $< -o $@ $(CLANG_LFL)
 
-$(CONTAINERS):
-	cd Containers && \
-	make static_clang && \
-	cp containers.a ..
+$(CONTAINER_OBJECTS): $(BUILD_DIR)/containers/%.o: Containers/src/%.c $(wildcard Containers/src/include/*.h) $(BUILD_DIR)/config
+	@mkdir -p $(@D)
+	$(CC) -O3 -fPIC -c $< -o $@
 
-$(MVPTREE):
-	cd mvptree && \
-	make && \
-	cp libmvptree.a ..
+$(CONTAINERS): $(CONTAINER_OBJECTS) $(BUILD_DIR)/config
+	@test -n "$(CONTAINER_SOURCES)" || ( echo "Initialize submodules with git submodule update --init --recursive"; exit 1 )
+	$(AR) rcs $@ $(CONTAINER_OBJECTS)
 
-$(TLSH):
-	cd tlsh && \
-	mkdir -p build && \
-	cd build && \
-	cmake .. && \
-	make && \
-	cp ../lib/libtlsh.a ../..
+$(MVPTREE): mvptree/mvptree.c mvptree/mvptree.h $(BUILD_DIR)/config
+	$(CC) -O3 -fPIC -c mvptree/mvptree.c -o $(BUILD_DIR)/mvptree.o
+	$(AR) rcs $@ $(BUILD_DIR)/mvptree.o
 
-../afl-llvm-rt-state-tracer.o: afl-llvm-rt-state-tracer.o.c $(CONTAINERS) $(TLSH) $(MVPTREE)
+$(TLSH): patches/tlsh-return-value.patch $(wildcard tlsh/src/*.cpp tlsh/include/*.h) tlsh/CMakeLists.txt $(BUILD_DIR)/config
+	rm -rf $(BUILD_DIR)/tlsh $(BUILD_DIR)/tlsh-src
+	mkdir -p $(BUILD_DIR)/tlsh-src
+	cp -a tlsh/. $(BUILD_DIR)/tlsh-src/
+	patch -d $(BUILD_DIR)/tlsh-src -p1 < patches/tlsh-return-value.patch
+	$(CMAKE) -S $(BUILD_DIR)/tlsh-src -B $(BUILD_DIR)/tlsh -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+	$(CMAKE) --build $(BUILD_DIR)/tlsh --target tlsh
+	cp $(BUILD_DIR)/tlsh-src/lib/libtlsh.a $@
+
+$(BUILD_DIR)/state-tracer-core.o: afl-llvm-rt-state-tracer.o.c state-tracer.h $(BUILD_DIR)/config $(CONTAINERS) $(TLSH) $(MVPTREE)
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@.tmp.o
-	ld -r -o $@ $@.tmp.o $(CONTAINERS)
-	mv $@ $@.tmp.o
-	ld -r -o $@ $@.tmp.o $(TLSH)
-	mv $@ $@.tmp.o
-	ld -r -o $@ $@.tmp.o $(MVPTREE)
-	cp $@ $@.cpp.o
-	mv $@ $@.tmp.o
-	ld -r -o $@ $@.tmp.o $(STDCXX)
+	ld -r -o $@ $@.tmp.o $(CONTAINERS) $(TLSH) $(MVPTREE)
 	rm $@.tmp.o
 
-../afl-llvm-rt.o: afl-llvm-rt.o.c | test_deps
+../afl-llvm-rt-state-tracer.o: $(BUILD_DIR)/state-tracer-core.o
+	ld -r -o $@ $< $(STDCXX)
+
+../afl-llvm-rt-state-tracer.o.cpp.o: $(BUILD_DIR)/state-tracer-core.o
+	cp $< $@
+
+../afl-llvm-rt.o: afl-llvm-rt.o.c $(BUILD_DIR)/config | test_deps
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
 
-../afl-llvm-rt-32.o: afl-llvm-rt.o.c | test_deps
+../afl-llvm-rt-32.o: afl-llvm-rt.o.c $(BUILD_DIR)/config | test_deps
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
-	@$(CC) $(CFLAGS) -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@rm -f $@; $(CC) $(CFLAGS) -m32 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
-../afl-llvm-rt-64.o: afl-llvm-rt.o.c | test_deps
+../afl-llvm-rt-64.o: afl-llvm-rt.o.c $(BUILD_DIR)/config | test_deps
 	@printf "[*] Building 64-bit variant of the runtime (-m64)... "
-	@$(CC) $(CFLAGS) -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
+	@rm -f $@; $(CC) $(CFLAGS) -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
-obj_section_rename:
+obj_section_rename: $(PROGS)
 	for OBJ_FILE in ../afl-llvm-rt*.o ; do \
 		objcopy --rename-section .data=.tracer_data $${OBJ_FILE}; \
 		objcopy --rename-section .bss=.tracer_bss $${OBJ_FILE}; \
 	done
 
-test_build: $(PROGS)
+test_build: $(PROGS) obj_section_rename
 	@echo "[*] Testing the CC wrapper and instrumentation output..."
 	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 # Use /dev/null to avoid problems with optimization messing up expected
@@ -155,3 +177,4 @@ all_done: test_build
 clean:
 	rm -f *.o *.so *~ a.out core core.[1-9][0-9]* test-instr .test-instr0 .test-instr1 
 	rm -f $(PROGS) ../afl-clang-fast++
+	rm -rf $(BUILD_DIR)

@@ -21,3 +21,12 @@ afl-llvm-pass.so
 afl-llvm-rt-32.o
 afl-llvm-rt-64.o
 afl-llvm-rt.o
+
+# StateAFL tracer and reproducible LLVM build/test outputs
+/afl-llvm-rt-state-tracer.o*
+/llvm_mode/.build/
+/tests/llvm18/out/
+/.tree.mvp
+/.tree.count.mvp
+/state-tracer-rt.log
+/tlsh.log

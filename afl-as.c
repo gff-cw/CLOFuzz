@@ -134,13 +134,21 @@ static void edit_params(int argc, char** argv) {
   if (!tmp_dir) tmp_dir = getenv("TMP");
   if (!tmp_dir) tmp_dir = "/tmp";
 
+  /* Clang 18 appends assembler debug flags after the input filename. */
+  u32 input_index = argc - 1;
+  while (input_index > 1 &&
+         (!strcmp(argv[input_index], "-g") ||
+          !strncmp(argv[input_index], "-gdwarf-", 8))) input_index--;
+
   as_params = ck_alloc((argc + 32) * sizeof(u8*));
 
   as_params[0] = afl_as ? afl_as : (u8*)"as";
 
   as_params[argc] = 0;
 
-  for (i = 1; i < argc - 1; i++) {
+  for (i = 1; i < argc; i++) {
+
+    if (i == input_index) continue;
 
     if (!strcmp(argv[i], "--64")) use_64bit = 1;
     else if (!strcmp(argv[i], "--32")) use_64bit = 0;
@@ -184,7 +192,7 @@ static void edit_params(int argc, char** argv) {
 
 #endif /* __APPLE__ */
 
-  input_file = argv[argc - 1];
+  input_file = argv[input_index];
 
   if (input_file[0] == '-') {
 

@@ -118,7 +118,7 @@ static map ignore_map;
 
 struct ignore_area {
   void * addr;
-  int size;
+  size_t size;
   struct alloc_record * record;
 };
 
@@ -331,7 +331,6 @@ void init_state_tracer() {
     // the var is a valid directory path
     out_dir = strdup(out_dir_str);
 
-    LOG_INFO("OUTDIR: %s\n", out_dir_str);
   }
   else {
 
@@ -344,6 +343,7 @@ void init_state_tracer() {
   char log_fname[PATH_MAX];
   snprintf(log_fname, PATH_MAX, "%s/%s", out_dir, LOG_FILE);
   __log_fd = fopen(log_fname, "a+");
+  LOG_INFO("OUTDIR: %s\n", out_dir);
 #endif
 
   LOG_DEBUG("STATE TRACER STARTED\n");
@@ -821,6 +821,8 @@ void new_heap_alloc_record(void * addr, uint64_t size) {
 
   LOG_DEBUG("NEW HEAP ALLOC: %p (%lu bytes)\n", addr, size);
 
+  if (!addr) return; /* A failed allocation is not a live object. */
+
   if(!addr_san_detected) {
 
     // Zero-byte initialization of the area
@@ -857,9 +859,11 @@ void free_stack_alloc_record(void * addr, uint64_t size) {
   free_alloc_record(addr);
 }
 
-void trace_calloc(void * addr, int size, int nmemb) {
+void trace_calloc(void * addr, size_t size, size_t nmemb) {
 
-  LOG_DEBUG("NEW HEAP CALLOC: %p (%d elems, %lu bytes)\n", addr, nmemb, size*nmemb);
+  LOG_DEBUG("NEW HEAP CALLOC: %p (%zu elems, %zu bytes)\n", addr, nmemb, size*nmemb);
+
+  if (!addr) return;
 
   if(!addr_san_detected) {
 
@@ -870,11 +874,18 @@ void trace_calloc(void * addr, int size, int nmemb) {
   new_alloc_record(addr, size*nmemb);
 }
 
-void trace_realloc(void * addr, int size, void * oldaddr) {
+void trace_realloc(void * addr, size_t size, void * oldaddr) {
 
   LOG_DEBUG("TRACE REALLOC\n");
 
   START_TIMING("alloc");
+
+  if (!addr) {
+    /* realloc failure preserves the old allocation; realloc(p, 0) frees it
+     * on the supported glibc target.  Neither case creates a NULL object. */
+    if (!size) free_alloc_record(oldaddr);
+    return;
+  }
 
 #ifdef __TRACER_USE_PTHREAD_MUTEX
   pthread_mutex_lock(&mutex);
@@ -890,7 +901,7 @@ void trace_realloc(void * addr, int size, void * oldaddr) {
 
 
   int oldalloc_iter_no = -1;
-  int oldalloc_size = 0;
+  size_t oldalloc_size = 0;
 
   if(found) {
 
@@ -1098,9 +1109,9 @@ void check_iobuf(void * buf, size_t size) {
 }
 
 
-static void net_receive(void * buf, int size) {
+static void net_receive(void * buf, size_t size) {
 
-  LOG_DEBUG("TRACE RECV (buf = %p, size = %d)\n", buf, size);
+  LOG_DEBUG("TRACE RECV (buf = %p, size = %zu)\n", buf, size);
 
   if(curr_tracer_state == UNINITIALIZED)
     curr_tracer_state = RECEIVING;
@@ -1112,9 +1123,9 @@ static void net_receive(void * buf, int size) {
   check_iobuf(buf, size);
 }
 
-static void net_send(void * buf, int size) {
+static void net_send(void * buf, size_t size) {
 
-  LOG_DEBUG("TRACE SEND (buf = %p, size = %d)\n", buf, size);
+  LOG_DEBUG("TRACE SEND (buf = %p, size = %zu)\n", buf, size);
 
   if(curr_tracer_state == UNINITIALIZED)
     curr_tracer_state = SENDING;
@@ -1128,7 +1139,7 @@ static void net_send(void * buf, int size) {
   check_iobuf(buf, size);
 }
 
-void trace_receive(void * buf, int size) {
+void trace_receive(void * buf, size_t size) {
 
   START_TIMING("recv");
 
@@ -1137,7 +1148,7 @@ void trace_receive(void * buf, int size) {
   END_TIMING("recv");
 }
 
-void trace_send(void * buf, int size) {
+void trace_send(void * buf, size_t size) {
 
   START_TIMING("send");
 
@@ -1146,9 +1157,19 @@ void trace_send(void * buf, int size) {
   END_TIMING("send");
 }
 
+/* Preserve the original pass's event and ignored-object semantics: its
+ * recvmsg/sendmsg buffer was the msghdr object, not the iovec payload.  The C
+ * runtime has the target ABI definition even when LLVM pointers are opaque. */
+void trace_recvmsg(void * msg) {
+  trace_receive(msg, sizeof(struct msghdr));
+}
+
+void trace_sendmsg(void * msg) {
+  trace_send(msg, sizeof(struct msghdr));
+}
 
 
-void trace_read(int fd, void * buf, int size) {
+void trace_read(int fd, void * buf, size_t size) {
 
   LOG_DEBUG("TRACE READ\n");
 
@@ -1161,7 +1182,7 @@ void trace_read(int fd, void * buf, int size) {
   END_TIMING("read");
 }
 
-void trace_write(int fd, void * buf, int size) {
+void trace_write(int fd, void * buf, size_t size) {
 
   LOG_DEBUG("TRACE WRITE\n");
 
@@ -1216,7 +1237,7 @@ void trace_fgets(void* p, void * buf, int size) {
   END_TIMING("fgets");
 }
 
-void trace_fread(void* p, void * buf, int size, int nmemb) {
+void trace_fread(void* p, void * buf, size_t size, size_t nmemb) {
 
   LOG_DEBUG("TRACE FREAD\n");
 
@@ -1237,7 +1258,7 @@ void trace_fread(void* p, void * buf, int size, int nmemb) {
   END_TIMING("fread");
 }
 
-void trace_fwrite(void* p, void * buf, int size, int nmemb) {
+void trace_fwrite(void* p, void * buf, size_t size, size_t nmemb) {
 
   LOG_DEBUG("TRACE FWRITE\n");
 
@@ -1727,7 +1748,7 @@ void end_state_tracer() {
           (dump.iter_no_dumped <= closest_ignore->record->iter_no_end || closest_ignore->record->iter_no_end == -1)
         ) {
 
-        LOG_DEBUG("SKIPPING IGNORED AREA INSIDE AREA: [area=%p, ignore_addr=%p, size=%d]\n", dump.record->addr, *closest_ignore_addr, closest_ignore->size);
+        LOG_DEBUG("SKIPPING IGNORED AREA INSIDE AREA: [area=%p, ignore_addr=%p, size=%zu]\n", dump.record->addr, *closest_ignore_addr, closest_ignore->size);
 
         dump_start = dump_next_start;
         dump_size = (*closest_ignore_addr - dump.record->addr) - dump_start;
