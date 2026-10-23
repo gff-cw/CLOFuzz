@@ -30,3 +30,4 @@ afl-llvm-rt.o
 /.tree.count.mvp
 /state-tracer-rt.log
 /tlsh.log
+/tests/llvm18/__pycache__/

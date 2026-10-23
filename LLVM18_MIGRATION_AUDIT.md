@@ -68,3 +68,37 @@ wrapper → Clang加载ModulePass → 边覆盖及内存/I/O/lifetime事件 → 
 ## 设计依据
 
 本机 `/usr/lib/llvm-18/include/llvm/Passes/PassBuilder.h` 460–495，LLVM [New PM](https://llvm.org/docs/NewPassManager.html)、[插件编写](https://llvm.org/docs/WritingAnLLVMNewPMPass.html)，以及[18.1.3实际pipeline源码](https://github.com/llvm/llvm-project/blob/llvmorg-18.1.3/llvm/lib/Passes/PassBuilderPipelines.cpp)。[AFLNet PR145](https://github.com/aflnet/aflnet/pull/145)只作接口迁移参考，不能替代StateAFL状态Pass。[原README](https://github.com/stateafl/stateafl/blob/main/README.md)、[原Pass](https://github.com/stateafl/stateafl/blob/main/llvm_mode/afl-llvm-pass.so.cc)、[原runtime](https://github.com/stateafl/stateafl/blob/main/llvm_mode/afl-llvm-rt-state-tracer.o.c)与本地源码对照；所有行为最终以本地基线为准。
+
+## 实施与迭代验证记录
+
+- **构建基线**：原根构建在 Clang18 的 implicit-int 检查失败；显式 `int main(void)` 后，传统 afl-as 又因 Clang18 把 `-g -gdwarf-5` 放在输入文件之后而误读最后一个参数。仅调整这些尾随 debug 参数的输入定位，保留原汇编插桩；根工具及原自检通过。根自检显式传递构建时 CC，避免测到另一 PATH 中的编译器。
+- **依赖重建**：恢复官方原 gitlink：Containers `d7c0177b34b49f4831d7943c4be420a5733345ac`，TLSH `fb38843a474ea2bd3a94400a3d61a37b403ca0b0`，MVPTree `bc229f6ebd73413a892d0c0d96fa6b360505e7ec`。新 `.build` archive 不复用基线旧二进制。运行时以独立 core 对象产生 C/C++ 两个真正目标；补齐安装原本遗漏的两个 tracer。配置戳比较 LLVM/编译器/选项，变更触发重建；section rename 等待全部产物再运行。
+- **TLSH 实际 SIGILL**：源码重建后，真实共享内存 fixture 首次近邻距离计算 SIGILL，反汇编确认 `Tlsh_from_str()` 的 int 函数无 return 导致 Clang18 在调用后生成 `ud2`。`patches/tlsh-return-value.patch` 仅添加 `return`，在 `.build/tlsh-src` 的固定源码副本中应用；原子模块保持干净。先用单行诊断副本定位，再用永久构建产物重跑全部状态测试，不能混用两者证据。TLSH/MVP算法、hash/distance参数均未改。
+- **辅助ABI**：所有声明改为固定参数；真实 size_t 按目标 DataLayout；窄int网络stub显式无符号扩展，保留原 `test-state-tracer.c` 的可编译性；拒绝超目标宽度/ABI拆分造成的不支持布局。free保留第二u64参数，传0（此参数只用于log）；新增msg适配器只计算正确的目标 `sizeof(msghdr)`。共享结构的字段、大小及offset不变。
+- **CallBase 与事件位置**：先收集原调用，避免处理新增helper或CFG遍历失效。兼容invoke成功边，分配后才记录；异常未分配不记录。free/close/fclose在原调用前，fprintf在返回值可用后；其余I/O事件顺序保持。C++异常cleanup和所有I/O函数均有实际执行证据。
+- **opaque custom**：优先callee formal的结构证据，符合原按formal pointee取sizeof的含义，再恢复actual对象。信息来源包括DataLayout可布局的struct、alloca/global/GEP、load/store/phi/select、formal用途、byval/sret、DI。保留原无位置/-1的纯事件模式；有位置但丢失类型时明确诊断，提供兼容可选 `name:index:bytes`；不把opaque pointer一概置NULL。歧义、非指针、越界、非法文本、S**与scalable/size_t溢出分别测试/诊断。
+- **覆盖率与状态隔离**：原 ratio 的BB continue误伤状态事件，迁移后ratio只影响原coverage更新，state事件全部保留；ratio1/100状态调用序列相同。原xor/8bit计数/TLS/SHM算法不变。
+- **Pass时机**：唯一PipelineStart自动注册、required模块pass、显式stateafl parser、module metadata幂等。O0本身不发lifetime时明确不声称自动追踪；手写O0 lifetime IR及动态observer验证63/64字节阈值，正常O1–3实际栈对象另测。
+- **包装器矩阵纠错**：复审发现原默认追加 `-O3` 和 `-g` 会覆盖显式 `-O0`/`-g0`，均改为仅未显式指定时补默认值。测试加强检查实际cc1 driver参数和DICompileUnit有无，重新运行真实16组合，早期被默认-g污染的矩阵不作最终无debug证据。
+- **可选trace-pc**：实际重建发现旧 backend 选项 `sanitizer-coverage-block-threshold` 在LLVM18已删除，用现存 `sanitizer-coverage-prune-blocks=0` 保留不裁剪的可选coverage路径；该模式自检通过，然后恢复并干净重建默认StateAFL Pass。没有将此模式设为默认或用它验收状态功能。
+- **ASLR检查**：初次E2E被原全局sysctl检查拒绝。Linux允许 `setarch -R` 按进程关闭ASLR；增加只认可真实 `ADDR_NO_RANDOMIZE` personality 的检查，未设置且全局ASLR开启时仍拒绝。默认双forkserver继承同一personality；两轮实测全球sysctl=2/进程flag=262144，状态反馈稳定。未修改全局sysctl或要求sudo。
+- **IPSM假设反证**：审计初期怀疑agwrite后仅close使DOT未flush；实际精确复现及E2E均证明本机Graphviz的agwrite已经flush，非空DOT可解析。因此没有为此修改afl-fuzz的输出逻辑；FILE资源泄漏等仍作原有问题单列。
+
+## 验证范围与剩余限制
+
+最终完整实测结果以 `LLVM18_TEST_REPORT.md` 为准。没有改动 fuzzer 的状态编号、调度算法、共享内存协议或TLSH/MVP推断参数。
+
+1. 原32位目标仅有coverage运行时，缺完整32位状态tracer；本环境缺multilib，保留可选构建规则并实际记录失败，不宣称完整32位链接通过。32位helper IR独立验证通过。
+2. 原postexec仍用int快照偏移/累积长度，TLSH API为unsigned长度；>2^33测试仅验证helper ABI/记录保存，不证明实际多GiB快照/哈希支持。
+3. 原 `llvm.lifetime` 长度-1代表未知大小，但原阈值无符号比较会把其视作超大对象，可能导致memset错误；此原有风险记录，不将未知长度默默当0。常规Clang固定长度测试和显式O0阈值测试均通过。
+4. 外部无debug且IR中完全无struct证据时，无法从opaque ptr安全重建被擦除的C类型，需可选显式尺寸；这项兼容限制明确诊断。手工musttail的需后置hook调用也明确诊断，不生成非法IR。
+5. 可选全局数据、blacklist、互斥、rate-limit禁用、QEMU/Android/非x86、分布式长期campaign等未全面动态验收；宏/原接口均保留，不能据x86_64短期测试声称所有可选组合通过。
+6. 初始审计列出的NULL分配问题中，实际ABI/记录测试要求最小补齐失败处理：malloc/calloc不记录NULL，realloc失败保留旧记录；glibc realloc(p,0)释放时仅标记旧对象。成功分配、realloc链与快照筛选算法保持。调试日志在fopen前使用的初始化顺序错误也仅移动一条日志至fopen后，运行时调试回归通过。
+
+## 最终验收与最后一轮测试纠错
+
+最终 `run_all.sh tests/llvm18/out/verified-suite` 退出0：IR主矩阵21项、Pass边界11项、工具链/coverage/安全配置36项、对象记录、四组真实插桩动态测试、七轮SHM/TLSH/MVP校准全部通过；最后45秒E2E执行487次，队列2→16，状态0–8，16条状态路径，coverage0.07%、stability100%、crash/hang0。原始统计、图、状态及命令已归档到 `tests/llvm18/evidence` 并提供SHA256。
+
+最后一轮之前的统一E2E曾明确失败（半径595、状态被合并），没有将其标为成功。精确复现证明测试服务器把TCP分段当消息：同6字节合并发送仅1响应，逐字节发送6响应。仅修复测试服务为固定2字节MSG_WAITALL帧、最多8帧，poll从2ms改20ms，增加合并/分片发送的真实SHM一致性预检；两者均3个相同响应及 `[0,1,2,3]`。状态算法/校准半径未调整，重新运行完整套件后原算法得到半径5。测试解析器也兼容原引擎有时输出的尾随连字符，没有改引擎的状态序列格式。
+
+ASLR证据已严格区分：最终Python启动器personality为0，fuzzer实际由setarch -R启动，其自身检查确认ADDR_NO_RANDOMIZE；不能把早先整进程树运行时的父进程属性作为最终子进程证据。全部边缘、主矩阵和E2E断言继续保留。

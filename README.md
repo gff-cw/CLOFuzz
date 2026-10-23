@@ -35,36 +35,127 @@ More information about StateAFL is available in the following [research paper](h
 If you want to run some experiments quickly, please take a look at [ProFuzzBench](https://github.com/profuzzbench/profuzzbench). ProFuzzBench includes a suite of representative open-source network servers for popular protocols (e.g., TLS, SSH, SMTP, FTP, SIP), and tools to automate experimentation. StateAFL has been integrated into that benchmark.
 
 
-# Installation (Tested on Ubuntu 18.04 & 16.04 64-bit)
+# Installation: Ubuntu 24.04 LTS / LLVM 18 (x86_64)
 
-## Prerequisites
-
-```bash
-# Install clang (required by afl-clang-fast)
-sudo apt-get install clang
-# Install graphviz development
-sudo apt-get install graphviz-dev
-```
-
-## StateAFL
-
-Download StateAFL and compile it. We have tested StateAFL on Ubuntu 18.04 and Ubuntu 16.04 64-bit and it would also work on all environments that support the vanilla AFL and [graphviz](https://graphviz.org).
+The LLVM 18 port retains StateAFL's memory snapshots, TLSH/MVPTree inference,
+network and custom I/O tracing, state calibration, shared-memory feedback and
+AFLNet scheduling. The default instrumentation is StateAFL's own New PM plugin.
+See [the source audit](LLVM18_MIGRATION_AUDIT.md) and
+[the measured test report](LLVM18_TEST_REPORT.md) for scope and evidence.
 
 ```bash
-# First, clone this StateAFL repository to a folder named stateafl
-git clone <links to the repository> stateafl
-# Then move to the source code folder
-cd stateafl
-make clean all
-cd llvm_mode
-# The following make command may not work if llvm-config cannot be found
-# To fix this issue, just set the LLVM_CONFIG env. variable to the specific llvm-config version on your machine
-# On Ubuntu 18.04, it could be llvm-config-6.0 if you have installed clang using apt-get
-make
-# Move to StateAFL's parent folder
-cd ../..
-export STATEAFL=$(pwd)/stateafl
+sudo apt-get update
+sudo apt-get install build-essential clang-18 llvm-18-dev llvm-18-tools \
+  cmake libgraphviz-dev binutils git python3
+
+# Run inside this checkout. The three submodule revisions are pinned.
+git submodule update --init --recursive
+llvm-config-18 --version
+clang-18 --version
+clang++-18 --version
+opt-18 --version
+
+# Build the base tools first, then the compiler wrapper, plugin and runtimes.
+make clean
+make -j2 CC=clang-18
+make -C llvm_mode clean
+make -C llvm_mode -j2 LLVM_CONFIG=llvm-config-18
 ```
+
+`LLVM_CONFIG` may also name `llvm-config` if it reports 18.x. The LLVM build
+selects `clang`/`clang++` from its `--bindir`. `CC`/`CXX` select the compilers used
+for building StateAFL; `CLANG`/`CLANGXX` select the wrapper's compiled-in defaults
+when those paths need to be overridden. At target compilation time, the original
+`AFL_CC`/`AFL_CXX` overrides still take priority. `AFL_PATH` still locates the
+plugin and runtime objects. Explicit `-O0` through `-O3` and `-g0` are honored;
+without explicit flags, the wrapper retains its original `-O3 -g` defaults.
+`AFL_DONT_OPTIMIZE`, ASAN/MSAN, hardening and the other original options remain.
+
+The dependency libraries are rebuilt from source in `llvm_mode/.build`; the old
+tracked archives are not used. A small patch to the pinned TLSH C wrapper adds
+its missing return value, avoiding a Clang 18 `SIGILL` during distance matching.
+The source submodules remain unmodified. Runtime data-section renaming and the
+separate C/C++ tracer objects are retained. `make install` installs both tracer
+objects as well as the original coverage runtimes.
+
+```bash
+export STATEAFL="$PWD"
+export PATH="$STATEAFL:$PATH"
+export AFL_PATH="$STATEAFL"
+
+# Confirm the actual compiler selected by the wrapper and its plugin argument.
+afl-clang-fast --version
+afl-clang-fast -### -O0 -c test-instr.c
+
+# Compile a real local server (C++ projects use afl-clang-fast++).
+afl-clang-fast -O2 -g tests/llvm18/network_server.c -o /tmp/stateafl-server
+
+# Obtain LLVM IR and verify it independently with the matching LLVM version.
+afl-clang-fast -O1 -g0 -S -emit-llvm tests/llvm18/state_fixture.c -o /tmp/stateafl.ll
+opt-18 -passes=verify -disable-output /tmp/stateafl.ll
+```
+
+For configure/CMake projects use `CC=$STATEAFL/afl-clang-fast` and
+`CXX=$STATEAFL/afl-clang-fast++`; compiling to objects and linking in a separate
+step are both supported. Rebuild target objects when changing instrumentation.
+
+## Reproduce the regression tests
+
+```bash
+# IR matrix, wrapper/coverage/sanitizer checks, object and I/O records,
+# real state/calibration SHM, and a bounded local server campaign.
+bash tests/llvm18/run_all.sh tests/llvm18/out/reproduction
+
+# The end-to-end test alone generates length-prefixed seeds and checks
+# coverage, new queue entries, inferred state paths, calibration and ipsm.dot.
+python3 tests/llvm18/e2e.py --output tests/llvm18/out/campaign --seconds 45
+
+```
+
+Use a new output directory for each campaign. StateAFL requires stable process
+addresses for memory-state analysis. The test uses Linux `setarch -R` when the
+system ASLR setting is enabled; the fuzzer checks the inherited
+`ADDR_NO_RANDOMIZE` personality. To launch a campaign manually, use
+`setarch "$(uname -m)" -R afl-fuzz ...` or the original system-wide ASLR setup.
+Both forkservers inherit this setting. Environments that prohibit the Linux
+personality call need the original administrator-managed ASLR setting.
+
+A working coverage map alone does not prove state inference. Inspect
+`state-feedback/data/state-feedback.json` for initial state 0, distinct and
+repeatable nonzero state sequences, 72-character TLSH hashes and calibration
+distances. For the campaign, inspect `result.json`, `out/ipsm.dot`,
+`out/replayable-new-ipsm-paths`, `out/tlsh.log`, and `out/fuzzer_stats` together.
+The scripts fail on missing state evidence or recorded crashes/hangs. The local
+test protocol uses two-byte frames, and its preflight checks that TCP coalescing
+and fragmentation produce the same replies and shared-memory state sequence.
+
+## Custom I/O and compatibility limits
+
+The existing semicolon-separated syntax remains:
+`TRACE_CUSTOM_RECEIVE='receive_record:1;receive_event'` and
+`TRACE_CUSTOM_SEND='send_record:1'`. Argument indices start at zero. A struct
+pointer is recovered from IR allocations, globals, typed GEPs, formal parameter
+uses, or debug signatures. An event without an index retains the original
+NULL/zero buffer event. If opaque external IR contains no recoverable type,
+compilation emits an explicit diagnostic; optionally provide its fixed byte
+size, for example `receive_record:1:256`. Invalid indices, ambiguous types and
+unrepresentable sizes are diagnosed rather than silently suppressing tracing.
+`recvmsg/sendmsg` retain the original msghdr-object exclusion semantics; they do
+not substitute the iovec payload for that object.
+
+At `-O0`, Clang normally does not emit lifetime intrinsics, so ordinary C stack
+lifetime hooks are absent as in the original compiler behavior. Optimized C/C++
+and explicit lifetime IR retain the original 64-byte minimum. The original
+optional `AFL_TRACE_PC` build target remains available; it is an opt-in legacy
+coverage mode, not a replacement for the default StateAFL plugin.
+
+The supported and fully exercised target is x86_64. Original optional 32-bit
+coverage-object generation is retained, but a complete 32-bit tracer and its
+multilib dependencies were not present in the baseline and are not supplied by
+this migration. 32-bit IR is validated separately. Runtime size arguments now
+match `size_t`; the original postexecution hashing still has `int` offsets and
+length limits, so multi-GiB snapshot hashing is not certified. Other preexisting
+limits and untested optional configurations are recorded in the audit/report.
 
 ## Setup PATH environment variables
 
