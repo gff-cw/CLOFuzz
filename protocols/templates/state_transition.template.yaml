@@ -1,0 +1,21 @@
+# ICP-IR v1 通用语义状态模板；与 protocol_spec.template.yaml 配套。
+format_version: 1
+protocol_id: "{{protocol_id}}"
+initial: ready
+states:
+  - id: ready
+    meaning: "{{initial_state_meaning}}"
+transitions:
+  - from: ready
+    to: ready
+    message: "{{message_id}}"     # 必须引用协议描述中存在的消息
+    response: ""                  # 如有明确响应类型，填其消息ID并增加实际响应边
+    guard: "{{transition_condition}}" # 人读说明，不执行表达式
+    actions: []                    # 人读说明；动态绑定用消息 dependencies 定义
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: "{{invalid_strategy}}" # 人读说明；不能自行定义任意执行代码
+# 有会话建立/释放语义时增加真实状态和边；独立请求协议无需虚构复杂状态。
+# 这些是 protocol semantic states，与 StateAFL 内存推断状态分开。

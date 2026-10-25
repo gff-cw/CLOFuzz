@@ -4,6 +4,9 @@ ICP-IR 是本次工程新增的声明式描述及中间表示。它把消息结�
 
 设计依据和标准访问边界见 [references.md](references.md)，组件及 StateAFL 集成见 [architecture.md](architecture.md)。
 
+用户填写入口见 [统一描述模板与完整使用流程](../protocols/templates/README.md)。两个空白模板位于 `protocols/templates/*.template.yaml`；`tools/init_protocol_spec.py` 根据所选真实协议配置填入模板，`tools/run_protocol_campaign.py --spec-dir ...` 在测试启动前校验 YAML、重编译并加载对应 IR。模板、schema 和具体协议实例是不同产物。
+
+
 ## 两份输入与三个输出
 
 每个 `protocols/<protocol>/` 目录包含：

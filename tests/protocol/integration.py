@@ -11,6 +11,7 @@ import re
 import signal
 import socket
 import subprocess
+import sys
 import time
 
 from validate_bacnet import decode_packet, replay_records
@@ -171,9 +172,9 @@ def run_campaign(args, work, corpus, name, env):
                "-r", "10", "-E", "-K", "-q", "3", "-s", "3", "-m", "none", "-t", "1000"]
     if MODES[name]:
         mode, layers = MODES[name]
-        command += ["--protocol-spec", str(ROOT / "protocols/bacnet_ip/protocol_ir.json"),
-                    "--state-spec", str(ROOT / "protocols/bacnet_ip/state_ir.json"),
-                    "--mutation-mode", mode, "--mutation-layers", layers]
+        command = command[:3] + [sys.executable, str(ROOT / "tools/run_protocol_campaign.py"),
+                    "--spec-dir", str(args.spec_dir), "--"] + command[4:]
+        command += ["--mutation-mode", mode, "--mutation-layers", layers]
     command += ["--", str(args.server), "123"]
     (folder / "command.json").write_text(json.dumps({"argv": command,
         "environment": {key: active[key] for key in ("AFL_PATH", "AFL_NO_UI", "AFL_NO_AFFINITY", "AFL_SKIP_CPUFREQ", "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES", "BACNET_IFACE", "BACNET_IP_PORT")}}, indent=2) + "\n")
@@ -228,8 +229,10 @@ def main():
     parser.add_argument("--ready-timeout", type=float, default=300)
     parser.add_argument("--server", type=Path, default=WORKSPACE / "bacnet-stack/build-protocol-integration/server")
     parser.add_argument("--modes", default=",".join(MODES))
+    parser.add_argument("--spec-dir", type=Path, default=ROOT / "protocols/bacnet_ip")
     args = parser.parse_args()
     args.server = args.server.resolve()
+    args.spec_dir = args.spec_dir.resolve()
     work = args.output.resolve()
     modes = args.modes.split(",")
     assert all(name in MODES for name in modes), modes
@@ -255,8 +258,8 @@ def main():
             del env[key]
     metadata = {"server": str(args.server), "server_sha256": hashlib.sha256(args.server.read_bytes()).hexdigest(),
                 "afl_fuzz_sha256": hashlib.sha256((ROOT / "afl-fuzz").read_bytes()).hexdigest(),
-                "protocol_ir_sha256": hashlib.sha256((ROOT / "protocols/bacnet_ip/protocol_ir.json").read_bytes()).hexdigest(),
-                "state_ir_sha256": hashlib.sha256((ROOT / "protocols/bacnet_ip/state_ir.json").read_bytes()).hexdigest(),
+                "protocol_ir_sha256": hashlib.sha256((args.spec_dir / "protocol_ir.json").read_bytes()).hexdigest(),
+                "state_ir_sha256": hashlib.sha256((args.spec_dir / "state_ir.json").read_bytes()).hexdigest(),
                 "corpus": corpus_metadata, "seconds_after_ready": args.seconds, "modes": modes}
     (work / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     results = []

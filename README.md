@@ -323,6 +323,11 @@ StateAFL uses the [Trend Micro Locality Sensitive Hash (TLSH) library](https://g
 
 ## Optional protocol description mutation (ICP-IR v1)
 
+Start with the [editable protocol templates and step-by-step workflow](protocols/templates/README.md).
+Create a description package with `python3 tools/init_protocol_spec.py --base bacnet_ip --output-dir my-specs/bacnet_ip`,
+edit its YAML, then select it using `python3 tools/run_protocol_campaign.py --spec-dir my-specs/bacnet_ip -- <afl-fuzz arguments>`.
+This entry validates and recompiles the selected YAML before launching StateAFL, avoiding stale IR.
+
 The existing LLVM 18 instrumentation, coverage feedback, inferred memory states,
 queue selection and AFL operators remain in use. With no new options, the legacy
 mutation path remains active. The new runtime currently supports a bounded

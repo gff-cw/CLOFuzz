@@ -1,0 +1,37 @@
+base_profile: bacnet_ip
+protocol_id: local_bacnet_template
+source_files:
+  protocol_spec.yaml: 98ca18a4e9743611ef6fa209fa80b64cf8f72baa168c487028b78e0c509176f3
+  state_transition.yaml: c34cc62d91f631bd504e8c737b9c415555e136b6aa9c04819d03e31e5f7f0afd
+sources:
+- id: wire
+  url: https://github.com/bacnet-stack/bacnet-stack/tree/bacnet-stack-1.5.0
+  basis: implementation
+  sections: src/bacnet/{npdu,bacdcode,rp}.c; datalink/bvlc.c; apps/server/main.c
+- id: official
+  url: https://www.ashrae.org/technical-resources/standards-and-guidelines/titles-purposes-and-scopes
+  basis: implementation
+  sections: ASHRAE 135 catalogue identity only; wire semantics verified against local
+    BACnet Stack 1.5.0
+scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is
+  with optional limits and ReadProperty with optional array index; application/context
+  tag walking and invoke correlation.
+support:
+  runtime: true
+  level: runtime scoped codec
+  excluded:
+  - segmented APDUs
+  - BACnet/SC
+  - other services runtime encoding
+  - BBMD/foreign-device lifecycle
+validation:
+  protocol: local_bacnet_template
+  messages: 3
+  fields: 29
+  semantic_states: 2
+  validated: true
+  runtime: true
+  scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is
+    with optional limits and ReadProperty with optional array index; application/context
+    tag walking and invoke correlation.
+  example_validation: protocol envelope and length consistency; not live service conformance

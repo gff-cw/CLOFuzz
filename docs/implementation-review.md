@@ -31,3 +31,12 @@
 当前是SPFuzz方法在StateAFL上的明确限定范围工程实现，并非论文未公开源码的逐行复原。仅BACnet/IP Who-Is/ReadProperty子集具备在线codec并完成目标互通；其他五协议只有静态描述与校验。通用when/repeat、condition/tagged_length执行由BACnet专用结构检查替代，不支持任意图preamble搜索或transaction数据库。near_valid和invalid当前共享单BVLC长度违例策略；无密码学、安全策略或完整MMS/OPCUA会话实现。
 
 现有测试可能遗漏复杂路由、分段、多事务重叠、长期内存增长、非本机网络及长期调度收益。后续应对这些范围增加独立codec、跨事务fixture和多次长时间对照实验。短测仅证明接入与基础运行，不支持统计显著的覆盖提升结论。实际远程交付记录见 git-delivery.md（推送后生成）。
+
+
+## 用户模板流程补充复核
+
+用户指出此前只有schema与已填模型，缺少可直接填写的模板。这一反馈成立；原交付不能据此宣称已经提供完整用户建模流程。本次补上通用协议/状态模板、六协议配置生成器和按描述目录启动入口。
+
+新增验证覆盖：六种协议按同一模板实例化并编译；拒绝覆盖已有目录、空/非法ID、未填占位符；静态模型不得启动；每次启动从已编辑YAML重编译，配置错误不得使用旧IR。C sanitizer夹具证明 invoke_id 枚举值从33改为77后，实际HEAD结果随之改变，其他字节不变。另发现Who-Is内容编码依赖消息ID字面值，已改为APDU服务语义判断，并用重命名消息加CONTENT范围重编码测试确认修复。
+
+模板/启动新增12项测试通过；同原编译器51项、CLI8项、runtime随机输入和网络检查共同进入 `tests/protocol/run_all.sh`。真实本机BACnet还通过新的启动入口加载自定义protocol_id的描述包；完整日志和最终统计见 `tests/protocol/evidence/template-workflow-result.json`。此补充仍未实现其他五种协议的在线codec，不以模板生成或静态通过代替该缺口。

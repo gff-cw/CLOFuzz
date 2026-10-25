@@ -458,6 +458,13 @@ static int resize_record(proto_engine *e,size_t ri,size_t newlen,char *err,size_
   ptrdiff_t delta=(ptrdiff_t)newlen-(ptrdiff_t)r->size;memmove(e->work+r->offset+newlen,e->work+r->offset+r->size,end-r->offset-r->size);
   r->size=newlen;for(size_t i=ri+1;i<e->count;i++)e->records[i].offset+=delta;return 0;
 }
+/* Message IDs belong to the description author. Choose the wire codec from
+ * parsed APDU semantics, so renaming a request never changes its encoder. */
+static int who_is_content(const uint8_t *b,size_t n,const char *locator){
+  layout v;char error[128];
+  return !strcmp(locator,"apdu.content") && bacnet_layout(b,n,&v,error,sizeof(error))==0 &&
+         v.kind==1 && b[v.service]==8;
+}
 int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint8_t *candidate,size_t cn,int mode,int layer,proto_random rng,const uint8_t **out,size_t *olen,char *err,size_t cap){
   if(out)*out=NULL;if(olen)*olen=0;
   if(!e || !rng || !out || !olen || (!candidate && cn))return fail(err,cap,"missing mutation engine, random callback, candidate or output");
@@ -508,7 +515,7 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       if(val<f->min || val>f->max)val=f->min;
       if(!strcmp(f->loc,"npdu.control"))val=(b[o]&~7u)|(val&7u); /* preserve optional layout bits */
       putint(b+o,w,f->little,val);
-    } else if(!strcmp(m->id,"who_is") && !strcmp(f->loc,"apdu.content")){
+    } else if(who_is_content(b,r->size,f->loc)){
       strategy="afl_limits_resize";size_t base=r->wire_offset+o,available=base<=cn?cn-base:0;
       /* A concatenated AFL candidate has no message delimiters. Never consume
        * the following datagram as newly inserted content for this request. */

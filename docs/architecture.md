@@ -64,3 +64,12 @@ runtime 输出是带 LE32 长度的记录；适配层解包为线字节和精确
 没有提供描述文件时，协议 engine 不创建，候选继续走现有 AFL 路径。新增模块被链接进 fuzzer 不等于启用结构化变异。generic replay 读取新增了显式小端解码及截断/零长度检查，保存路径清空旧文件并显式写入 LE32 长度。共享网络层确保每条 UDP 消息一次发送，使用 65536 字节接收缓冲并检测截断；这些共享路径改动需要同时验证关闭功能的兼容性。
 
 LLVM 18 工具链、New PM 插桩及原内存运行时保持现有移植设计；本次协议层不引入替代 LLVM 工具链。[LLVM18_MIGRATION_AUDIT.md](../LLVM18_MIGRATION_AUDIT.md) 和 [LLVM18_TEST_REPORT.md](../LLVM18_TEST_REPORT.md) 是既有证据，不能替代本次修改后的回归。当前结果和未完成项见 [implementation-review.md](implementation-review.md) 及 [BACnet 集成验证](bacnet-integration-test.md)。
+
+
+## 模板与按描述目录启动
+
+用户先参考 `protocols/templates/*.template.yaml` 的统一结构，或用 `tools/init_protocol_spec.py --base <协议配置> --output-dir <目录>` 生成已经填入真实协议字段的描述包。模板是填写起点，schema 是检查规则，各协议目录是实例；三者不混用。生成器不使用 YAML 别名，避免一处字段修改联动另一条消息。
+
+`tools/run_protocol_campaign.py --spec-dir <目录> -- <afl-fuzz参数>` 每次读取两份 YAML，校验字段/依赖/状态，重新编译对应 IR，然后使用 `os.execv` 把控制权交给原 afl-fuzz。无效配置或仅静态支持的协议在目标启动前失败，不使用旧 IR 继续执行。手工编译后传入两个原 CLI 参数的方式仍然可用。
+
+当前六种协议的统一描述均可生成与校验；在线codec仍只有BACnet有限范围。Who-Is 内容编码器不再按描述消息ID判断，改按解析得到的APDU服务类型判断，使消息重命名与线编码解耦。模板填写不自动实现尚未存在的协议编码器。

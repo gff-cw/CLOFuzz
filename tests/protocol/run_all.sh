@@ -7,6 +7,7 @@ protocol_test_output="$(realpath "$protocol_test_output")"
 make -j2 afl-fuzz aflnet-replay > "$protocol_test_output/build.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_compiler.py -v > "$protocol_test_output/compiler.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_cli.py -v > "$protocol_test_output/cli.log" 2>&1
+python3 -m unittest discover -s tests/protocol -p test_templates.py -v > "$protocol_test_output/templates.log" 2>&1
 python3 tests/protocol/run_runtime_tests.py > "$protocol_test_output/runtime.log" 2>&1
 clang -O1 -g -Wno-pointer-sign -fsanitize=address,undefined -fno-omit-frame-pointer -I. \
   tests/protocol/test_network.c aflnet.c -o "$protocol_test_output/network-test" > "$protocol_test_output/network-build.log" 2>&1

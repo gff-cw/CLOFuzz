@@ -1,0 +1,1 @@
+{"output": "tests/protocol/evidence/template-campaign/model", "base_profile": "bacnet_ip", "protocol_id": "local_bacnet_template", "validated": true, "runtime": true, "messages": 3}
