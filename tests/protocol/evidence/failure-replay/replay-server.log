@@ -1,0 +1,1 @@
+failure_server: /home/weicresec/Desktop/workspace/stateafl/tests/protocol/fixtures/failure_server.c:26: int main(int, char **): Assertion `((unsigned)buffer[2]<<8|buffer[3])==(unsigned)n' failed.

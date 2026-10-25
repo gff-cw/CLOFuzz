@@ -319,3 +319,53 @@ StateAFL uses the [Trend Micro Locality Sensitive Hash (TLSH) library](https://g
 
 * **memcpy**: Copyright (c) 1990, 1993 The Regents of the University of California. This code is derived from software contributed to Berkeley by Chris Torek. Released under terms and conditions of [BSD License](https://opensource.org/licenses/BSD-3-Clause).
 
+
+
+## Optional protocol description mutation (ICP-IR v1)
+
+The existing LLVM 18 instrumentation, coverage feedback, inferred memory states,
+queue selection and AFL operators remain in use. With no new options, the legacy
+mutation path remains active. The new runtime currently supports a bounded
+BACnet/IP Who-Is / ReadProperty scope; the other five protocol directories are
+validated static models, not implemented runtime codecs.
+
+```bash
+python3 -m pip install -r tools/requirements-protocol.txt
+python3 tools/proto_spec_compiler.py \
+  --protocol protocols/bacnet_ip/protocol_spec.yaml \
+  --state protocols/bacnet_ip/state_transition.yaml \
+  --output-dir protocols/bacnet_ip
+make -j4
+make -C llvm_mode -j4
+bash tests/protocol/run_all.sh
+```
+
+Example, after building the instrumented local BACnet server:
+
+```bash
+BACNET_IFACE=lo BACNET_IP_PORT=47818 setarch "$(uname -m)" -R ./afl-fuzz \
+  -d -i ../bacnet-stack/inputs -o /tmp/stateafl-bacnet \
+  -N udp://127.0.0.1/47818 -D 200000 -E -K -q 3 -s 3 -m none -t 5000 \
+  --protocol-spec protocols/bacnet_ip/protocol_ir.json \
+  --state-spec protocols/bacnet_ip/state_ir.json \
+  --mutation-mode hybrid --mutation-layers head,content,sequence \
+  -- ../bacnet-stack/build-protocol-integration/server 123
+```
+
+Use a fresh output directory. For valid-only comparisons, use the four valid
+seeds selected by `tests/protocol/integration.py`; the user's original input
+folder also contains deliberate invalid controls. The 200 ms startup delay
+accounts for this Debug instrumented target; UDP connect does not wait for its
+listener. StateAFL's original ASLR requirement applies to the fuzzer and its
+children. `--protocol-fallback` explicitly permits logged raw fallback for
+rejected candidates; model loading failures always stop with a diagnostic.
+
+Modes: `valid`, `near_valid`, `invalid`, `raw`, `hybrid`; hybrid defaults to 70%
+structured scheduling (`--protocol-ratio 0..100`). Near-valid and invalid currently
+both preserve one explicit BVLC length violation. Content mutation projects the
+existing AFL candidate into described fields. Protocol semantic states have a
+separate namespace from inferred memory states.
+
+See [architecture](docs/architecture.md), [description language](docs/protocol-description-language.md),
+[scope and sources](docs/references.md), [actual BACnet results](docs/bacnet-integration-test.md)
+and [implementation review](docs/implementation-review.md).

@@ -1,0 +1,139 @@
+BACnet Server Demo
+BACnet Stack Version 1.5.0
+BACnet Device ID: 1234
+Max APDU: 1476
+CreateObject: analog-input-1 success
+CreateObject: analog-output-1 success
+CreateObject: analog-value-1 success
+CreateObject: binary-input-1 success
+CreateObject: binary-output-1 success
+CreateObject: binary-value-1 success
+CreateObject: calendar-1 success
+CreateObject: file-1 success
+CreateObject: loop-1 success
+CreateObject: multi-state-input-1 success
+CreateObject: multi-state-output-1 success
+CreateObject: program-1 success
+CreateObject: multi-state-value-1 success
+CreateObject: life-safety-point-1 success
+CreateObject: life-safety-zone-1 success
+CreateObject: load-control-1 success
+CreateObject: structured-view-1 success
+CreateObject: timer-1 success
+CreateObject: bitstring-value-1 success
+CreateObject: characterstring-value-1 success
+CreateObject: integer-value-1 success
+CreateObject: octetstring-value-1 success
+CreateObject: positive-integer-value-1 success
+CreateObject: time-value-1 success
+CreateObject: channel-1 success
+CreateObject: lighting-output-1 success
+CreateObject: binary-lighting-output-1 success
+CreateObject: audit-log-1 success
+CreateObject: color-1 success
+CreateObject: color-temperature-1 success
+Created file-2 path=backup_1.bin for backup and restore (2 files).
+BACnet Device Name: SimpleServer
+BIP: Setting Network Port 1 address 0.0.0.0:47818/0
+BACNET_IFACE=lo
+BIP: Interface: lo
+BIP: Address: 127.0.0.1
+BIP: Broadcast Address: 127.255.255.255
+BIP: UDP Port: 0xBACA [47818]
+BVLC: Initializing (BBMD Enabled).
+BBMD    1: 127.0.0.1:47818 255.255.255.255
+dlenv_init: failed to register device for port type 5
+Gateway Device NPDU: Instance=0
+BVLC: Send Original-Broadcast-NPDU 127.255.255.255:47818
+BIP: Sending MPDU-> 127.255.255.255:47818 (25 bytes)
+BIP: Received MPDU-> 127.0.0.1:47818 (25 bytes)
+BVLC: Received Broadcast 127.0.0.1:47818
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:47818
+BVLC: Received Original-Broadcast-NPDU 127.0.0.1:47818
+BVLC: Dropped Original-Broadcast-NPDU from me!
+BIP: Received MPDU-> 127.0.0.1:56000 (8 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=4
+BIP: Received NPDU-> 127.0.0.1:56000 (4 bytes)
+Gateway Device NPDU: Instance=0
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (21 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (8 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=4
+BIP: Received NPDU-> 127.0.0.1:56000 (4 bytes)
+Gateway Device NPDU: Instance=0
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (21 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (12 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=8
+BIP: Received NPDU-> 127.0.0.1:56000 (8 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (14 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=10
+BIP: Received NPDU-> 127.0.0.1:56000 (10 bytes)
+Gateway Device NPDU: Instance=0
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (21 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (17 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=13
+BIP: Received NPDU-> 127.0.0.1:56000 (13 bytes)
+Gateway Device NPDU: Instance=0
+RP: Device_Read_Property: Error!
+RP: Sending Error!
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (13 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (17 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=13
+BIP: Received NPDU-> 127.0.0.1:56000 (13 bytes)
+Gateway Device NPDU: Instance=0
+RP: Sending Ack!
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (33 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (17 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=13
+BIP: Received NPDU-> 127.0.0.1:56000 (13 bytes)
+Gateway Device NPDU: Instance=0
+RP: Device_Read_Property: Error!
+RP: Sending Error!
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (13 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (17 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=13
+BIP: Received NPDU-> 127.0.0.1:56000 (13 bytes)
+Gateway Device NPDU: Instance=0
+RP: Sending Ack!
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (48 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (19 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=15
+BIP: Received NPDU-> 127.0.0.1:56000 (15 bytes)
+Gateway Device NPDU: Instance=0
+RP: Device_Read_Property: Error!
+RP: Sending Error!
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (13 bytes)
+BIP: Received MPDU-> 127.0.0.1:56000 (19 bytes)
+BVLC: Received BVLC (BBMD Enabled) 127.0.0.1:56000
+BVLC: Received Original-Unicast-NPDU 127.0.0.1:56000
+BVLC: Original-Unicast-NPDU NPDU=MTU[4] len=15
+BIP: Received NPDU-> 127.0.0.1:56000 (15 bytes)
+Gateway Device NPDU: Instance=0
+RP: Sending Ack!
+BVLC: Send Original-Unicast-NPDU 127.0.0.1:56000
+BIP: Sending MPDU-> 127.0.0.1:56000 (22 bytes)

@@ -1,0 +1,3 @@
+START legacy: UDP 40649
+END legacy: passed=False execs=879 queue=37 coverage=3.34% states=[0, 1]
+FAILED CHECKS clean_sigint_stop

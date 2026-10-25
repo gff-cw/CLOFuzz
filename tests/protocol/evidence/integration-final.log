@@ -1,0 +1,15 @@
+START legacy: UDP 38509
+READY legacy: calibration=27.47s; running 15.0s
+END legacy: passed=True execs=175 queue=7 coverage=3.09% states=[0, 1]
+START head: UDP 50313
+READY head: calibration=27.25s; running 15.0s
+END head: passed=True execs=175 queue=6 coverage=3.09% states=[0, 1]
+START head_content: UDP 36900
+READY head_content: calibration=27.39s; running 15.0s
+END head_content: passed=True execs=175 queue=6 coverage=3.08% states=[0, 1]
+START all: UDP 53984
+READY all: calibration=27.34s; running 15.0s
+END all: passed=True execs=174 queue=7 coverage=3.08% states=[0, 1]
+START hybrid: UDP 37265
+READY hybrid: calibration=34.74s; running 15.0s
+END hybrid: passed=True execs=207 queue=7 coverage=3.08% states=[0, 1]

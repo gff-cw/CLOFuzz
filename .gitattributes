@@ -1,0 +1,2 @@
+# Preserve compiler/runtime stdout verbatim, including trailing whitespace.
+tests/protocol/evidence/**/*.log -whitespace

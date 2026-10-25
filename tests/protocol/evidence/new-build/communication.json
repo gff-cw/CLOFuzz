@@ -1,0 +1,768 @@
+{
+  "server": "/home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server",
+  "device_instance": 1234,
+  "interface": "lo",
+  "target": [
+    "127.0.0.1",
+    47818
+  ],
+  "corpus": [
+    {
+      "file": "/home/weicresec/Desktop/workspace/bacnet-stack/inputs/seed01_whois.replay",
+      "sha256": "79fd027e616c9c8ebab68e32708619133e598f0d235fe11127e04bc18cd646b6",
+      "framing": "LE32-length-prefixed",
+      "records": [
+        {
+          "bytes": 8,
+          "hex": "810a000801001008",
+          "decoded": {
+            "bvlc_function": 10,
+            "bvlc_length": 8,
+            "npdu_control": 0,
+            "apdu_type": 1,
+            "service": 8,
+            "tags": []
+          }
+        }
+      ]
+    },
+    {
+      "file": "/home/weicresec/Desktop/workspace/bacnet-stack/inputs/seed02_whois_range.replay",
+      "sha256": "c2608634379d046708d64408e2b3b65b86de543037b901b3f88db99423ad1530",
+      "framing": "LE32-length-prefixed",
+      "records": [
+        {
+          "bytes": 12,
+          "hex": "810a000c0100100809001964",
+          "decoded": {
+            "bvlc_function": 10,
+            "bvlc_length": 12,
+            "npdu_control": 0,
+            "apdu_type": 1,
+            "service": 8,
+            "tags": [
+              {
+                "tag": 0,
+                "context": true,
+                "bytes": "00",
+                "value": 0
+              },
+              {
+                "tag": 1,
+                "context": true,
+                "bytes": "64",
+                "value": 100
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "/home/weicresec/Desktop/workspace/bacnet-stack/inputs/seed03_read_objectname.replay",
+      "sha256": "be7b2f31880efdc6a9e423243b67f80b4418ab938e1d3e585b4d029c615fe4c5",
+      "framing": "LE32-length-prefixed",
+      "records": [
+        {
+          "bytes": 17,
+          "hex": "810a001101000005010c0c0200007b194d",
+          "decoded": {
+            "bvlc_function": 10,
+            "bvlc_length": 17,
+            "npdu_control": 0,
+            "apdu_type": 0,
+            "invoke_id": 1,
+            "service": 12,
+            "tags": [
+              {
+                "tag": 0,
+                "context": true,
+                "bytes": "0200007b",
+                "value": 33554555
+              },
+              {
+                "tag": 1,
+                "context": true,
+                "bytes": "4d",
+                "value": 77
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "/home/weicresec/Desktop/workspace/bacnet-stack/inputs/seed04_read_vendorname.replay",
+      "sha256": "2cfec5237ea0644058cfda8ee8209b0068854de14ec3a72f64ce966c3af20814",
+      "framing": "LE32-length-prefixed",
+      "records": [
+        {
+          "bytes": 17,
+          "hex": "810a001101000005020c0c0200007b1979",
+          "decoded": {
+            "bvlc_function": 10,
+            "bvlc_length": 17,
+            "npdu_control": 0,
+            "apdu_type": 0,
+            "invoke_id": 2,
+            "service": 12,
+            "tags": [
+              {
+                "tag": 0,
+                "context": true,
+                "bytes": "0200007b",
+                "value": 33554555
+              },
+              {
+                "tag": 1,
+                "context": true,
+                "bytes": "79",
+                "value": 121
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "/home/weicresec/Desktop/workspace/bacnet-stack/inputs/seed05_read_objectlist.replay",
+      "sha256": "d7a07fc987df9c96f7af83772d80ec86af4a17f3cc7fadaad54d6e26a0d857f1",
+      "framing": "LE32-length-prefixed",
+      "records": [
+        {
+          "bytes": 19,
+          "hex": "810a001301000005030c0c0200007b194c2900",
+          "decoded": {
+            "bvlc_function": 10,
+            "bvlc_length": 19,
+            "npdu_control": 0,
+            "apdu_type": 0,
+            "invoke_id": 3,
+            "service": 12,
+            "tags": [
+              {
+                "tag": 0,
+                "context": true,
+                "bytes": "0200007b",
+                "value": 33554555
+              },
+              {
+                "tag": 1,
+                "context": true,
+                "bytes": "4c",
+                "value": 76
+              },
+              {
+                "tag": 2,
+                "context": true,
+                "bytes": "00",
+                "value": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "/home/weicresec/Desktop/workspace/bacnet-stack/inputs/seed06_unknown_service.replay",
+      "sha256": "db759535cb30120bc72b9c9f8da35c2304371131a304e1110780dc6accd46b06",
+      "framing": "LE32-length-prefixed",
+      "records": [
+        {
+          "bytes": 8,
+          "hex": "810a0008010010ff",
+          "decoded": {
+            "bvlc_function": 10,
+            "bvlc_length": 8,
+            "npdu_control": 0,
+            "apdu_type": 1,
+            "service": 255,
+            "tags": []
+          }
+        }
+      ]
+    },
+    {
+      "file": "/home/weicresec/Desktop/workspace/bacnet-stack/inputs/seed07_bad_bvlc_length.replay",
+      "sha256": "ea197344791e882264874c4ae5ec97ffce8be960038514491e04714bf6205bcc",
+      "framing": "LE32-length-prefixed",
+      "records": [
+        {
+          "bytes": 8,
+          "hex": "810a002001001008",
+          "decode_error": "BVLC length 32 differs from datagram 8"
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "original Who-Is",
+      "request_hex": "810a000801001008",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 8,
+        "npdu_control": 0,
+        "apdu_type": 1,
+        "service": 8,
+        "tags": []
+      },
+      "expected": "I-Am",
+      "response_hex": "810a001501001000c4020004d22205c49100220104",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 21,
+        "npdu_control": 0,
+        "apdu_type": 1,
+        "service": 0,
+        "tags": [
+          {
+            "tag": 12,
+            "context": false,
+            "bytes": "020004d2",
+            "value": {
+              "type": 8,
+              "instance": 1234
+            }
+          },
+          {
+            "tag": 2,
+            "context": false,
+            "bytes": "05c4",
+            "value": 1476
+          },
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "00",
+            "value": 0
+          },
+          {
+            "tag": 2,
+            "context": false,
+            "bytes": "0104",
+            "value": 260
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    },
+    {
+      "name": "original range 0..100 excludes Device 1234",
+      "request_hex": "810a000c0100100809001964",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 12,
+        "npdu_control": 0,
+        "apdu_type": 1,
+        "service": 8,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "00",
+            "value": 0
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "64",
+            "value": 100
+          }
+        ]
+      },
+      "expected": "silence",
+      "response": null,
+      "passed": true
+    },
+    {
+      "name": "Who-Is range adapted to test device",
+      "request_hex": "810a000e010010080a04d21a04d2",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 14,
+        "npdu_control": 0,
+        "apdu_type": 1,
+        "service": 8,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "04d2",
+            "value": 1234
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "04d2",
+            "value": 1234
+          }
+        ]
+      },
+      "expected": "I-Am",
+      "response_hex": "810a001501001000c4020004d22205c49100220104",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 21,
+        "npdu_control": 0,
+        "apdu_type": 1,
+        "service": 0,
+        "tags": [
+          {
+            "tag": 12,
+            "context": false,
+            "bytes": "020004d2",
+            "value": {
+              "type": 8,
+              "instance": 1234
+            }
+          },
+          {
+            "tag": 2,
+            "context": false,
+            "bytes": "05c4",
+            "value": 1476
+          },
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "00",
+            "value": 0
+          },
+          {
+            "tag": 2,
+            "context": false,
+            "bytes": "0104",
+            "value": 260
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    },
+    {
+      "name": "seed03_read_objectname.replay original device",
+      "request_hex": "810a001101000005010c0c0200007b194d",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 17,
+        "npdu_control": 0,
+        "apdu_type": 0,
+        "invoke_id": 1,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "0200007b",
+            "value": 33554555
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "4d",
+            "value": 77
+          }
+        ]
+      },
+      "expected": "Error unknown-object",
+      "response_hex": "810a000d010050010c9101911f",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 13,
+        "npdu_control": 0,
+        "apdu_type": 5,
+        "invoke_id": 1,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "01",
+            "value": 1
+          },
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "1f",
+            "value": 31
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    },
+    {
+      "name": "seed03_read_objectname.replay adapted device",
+      "request_hex": "810a001101000005010c0c020004d2194d",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 17,
+        "npdu_control": 0,
+        "apdu_type": 0,
+        "invoke_id": 1,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "020004d2",
+            "value": 33555666
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "4d",
+            "value": 77
+          }
+        ]
+      },
+      "expected": "Complex-ACK ReadProperty",
+      "response_hex": "810a0021010030010c0c020004d2194d3e750d0053696d706c655365727665723f",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 33,
+        "npdu_control": 0,
+        "apdu_type": 3,
+        "invoke_id": 1,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "020004d2",
+            "value": 33555666
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "4d",
+            "value": 77
+          },
+          {
+            "tag": 3,
+            "context": true,
+            "kind": "opening"
+          },
+          {
+            "tag": 7,
+            "context": false,
+            "bytes": "0053696d706c65536572766572",
+            "encoding": 0,
+            "value": "SimpleServer"
+          },
+          {
+            "tag": 3,
+            "context": true,
+            "kind": "closing"
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    },
+    {
+      "name": "seed04_read_vendorname.replay original device",
+      "request_hex": "810a001101000005020c0c0200007b1979",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 17,
+        "npdu_control": 0,
+        "apdu_type": 0,
+        "invoke_id": 2,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "0200007b",
+            "value": 33554555
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "79",
+            "value": 121
+          }
+        ]
+      },
+      "expected": "Error unknown-object",
+      "response_hex": "810a000d010050020c9101911f",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 13,
+        "npdu_control": 0,
+        "apdu_type": 5,
+        "invoke_id": 2,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "01",
+            "value": 1
+          },
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "1f",
+            "value": 31
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    },
+    {
+      "name": "seed04_read_vendorname.replay adapted device",
+      "request_hex": "810a001101000005020c0c020004d21979",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 17,
+        "npdu_control": 0,
+        "apdu_type": 0,
+        "invoke_id": 2,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "020004d2",
+            "value": 33555666
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "79",
+            "value": 121
+          }
+        ]
+      },
+      "expected": "Complex-ACK ReadProperty",
+      "response_hex": "810a0030010030020c0c020004d219793e751c004241436e657420537461636b20617420536f75726365466f7267653f",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 48,
+        "npdu_control": 0,
+        "apdu_type": 3,
+        "invoke_id": 2,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "020004d2",
+            "value": 33555666
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "79",
+            "value": 121
+          },
+          {
+            "tag": 3,
+            "context": true,
+            "kind": "opening"
+          },
+          {
+            "tag": 7,
+            "context": false,
+            "bytes": "004241436e657420537461636b20617420536f75726365466f726765",
+            "encoding": 0,
+            "value": "BACnet Stack at SourceForge"
+          },
+          {
+            "tag": 3,
+            "context": true,
+            "kind": "closing"
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    },
+    {
+      "name": "seed05_read_objectlist.replay original device",
+      "request_hex": "810a001301000005030c0c0200007b194c2900",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 19,
+        "npdu_control": 0,
+        "apdu_type": 0,
+        "invoke_id": 3,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "0200007b",
+            "value": 33554555
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "4c",
+            "value": 76
+          },
+          {
+            "tag": 2,
+            "context": true,
+            "bytes": "00",
+            "value": 0
+          }
+        ]
+      },
+      "expected": "Error unknown-object",
+      "response_hex": "810a000d010050030c9101911f",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 13,
+        "npdu_control": 0,
+        "apdu_type": 5,
+        "invoke_id": 3,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "01",
+            "value": 1
+          },
+          {
+            "tag": 9,
+            "context": false,
+            "bytes": "1f",
+            "value": 31
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    },
+    {
+      "name": "seed05_read_objectlist.replay adapted device",
+      "request_hex": "810a001301000005030c0c020004d2194c2900",
+      "request": {
+        "bvlc_function": 10,
+        "bvlc_length": 19,
+        "npdu_control": 0,
+        "apdu_type": 0,
+        "invoke_id": 3,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "020004d2",
+            "value": 33555666
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "4c",
+            "value": 76
+          },
+          {
+            "tag": 2,
+            "context": true,
+            "bytes": "00",
+            "value": 0
+          }
+        ]
+      },
+      "expected": "Complex-ACK ReadProperty",
+      "response_hex": "810a0016010030030c0c020004d2194c29003e214d3f",
+      "response": {
+        "bvlc_function": 10,
+        "bvlc_length": 22,
+        "npdu_control": 0,
+        "apdu_type": 3,
+        "invoke_id": 3,
+        "service": 12,
+        "tags": [
+          {
+            "tag": 0,
+            "context": true,
+            "bytes": "020004d2",
+            "value": 33555666
+          },
+          {
+            "tag": 1,
+            "context": true,
+            "bytes": "4c",
+            "value": 76
+          },
+          {
+            "tag": 2,
+            "context": true,
+            "bytes": "00",
+            "value": 0
+          },
+          {
+            "tag": 3,
+            "context": true,
+            "kind": "opening"
+          },
+          {
+            "tag": 2,
+            "context": false,
+            "bytes": "4d",
+            "value": 77
+          },
+          {
+            "tag": 3,
+            "context": true,
+            "kind": "closing"
+          }
+        ]
+      },
+      "peer": [
+        "127.0.0.1",
+        47818
+      ],
+      "passed": true
+    }
+  ],
+  "server_command": [
+    "stdbuf",
+    "-oL",
+    "-eL",
+    "/home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server",
+    "1234"
+  ],
+  "environment": {
+    "BACNET_IFACE": "lo",
+    "BACNET_IP_PORT": "47818",
+    "BACNET_IP_DEBUG": "1"
+  },
+  "client": [
+    "127.0.0.1",
+    56000
+  ],
+  "server_alive_after_checks": true,
+  "passed": true,
+  "server_exit_after_cleanup": -11
+}

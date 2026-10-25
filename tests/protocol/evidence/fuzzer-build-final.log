@@ -1,0 +1,15 @@
+[*] Checking for the ability to compile x86 code...
+[+] Everything seems to be working, ready to compile.
+clang -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -Wno-unused-result -DAFL_PATH=\"/usr/local/lib/afl\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -DBIN_PATH=\"/usr/local/bin\" afl-fuzz.c protocol_runtime.c aflnet.o -o afl-fuzz -ldl -lgvc -lcgraph -lm
+afl-fuzz.c:2990:26: warning: passing 'volatile unsigned int[100]' to parameter of type 'const void *' discards qualifiers [-Wincompatible-pointer-types-discards-qualifiers]
+ 2990 |   memcpy(state_sequence, state_shared_ptr->seq, *state_count_ref * sizeof(unsigned int));
+      |                          ^~~~~~~~~~~~~~~~~~~~~
+/usr/include/x86_64-linux-gnu/bits/string_fortified.h:26:64: note: passing argument to parameter '__src' here
+   26 | __NTH (memcpy (void *__restrict __dest, const void *__restrict __src,
+      |                                                                ^
+afl-fuzz.c:4698:13: warning: unused function 'link_or_copy' [-Wunused-function]
+ 4698 | static void link_or_copy(u8* old_path, u8* new_path) {
+      |             ^~~~~~~~~~~~
+2 warnings generated.
+clang -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -Wno-unused-result -DAFL_PATH=\"/usr/local/lib/afl\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -DBIN_PATH=\"/usr/local/bin\" afl-replay.c aflnet.o -o afl-replay -ldl -lgvc -lcgraph -lm
+clang -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -Wno-unused-result -DAFL_PATH=\"/usr/local/lib/afl\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -DBIN_PATH=\"/usr/local/bin\" aflnet-replay.c aflnet.o -o aflnet-replay -ldl -lgvc -lcgraph -lm
