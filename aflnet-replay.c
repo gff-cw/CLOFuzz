@@ -28,6 +28,7 @@ int main(int argc, char* argv[])
   unsigned int *state_sequence;
   unsigned int socket_timeout = 1000;
   unsigned int poll_timeout = 1;
+  int bacnet_mode = argc > 2 && !strcmp(argv[2], "BACNET");
 
 
   if (argc < 4) {
@@ -35,8 +36,10 @@ int main(int argc, char* argv[])
   }
 
   fp = fopen(argv[1],"rb");
+  if (!fp) PFATAL("Cannot open replay input '%s'", argv[1]);
 
-  if (!strcmp(argv[2], "RTSP")) extract_response_codes = &extract_response_codes_rtsp;
+  if (bacnet_mode) { /* UDP datagrams; wire replies do not define memory states. */ }
+  else if (!strcmp(argv[2], "RTSP")) extract_response_codes = &extract_response_codes_rtsp;
   else if (!strcmp(argv[2], "FTP")) extract_response_codes = &extract_response_codes_ftp;
   else if (!strcmp(argv[2], "DNS")) extract_response_codes = &extract_response_codes_dns;
   else if (!strcmp(argv[2], "DTLS12")) extract_response_codes = &extract_response_codes_dtls12;
@@ -68,7 +71,7 @@ int main(int argc, char* argv[])
   }
 
   int sockfd;
-  if ((!strcmp(argv[2], "DTLS12")) || (!strcmp(argv[2], "SIP"))) {
+  if (bacnet_mode || (!strcmp(argv[2], "DTLS12")) || (!strcmp(argv[2], "SIP"))) {
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   } else {
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -127,6 +130,7 @@ int main(int argc, char* argv[])
 
   //Send requests one by one
   //And save all the server responses
+  unsigned int total_input = 0;
   while(!feof(fp)) {
 
 #ifdef SEND_DELAY
@@ -134,12 +138,21 @@ int main(int argc, char* argv[])
 #endif
 
     if (buf) {ck_free(buf); buf = NULL;}
-    if (fread(&size, sizeof(unsigned int), 1, fp) > 0) {
+    unsigned char prefix[4];
+    size_t got = fread(prefix, 1, 4, fp);
+    if (!got && feof(fp)) break;
+    if (got != 4) FATAL("Truncated LE32 replay length");
+    size = 0;
+    for (unsigned j = 0; j < 4; j++) size |= (u32)prefix[j] << (8 * j);
+    if (!size || total_input > MAX_FILE - 4 || size > MAX_FILE - 4 - total_input ||
+        (bacnet_mode && size > 65507)) FATAL("Invalid replay message length");
+    total_input += size + 4;
+    {
       packet_count++;
     	fprintf(stderr,"\nSize of the current packet %d is  %d\n", packet_count, size);
 
       buf = (char *)ck_alloc(size);
-      fread(buf, size, 1, fp);
+      if (fread(buf, 1, size, fp) != size) FATAL("Truncated replay message");
 
       if (net_recv(sockfd, timeout, poll_timeout, &response_buf, &response_buf_size)) break;
       n = net_send(sockfd, timeout, buf,size);
@@ -153,10 +166,13 @@ int main(int argc, char* argv[])
   close(sockfd);
 
   //Extract response codes
-  state_sequence = (*extract_response_codes)(response_buf, response_buf_size, &state_count);
+  state_sequence = NULL; state_count = 0;
+  if (extract_response_codes)
+    state_sequence = (*extract_response_codes)(response_buf, response_buf_size, &state_count);
 
   fprintf(stderr,"\n--------------------------------");
   fprintf(stderr,"\nResponses from server:");
+  if (bacnet_mode) fprintf(stderr," %d wire bytes (protocol replies, not inferred states)", response_buf_size);
 
   for (i = 0; i < state_count; i++) {
     fprintf(stderr,"%d-",state_sequence[i]);

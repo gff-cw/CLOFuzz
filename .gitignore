@@ -31,3 +31,12 @@ afl-llvm-rt.o
 /state-tracer-rt.log
 /tlsh.log
 /tests/llvm18/__pycache__/
+
+# Protocol compiler caches and generated local test artifacts
+/protocol_runtime.o
+/tools/__pycache__/
+/tests/protocol/__pycache__/
+/tests/protocol/out/
+/tests/protocol/evidence/**/out/
+/tests/protocol/evidence/failure-replay/failure_server
+/tests/protocol/evidence/**/.tree*

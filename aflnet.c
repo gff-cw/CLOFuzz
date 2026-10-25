@@ -1567,7 +1567,7 @@ u32 save_kl_messages_to_file(klist_t(lms) *kl_messages, u8 *fname, u8 replay_ena
   u32 len = 0, message_size = 0;
   kliter_t(lms) *it;
 
-  s32 fd = open(fname, O_WRONLY | O_CREAT, 0600);
+  s32 fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
   if (fd < 0) PFATAL("Unable to create file '%s'", fname);
 
   u32 message_count = 0;
@@ -1578,8 +1578,7 @@ u32 save_kl_messages_to_file(klist_t(lms) *kl_messages, u8 *fname, u8 replay_ena
 		  mem = (u8 *)ck_realloc(mem, 4 + len + message_size);
 
       //Save packet size first
-      u32 *psize = (u32*)&mem[len];
-      *psize = message_size;
+      for (unsigned j = 0; j < 4; j++) mem[len + j] = message_size >> (8 * j);
 
       //Save packet content
       memcpy(&mem[len + 4], kl_val(it)->mdata, message_size);
@@ -1644,6 +1643,9 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
   setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
   if (rv > 0) {
     if (pfd[0].revents & POLLOUT) {
+      int kind; socklen_t size = sizeof(kind);
+      if (!getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &kind, &size) && kind == SOCK_DGRAM)
+        return send(sockfd, mem, len, MSG_NOSIGNAL);
       while (byte_count < len) {
         usleep(10);
         n = send(sockfd, &mem[byte_count], len - byte_count, MSG_NOSIGNAL);
@@ -1657,7 +1659,10 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
 }
 
 int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len) {
-  char temp_buf[1000];
+  char temp_buf[65536];
+  int kind = SOCK_STREAM; socklen_t size = sizeof(kind);
+  getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &kind, &size);
+  int flags = kind == SOCK_DGRAM ? MSG_TRUNC : 0;
   int n;
   struct pollfd pfd[1];
   pfd[0].fd = sockfd;
@@ -1668,17 +1673,20 @@ int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf
   // data received
   if (rv > 0) {
     if (pfd[0].revents & POLLIN) {
-      n = recv(sockfd, temp_buf, sizeof(temp_buf), 0);
+      n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
       if ((n < 0) && (errno != EAGAIN)) {
         return 1;
       }
       while (n > 0) {
+        if ((size_t)n > sizeof(temp_buf) ||
+            (kind == SOCK_DGRAM && ((unsigned)n > MAX_FILE || *len > MAX_FILE - (unsigned)n)))
+          return 1;
         usleep(10);
         *response_buf = (unsigned char *)ck_realloc(*response_buf, *len + n + 1);
         memcpy(&(*response_buf)[*len], temp_buf, n);
         (*response_buf)[(*len) + n] = '\0';
         *len = *len + n;
-        n = recv(sockfd, temp_buf, sizeof(temp_buf), 0);
+        n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
         if ((n < 0) && (errno != EAGAIN)) {
           return 1;
         }
