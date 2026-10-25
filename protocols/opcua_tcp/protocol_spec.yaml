@@ -1,0 +1,1511 @@
+format_version: 1
+protocol_id: opcua_tcp
+name: OPC UA TCP
+version: OPC 10000 Parts 4/6 v1.05
+scope: HEL/ACK/ERR/RHE transport and UASC OPN/MSG/CLO header structures, UA Binary/NodeId
+  and lifecycle descriptions. Only SecurityPolicy None is described.
+transport: tcp
+framing: protocol length inside replayable records
+codec: opcua
+support:
+  runtime: false
+  level: static description; runtime encoder unavailable
+  excluded:
+  - signed or encrypted security modes
+  - complete service bodies
+  - session activation
+  - runtime chunk reassembly
+  - CreateSession/ActivateSession request bodies and authentication are not generated
+sources:
+- id: wire
+  url: https://reference.opcfoundation.org/specs/OPC-10000-6
+  basis: implementation
+  sections: 5.2 UA Binary; 6.7 UASC; 7.1 UACP
+- id: official
+  url: https://reference.opcfoundation.org/specs/OPC-10000-6
+  basis: normative
+  sections: Part 6 sections 5.2 UA Binary, 6.7 UASC, 7.1 UACP; SecurityPolicy None
+    scope
+messages:
+- id: hello
+  example: 48454c4620000000000000000000010000000100000000000000000000000000
+  direction: request
+  weight: 2
+  match: hello
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - protocol_version
+    - receive_buffer
+    - send_buffer
+    - max_message_size
+    - max_chunk_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - endpoint
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4998472
+    min: 4998472
+    max: 4998472
+    values:
+    - 4998472
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '000000000000010000000100000000000000000000000000'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId
+      encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN
+      asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks
+      F/C/A.
+    structure_model:
+      id: ua_body
+      kind: sequence
+      children:
+      - id: transport_fields
+        kind: field
+        type: UACP-negotiation
+      - id: sequence_header
+        kind: field
+        type: UInt32-sequence-and-request-id
+        condition: OPN/MSG/CLO
+      - id: service
+        kind: choice
+        children:
+        - id: numeric_nodeid
+          kind: field
+          type: TwoByte-FourByte-Numeric
+        - id: string_nodeid
+          kind: field
+          type: Namespace-String
+        - id: guid_nodeid
+          kind: field
+          type: Namespace-Guid
+        - id: bytes_nodeid
+          kind: field
+          type: Namespace-ByteString
+        condition: OPN/MSG/CLO service encoding ID; body follows
+      encoding: UA-Binary-little-endian
+  - id: protocol_version
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: receive_buffer
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: send_buffer
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_message_size
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_chunk_count
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: endpoint
+    block: CONTENT
+    path: uabin:endpoint
+    locator: uabin:endpoint
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Int32 byte length followed by UTF-8 endpoint URL. -1 means null, zero
+      empty.
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: OPN/MSG/CLO are header fixtures without full service bodies; not valid complete
+    services. SecurityPolicy None only; no signing/encryption.
+- id: ack
+  example: 41434b461c0000000000000000000100000001000000000000000000
+  direction: response
+  weight: 2
+  match: ack
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - protocol_version
+    - receive_buffer
+    - send_buffer
+    - max_message_size
+    - max_chunk_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4932417
+    min: 4932417
+    max: 4932417
+    values:
+    - 4932417
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0000000000000100000001000000000000000000'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId
+      encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN
+      asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks
+      F/C/A.
+    structure_model:
+      id: ua_body
+      kind: sequence
+      children:
+      - id: transport_fields
+        kind: field
+        type: UACP-negotiation
+      - id: sequence_header
+        kind: field
+        type: UInt32-sequence-and-request-id
+        condition: OPN/MSG/CLO
+      - id: service
+        kind: choice
+        children:
+        - id: numeric_nodeid
+          kind: field
+          type: TwoByte-FourByte-Numeric
+        - id: string_nodeid
+          kind: field
+          type: Namespace-String
+        - id: guid_nodeid
+          kind: field
+          type: Namespace-Guid
+        - id: bytes_nodeid
+          kind: field
+          type: Namespace-ByteString
+        condition: OPN/MSG/CLO service encoding ID; body follows
+      encoding: UA-Binary-little-endian
+  - id: protocol_version
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: receive_buffer
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: send_buffer
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_message_size
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_chunk_count
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: OPN/MSG/CLO are header fixtures without full service bodies; not valid complete
+    services. SecurityPolicy None only; no signing/encryption.
+- id: error
+  example: '45525246100000000000008000000000'
+  direction: response
+  weight: 2
+  match: error
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 5395013
+    min: 5395013
+    max: 5395013
+    values:
+    - 5395013
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0000008000000000
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId
+      encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN
+      asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks
+      F/C/A.
+    structure_model:
+      id: ua_body
+      kind: sequence
+      children:
+      - id: transport_fields
+        kind: field
+        type: UACP-negotiation
+      - id: sequence_header
+        kind: field
+        type: UInt32-sequence-and-request-id
+        condition: OPN/MSG/CLO
+      - id: service
+        kind: choice
+        children:
+        - id: numeric_nodeid
+          kind: field
+          type: TwoByte-FourByte-Numeric
+        - id: string_nodeid
+          kind: field
+          type: Namespace-String
+        - id: guid_nodeid
+          kind: field
+          type: Namespace-Guid
+        - id: bytes_nodeid
+          kind: field
+          type: Namespace-ByteString
+        condition: OPN/MSG/CLO service encoding ID; body follows
+      encoding: UA-Binary-little-endian
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: OPN/MSG/CLO are header fixtures without full service bodies; not valid complete
+    services. SecurityPolicy None only; no signing/encryption.
+- id: reverse_hello
+  example: '52484546100000000000000000000000'
+  direction: request
+  weight: 2
+  match: reverse_hello
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4540498
+    min: 4540498
+    max: 4540498
+    values:
+    - 4540498
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0000000000000000'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId
+      encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN
+      asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks
+      F/C/A.
+    structure_model:
+      id: ua_body
+      kind: sequence
+      children:
+      - id: transport_fields
+        kind: field
+        type: UACP-negotiation
+      - id: sequence_header
+        kind: field
+        type: UInt32-sequence-and-request-id
+        condition: OPN/MSG/CLO
+      - id: service
+        kind: choice
+        children:
+        - id: numeric_nodeid
+          kind: field
+          type: TwoByte-FourByte-Numeric
+        - id: string_nodeid
+          kind: field
+          type: Namespace-String
+        - id: guid_nodeid
+          kind: field
+          type: Namespace-Guid
+        - id: bytes_nodeid
+          kind: field
+          type: Namespace-ByteString
+        condition: OPN/MSG/CLO service encoding ID; body follows
+      encoding: UA-Binary-little-endian
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: OPN/MSG/CLO are header fixtures without full service bodies; not valid complete
+    services. SecurityPolicy None only; no signing/encryption.
+- id: open_channel
+  example: 4f504e464f000000000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff0100000001000000
+  direction: request
+  weight: 2
+  match: open_channel
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - sequence
+    - request_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - policy_uri
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 5132367
+    min: 5132367
+    max: 5132367
+    values:
+    - 5132367
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff0100000001000000
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId
+      encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN
+      asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks
+      F/C/A.
+    structure_model:
+      id: ua_body
+      kind: sequence
+      children:
+      - id: transport_fields
+        kind: field
+        type: UASC-security-header
+      - id: sequence_header
+        kind: field
+        type: UInt32-sequence-and-request-id
+        condition: OPN/MSG/CLO
+      - id: service
+        kind: choice
+        children:
+        - id: numeric_nodeid
+          kind: field
+          type: TwoByte-FourByte-Numeric
+        - id: string_nodeid
+          kind: field
+          type: Namespace-String
+        - id: guid_nodeid
+          kind: field
+          type: Namespace-Guid
+        - id: bytes_nodeid
+          kind: field
+          type: Namespace-ByteString
+        condition: OPN/MSG/CLO service encoding ID; body follows
+      encoding: UA-Binary-little-endian
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: policy_uri
+    block: CONTENT
+    path: uabin:policy
+    locator: uabin:policy
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: http://opcfoundation.org/UA/SecurityPolicy#None
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: sequence
+    block: HEAD
+    path: uabin:sequence
+    locator: uabin:sequence
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: request_id
+    block: HEAD
+    path: uabin:request
+    locator: uabin:request
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: OPN/MSG/CLO are header fixtures without full service bodies; not valid complete
+    services. SecurityPolicy None only; no signing/encryption.
+- id: message
+  example: 4d5347461c0000000100000001000000020000000100000001007702
+  direction: request
+  weight: 2
+  match: message
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - token
+    - sequence
+    - request_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4674381
+    min: 4674381
+    max: 4674381
+    values:
+    - 4674381
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0100000001000000020000000100000001007702'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId
+      encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN
+      asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks
+      F/C/A.
+    structure_model:
+      id: ua_body
+      kind: sequence
+      children:
+      - id: transport_fields
+        kind: field
+        type: UASC-security-header
+      - id: sequence_header
+        kind: field
+        type: UInt32-sequence-and-request-id
+        condition: OPN/MSG/CLO
+      - id: service
+        kind: choice
+        children:
+        - id: numeric_nodeid
+          kind: field
+          type: TwoByte-FourByte-Numeric
+        - id: string_nodeid
+          kind: field
+          type: Namespace-String
+        - id: guid_nodeid
+          kind: field
+          type: Namespace-Guid
+        - id: bytes_nodeid
+          kind: field
+          type: Namespace-ByteString
+        condition: OPN/MSG/CLO service encoding ID; body follows
+      encoding: UA-Binary-little-endian
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: token
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: sequence
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_id
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:24
+    locator: abs:24
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01007702'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: Four-byte numeric NodeId encoding 0x01; namespace byte then UInt16
+      identifier; full service body intentionally not generated.
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: OPN/MSG/CLO are header fixtures without full service bodies; not valid complete
+    services. SecurityPolicy None only; no signing/encryption.
+- id: close_channel
+  example: 434c4f461c000000010000000100000003000000020000000100c401
+  direction: request
+  weight: 2
+  match: close_channel
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - token
+    - sequence
+    - request_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 5196867
+    min: 5196867
+    max: 5196867
+    values:
+    - 5196867
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 010000000100000003000000020000000100c401
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId
+      encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN
+      asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks
+      F/C/A.
+    structure_model:
+      id: ua_body
+      kind: sequence
+      children:
+      - id: transport_fields
+        kind: field
+        type: UASC-security-header
+      - id: sequence_header
+        kind: field
+        type: UInt32-sequence-and-request-id
+        condition: OPN/MSG/CLO
+      - id: service
+        kind: choice
+        children:
+        - id: numeric_nodeid
+          kind: field
+          type: TwoByte-FourByte-Numeric
+        - id: string_nodeid
+          kind: field
+          type: Namespace-String
+        - id: guid_nodeid
+          kind: field
+          type: Namespace-Guid
+        - id: bytes_nodeid
+          kind: field
+          type: Namespace-ByteString
+        condition: OPN/MSG/CLO service encoding ID; body follows
+      encoding: UA-Binary-little-endian
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: token
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: sequence
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 3
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_id
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:24
+    locator: abs:24
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01007702'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: Four-byte numeric NodeId encoding 0x01; namespace byte then UInt16
+      identifier; full service body intentionally not generated.
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: OPN/MSG/CLO are header fixtures without full service bodies; not valid complete
+    services. SecurityPolicy None only; no signing/encryption.

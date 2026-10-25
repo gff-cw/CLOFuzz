@@ -1,0 +1,10 @@
+{
+  "protocol": "ethernet_ip_cip_tcp",
+  "messages": 5,
+  "fields": 40,
+  "semantic_states": 3,
+  "validated": true,
+  "runtime": false,
+  "scope": "Encapsulation lifecycle, SendRRData/SendUnitData CPF and CIP path description. No implicit UDP I/O.",
+  "example_validation": "protocol envelope and length consistency; not live service conformance"
+}

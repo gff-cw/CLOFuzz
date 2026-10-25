@@ -1,0 +1,156 @@
+{
+  "format_version": 1,
+  "initial": "connected",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "modbus_tcp",
+  "states": [
+    {
+      "id": "connected",
+      "meaning": "TCP transport; independent transaction contexts"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_coils",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_discrete",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_holding",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_input",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_coil",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_register",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_coils",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_registers",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "exception",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_coils_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_discrete_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "read_input_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_coil_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_register_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_coils_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
+      "from": "connected",
+      "guard": "MBAP transaction context",
+      "message": "write_registers_response",
+      "response": "",
+      "to": "connected"
+    }
+  ]
+}

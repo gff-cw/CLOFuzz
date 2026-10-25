@@ -1,0 +1,1676 @@
+format_version: 1
+protocol_id: iec61850_mms_tcp
+name: IEC 61850 MMS over TCP
+version: IEC 61850-8-1 / ISO 9506 / RFC 1006
+scope: Transport COTP plus declarative ACSE/Initiate/confirmed GetNameList Read Write
+  envelopes; nested BER; full session/presentation association requires an external
+  complete codec.
+transport: tcp
+framing: protocol length inside replayable records
+codec: mms
+support:
+  runtime: false
+  level: static description; runtime encoder unavailable
+  excluded:
+  - complete session/presentation codec
+  - runtime BER service encoding
+  - all abstract IEC61850 services
+  - TLS
+sources:
+- id: wire
+  url: https://github.com/mz-automation/libiec61850/tree/master/src/mms
+  basis: implementation
+  sections: iso_mms ASN.1 definitions, iso_acse and iso_presentation; RFC1006 section
+    6
+- id: official
+  url: https://www.rfc-editor.org/rfc/rfc1006
+  basis: normative
+  sections: RFC 1006 section 6 TPKT; MMS/ACSE semantics from libIEC61850 implementation
+- id: iec_scope
+  url: https://webstore.iec.ch/en/publication/6021
+  basis: inferred
+  sections: IEC 61850-8-1 catalogue; paid normative text not consulted
+messages:
+- id: cotp_cr
+  example: 0300001611e00000000100c0010ac1020001c2020001
+  direction: request
+  weight: 2
+  match: cotp_cr
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - cotp_parameters
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 224
+    min: 224
+    max: 224
+    values:
+    - 224
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_parameters
+    block: CONTENT
+    path: abs:6
+    locator: abs:6
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0000000100c0010ac1020001c2020001
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: COTP connection references, class and variable TLV parameters.
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: length_of
+    target: cotp_li
+    source: $message
+    add: -5
+  notes: ''
+- id: associate
+  example: 0300000e02f0806005a103020100
+  direction: request
+  weight: 2
+  match: associate
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: pdu
+    block: CONTENT
+    path: mms.ber
+    locator: mms.ber
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 6005a103020100
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
+      service bodies are distinct. Full session/presentation wrappers required on
+      real MMS association.
+    structure_model:
+      id: acse
+      kind: tlv
+      children:
+      - id: association_fields
+        kind: field
+        type: ACSE-AARQ
+      tag: 0
+      encoding: BER-application-constructed
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
+    unavailable.
+- id: initiate
+  example: 0300001702f080a80e800100810105820105830108a400
+  direction: request
+  weight: 2
+  match: initiate
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: pdu
+    block: CONTENT
+    path: mms.ber
+    locator: mms.ber
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: a80e800100810105820105830108a400
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
+      service bodies are distinct. Full session/presentation wrappers required on
+      real MMS association.
+    structure_model:
+      id: initiate_request
+      kind: tlv
+      children:
+      - id: local_detail
+        kind: field
+        type: Unsigned32
+        tag: 0
+      - id: outstanding_calling
+        kind: field
+        type: Unsigned16
+        tag: 1
+      - id: outstanding_called
+        kind: field
+        type: Unsigned16
+        tag: 2
+      - id: nesting
+        kind: field
+        type: Unsigned8
+        tag: 3
+      - id: detail
+        kind: tlv
+        children:
+        - id: version
+          kind: field
+          type: Integer
+          tag: 0
+        - id: parameter_cbb
+          kind: field
+          type: BIT STRING
+          tag: 1
+        - id: services_supported
+          kind: field
+          type: BIT STRING
+          tag: 2
+        tag: 4
+      tag: 8
+      encoding: BER-context-constructed
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
+    unavailable.
+- id: get_name_list
+  example: 0300001102f080a008020101a103800109
+  direction: request
+  weight: 2
+  match: get_name_list
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    - invoke_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: pdu
+    block: CONTENT
+    path: mms.ber
+    locator: mms.ber
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: a008020101a103800109
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
+      service bodies are distinct. Full session/presentation wrappers required on
+      real MMS association.
+    structure_model:
+      id: confirmed_request
+      kind: tlv
+      children:
+      - id: invoke_id
+        kind: field
+        type: BER-Unsigned32
+        tag: 2
+      - id: service
+        kind: tlv
+        children:
+        - id: object_class
+          kind: field
+          type: context-object-class
+          tag: 0
+        - id: object_scope
+          kind: field
+          type: context-scope-choice
+          tag: 1
+        - id: continue_after
+          kind: field
+          type: identifier
+          tag: 2
+          condition: optional
+        tag: 1
+      tag: 0
+      encoding: BER-context-constructed
+  - id: invoke_id
+    block: HEAD
+    path: ber:confirmed.invoke
+    locator: ber:confirmed.invoke
+    type: uint32
+    width: 4
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: BER INTEGER payload location is determined by TLV tree, never absolute
+      byte offset.
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
+    unavailable.
+- id: read
+  example: 0300001202f080a009020101a404a0028000
+  direction: request
+  weight: 2
+  match: read
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    - invoke_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: pdu
+    block: CONTENT
+    path: mms.ber
+    locator: mms.ber
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: a009020101a404a0028000
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
+      service bodies are distinct. Full session/presentation wrappers required on
+      real MMS association.
+    structure_model:
+      id: confirmed_request
+      kind: tlv
+      children:
+      - id: invoke_id
+        kind: field
+        type: BER-Unsigned32
+        tag: 2
+      - id: service
+        kind: tlv
+        children:
+        - id: specification_with_result
+          kind: field
+          type: boolean
+          tag: 0
+          condition: optional
+        - id: variable_access
+          kind: field
+          type: VariableAccessSpecification
+          tag: 1
+        tag: 4
+      tag: 0
+      encoding: BER-context-constructed
+  - id: invoke_id
+    block: HEAD
+    path: ber:confirmed.invoke
+    locator: ber:confirmed.invoke
+    type: uint32
+    width: 4
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: BER INTEGER payload location is determined by TLV tree, never absolute
+      byte offset.
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
+    unavailable.
+- id: write
+  example: 0300001402f080a00b020101a506a0028000a000
+  direction: request
+  weight: 2
+  match: write
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    - invoke_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: pdu
+    block: CONTENT
+    path: mms.ber
+    locator: mms.ber
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: a00b020101a506a0028000a000
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
+      service bodies are distinct. Full session/presentation wrappers required on
+      real MMS association.
+    structure_model:
+      id: confirmed_request
+      kind: tlv
+      children:
+      - id: invoke_id
+        kind: field
+        type: BER-Unsigned32
+        tag: 2
+      - id: service
+        kind: tlv
+        children:
+        - id: variable_access
+          kind: field
+          type: VariableAccessSpecification
+          tag: 0
+        - id: list_of_data
+          kind: repeat
+          children:
+          - id: data
+            kind: field
+            type: MMS-Data-choice
+          min: 1
+          max: 64
+        tag: 5
+      tag: 0
+      encoding: BER-context-constructed
+  - id: invoke_id
+    block: HEAD
+    path: ber:confirmed.invoke
+    locator: ber:confirmed.invoke
+    type: uint32
+    width: 4
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: BER INTEGER payload location is determined by TLV tree, never absolute
+      byte offset.
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
+    unavailable.
+- id: release
+  example: 0300000c02f0806203800100
+  direction: request
+  weight: 2
+  match: release
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: pdu
+    block: CONTENT
+    path: mms.ber
+    locator: mms.ber
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '6203800100'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
+      service bodies are distinct. Full session/presentation wrappers required on
+      real MMS association.
+    structure_model:
+      id: acse
+      kind: tlv
+      children:
+      - id: association_fields
+        kind: field
+        type: ACSE-RLRQ
+      tag: 2
+      encoding: BER-application-constructed
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
+    unavailable.
+- id: confirmed_response
+  example: 0300001202f080a109020101a404a0028000
+  direction: response
+  weight: 2
+  match: read
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    - invoke_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: pdu
+    block: CONTENT
+    path: mms.ber
+    locator: mms.ber
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: a009020101a404a0028000
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
+      service bodies are distinct. Full session/presentation wrappers required on
+      real MMS association.
+    structure_model:
+      id: confirmed_request
+      kind: tlv
+      children:
+      - id: invoke_id
+        kind: field
+        type: BER-Unsigned32
+        tag: 2
+      - id: service
+        kind: tlv
+        children:
+        - id: specification_with_result
+          kind: field
+          type: boolean
+          tag: 0
+          condition: optional
+        - id: variable_access
+          kind: field
+          type: VariableAccessSpecification
+          tag: 1
+        tag: 4
+      tag: 0
+      encoding: BER-context-constructed
+  - id: invoke_id
+    block: HEAD
+    path: ber:confirmed.invoke
+    locator: ber:confirmed.invoke
+    type: uint32
+    width: 4
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: BER INTEGER payload location is determined by TLV tree, never absolute
+      byte offset.
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  - op: correlate_request_response
+    target: invoke_id
+    source: invoke_id
+    message: read
+    scope: transaction
+  notes: Structural ConfirmedResponse envelope with matching invoke field; service-specific
+    result payload still needs a complete BER codec.

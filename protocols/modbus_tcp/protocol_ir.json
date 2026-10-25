@@ -1,0 +1,3837 @@
+{
+  "codec": "modbus",
+  "format_version": 1,
+  "framing": "protocol length inside replayable records",
+  "ir_version": 1,
+  "messages": [
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "quantity"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000006010100000001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 2000,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "id": "read_coils",
+      "match": "read_coils",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "quantity"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000006010200000001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 2000,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "id": "read_discrete",
+      "match": "read_discrete",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "quantity"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000006010300000001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 3,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 125,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "id": "read_holding",
+      "match": "read_holding",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "quantity"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000006010400000001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 4,
+          "min": 4,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            4
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 125,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "id": "read_input",
+      "match": "read_input",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "value"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000006010500000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 5,
+          "min": 5,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            5
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "value",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0,
+            65280
+          ],
+          "width": 2
+        }
+      ],
+      "id": "write_coil",
+      "match": "write_coil",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "value"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000006010600000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 6,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 6,
+          "min": 6,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            6
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "value",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0,
+            1,
+            65535
+          ],
+          "width": 2
+        }
+      ],
+      "id": "write_register",
+      "match": "write_register",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function",
+            "quantity",
+            "byte_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "data",
+          "target": "byte_count"
+        },
+        {
+          "multiply": 8,
+          "op": "count_of",
+          "source": "data",
+          "target": "quantity",
+          "unit": 1
+        },
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000008010f000000080101",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 15,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 15,
+          "min": 15,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            15
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 8,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 1968,
+          "min": 1,
+          "mutability": "derived",
+          "path": "abs:10",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "byte_count",
+          "locator": "abs:12",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:12",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "01",
+          "endian": "big",
+          "evidence": "official",
+          "id": "data",
+          "locator": "abs:13",
+          "max": 246,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:13",
+          "repeat": {
+            "count": "quantity",
+            "element_width": 1,
+            "max": 246,
+            "min": 1
+          },
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Packed coils (8 per byte) or big-endian 16-bit registers according to function.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "value",
+                "kind": "field",
+                "type": "packed-8-coils"
+              }
+            ],
+            "encoding": "ceil(quantity/8)-bytes",
+            "id": "values",
+            "kind": "repeat",
+            "max": 246,
+            "min": 1
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "write_coils",
+      "match": "write_coils",
+      "notes": " FC0F count_of uses full-byte coil groups; non-multiple-of-eight quantities need explicit padding semantics and are outside this fixture generator.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function",
+            "quantity",
+            "byte_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "data",
+          "target": "byte_count"
+        },
+        {
+          "op": "count_of",
+          "source": "data",
+          "target": "quantity",
+          "unit": 2
+        },
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "000100000009011000000001020001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 16,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 16,
+          "min": 16,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            16
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 123,
+          "min": 1,
+          "mutability": "derived",
+          "path": "abs:10",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "byte_count",
+          "locator": "abs:12",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:12",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0001",
+          "endian": "big",
+          "evidence": "official",
+          "id": "data",
+          "locator": "abs:13",
+          "max": 246,
+          "min": 2,
+          "mutability": "fuzzable",
+          "path": "abs:13",
+          "repeat": {
+            "count": "quantity",
+            "element_width": 2,
+            "max": 123,
+            "min": 1
+          },
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Packed coils (8 per byte) or big-endian 16-bit registers according to function.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "value",
+                "kind": "field",
+                "type": "uint16-big"
+              }
+            ],
+            "encoding": "quantity*2-bytes",
+            "id": "values",
+            "kind": "repeat",
+            "max": 123,
+            "min": 1
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "write_registers",
+      "match": "write_registers",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function",
+            "byte_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "data",
+          "target": "byte_count"
+        },
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "read_holding",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        }
+      ],
+      "direction": "response",
+      "example": "0001000000050103020001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 3,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "byte_count",
+          "locator": "abs:8",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:8",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0001",
+          "endian": "big",
+          "evidence": "official",
+          "id": "data",
+          "locator": "abs:9",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:9",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "read_response",
+      "match": "read_response",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function",
+            "exception"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "read_holding",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        }
+      ],
+      "direction": "response",
+      "example": "000100000003018302",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 131,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:7",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            129,
+            130,
+            131,
+            132,
+            133,
+            134,
+            143,
+            144
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "big",
+          "evidence": "official",
+          "id": "exception",
+          "locator": "abs:8",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            8,
+            10,
+            11
+          ],
+          "width": 1
+        }
+      ],
+      "id": "exception",
+      "match": "exception",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function",
+            "byte_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "length_of",
+          "source": "data",
+          "target": "byte_count"
+        },
+        {
+          "message": "read_coils",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        }
+      ],
+      "direction": "response",
+      "example": "00010000000401010101",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "byte_count",
+          "locator": "abs:8",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:8",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "data",
+          "locator": "abs:9",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:9",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "read_coils_response",
+      "match": "read_coils_response",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function",
+            "byte_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "length_of",
+          "source": "data",
+          "target": "byte_count"
+        },
+        {
+          "message": "read_discrete",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        }
+      ],
+      "direction": "response",
+      "example": "00010000000401020101",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "byte_count",
+          "locator": "abs:8",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:8",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "data",
+          "locator": "abs:9",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:9",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "read_discrete_response",
+      "match": "read_discrete_response",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function",
+            "byte_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "length_of",
+          "source": "data",
+          "target": "byte_count"
+        },
+        {
+          "message": "read_input",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        }
+      ],
+      "direction": "response",
+      "example": "0001000000050104020001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 4,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 4,
+          "min": 4,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            4
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "byte_count",
+          "locator": "abs:8",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:8",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0001",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "data",
+          "locator": "abs:9",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:9",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "read_input_response",
+      "match": "read_input_response",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "value"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "write_coil",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        },
+        {
+          "message": "write_coil",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "value",
+          "target": "value"
+        }
+      ],
+      "direction": "response",
+      "example": "000100000006010500000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 5,
+          "min": 5,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            5
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "value",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0,
+            65280
+          ],
+          "width": 2
+        }
+      ],
+      "id": "write_coil_response",
+      "match": "write_coil_response",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "value"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "write_register",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        },
+        {
+          "message": "write_register",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "value",
+          "target": "value"
+        }
+      ],
+      "direction": "response",
+      "example": "000100000006010600000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 6,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 6,
+          "min": 6,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            6
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "value",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0,
+            1,
+            65535
+          ],
+          "width": 2
+        }
+      ],
+      "id": "write_register_response",
+      "match": "write_register_response",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "quantity"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "write_coils",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        },
+        {
+          "message": "write_coils",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "quantity",
+          "target": "quantity"
+        }
+      ],
+      "direction": "response",
+      "example": "000100000006010f00000008",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 15,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 15,
+          "min": 15,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            15
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 8,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 1968,
+          "min": 1,
+          "mutability": "runtime_bound",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "id": "write_coils_response",
+      "match": "write_coils_response",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "transaction",
+            "protocol",
+            "length",
+            "unit",
+            "function"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "address",
+            "quantity"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -6,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "write_registers",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "transaction",
+          "target": "transaction"
+        },
+        {
+          "message": "write_registers",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "quantity",
+          "target": "quantity"
+        }
+      ],
+      "direction": "response",
+      "example": "000100000006011000000001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "transaction",
+          "locator": "abs:0",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:0",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "protocol",
+          "locator": "abs:2",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "length",
+          "locator": "abs:4",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "unit",
+          "locator": "abs:6",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 16,
+          "endian": "big",
+          "evidence": "official",
+          "id": "function",
+          "locator": "abs:7",
+          "max": 16,
+          "min": 16,
+          "mutability": "fixed",
+          "path": "abs:7",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            16
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "big",
+          "evidence": "official",
+          "id": "address",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "big",
+          "evidence": "official",
+          "id": "quantity",
+          "locator": "abs:10",
+          "max": 123,
+          "min": 1,
+          "mutability": "runtime_bound",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "id": "write_registers_response",
+      "match": "write_registers_response",
+      "notes": "",
+      "weight": 2
+    }
+  ],
+  "name": "Modbus TCP",
+  "protocol_id": "modbus_tcp",
+  "scope": "Functions 01-06, 0F, 10, their field layouts, read-register response and exception response; no serial RTU CRC.",
+  "sources": [
+    {
+      "basis": "implementation",
+      "id": "wire",
+      "sections": "libmodbus src/modbus.c and modbus-tcp.c; Modbus Application Protocol 1.1b3 sections 4,6",
+      "url": "https://github.com/stephane/libmodbus/blob/master/src/modbus.c"
+    },
+    {
+      "basis": "normative",
+      "id": "official",
+      "sections": "Application Protocol V1.1b3 sections 4 and 6; current PDF linked by official specifications index",
+      "url": "https://www.modbus.org/file/secure/modbusprotocolspecification.pdf"
+    }
+  ],
+  "support": {
+    "excluded": [
+      "serial RTU",
+      "file-record and diagnostic function families"
+    ],
+    "level": "static description; runtime encoder unavailable",
+    "runtime": false
+  },
+  "transport": "tcp",
+  "version": "Application Protocol 1.1b3; MBAP"
+}

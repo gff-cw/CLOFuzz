@@ -1,0 +1,10 @@
+{
+  "protocol": "bacnet_ip",
+  "messages": 3,
+  "fields": 29,
+  "semantic_states": 2,
+  "validated": true,
+  "runtime": true,
+  "scope": "BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is with optional limits and ReadProperty with optional array index; application/context tag walking and invoke correlation.",
+  "example_validation": "protocol envelope and length consistency; not live service conformance"
+}

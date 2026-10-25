@@ -1,0 +1,115 @@
+format_version: 1
+protocol_id: modbus_tcp
+initial: connected
+states:
+- id: connected
+  meaning: TCP transport; independent transaction contexts
+transitions:
+- from: connected
+  to: connected
+  message: read_coils
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: read_discrete
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: read_holding
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: read_input
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_coil
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_register
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_coils
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_registers
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: read_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: exception
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: read_coils_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: read_discrete_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: read_input_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_coil_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_register_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_coils_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+- from: connected
+  to: connected
+  message: write_registers_response
+  response: ''
+  guard: MBAP transaction context
+  actions: []
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

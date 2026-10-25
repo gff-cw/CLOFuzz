@@ -1,0 +1,148 @@
+sources:
+- id: wire
+  url: https://github.com/bacnet-stack/bacnet-stack/tree/bacnet-stack-1.5.0
+  basis: implementation
+  sections: src/bacnet/{npdu,bacdcode,rp}.c; datalink/bvlc.c; apps/server/main.c
+- id: official
+  url: https://www.ashrae.org/technical-resources/standards-and-guidelines/titles-purposes-and-scopes
+  basis: implementation
+  sections: ASHRAE 135 catalogue identity only; wire semantics verified against local
+    BACnet Stack 1.5.0
+scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is
+  with optional limits and ReadProperty with optional array index; application/context
+  tag walking and invoke correlation.
+confidence: Each field names its source and confidence; catalogue identity does not
+  establish normative wire details.
+accessed: '2026-10-25'
+field_sources:
+- message: who_is
+  field: bvlc_type
+  source: wire
+  confidence: implementation
+- message: who_is
+  field: bvlc_function
+  source: wire
+  confidence: implementation
+- message: who_is
+  field: bvlc_length
+  source: wire
+  confidence: implementation
+- message: who_is
+  field: npdu_version
+  source: wire
+  confidence: implementation
+- message: who_is
+  field: npdu_control
+  source: wire
+  confidence: implementation
+- message: who_is
+  field: apdu_type
+  source: wire
+  confidence: implementation
+- message: who_is
+  field: service
+  source: wire
+  confidence: implementation
+- message: who_is
+  field: limits
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: bvlc_type
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: bvlc_function
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: bvlc_length
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: npdu_version
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: npdu_control
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: apdu_type
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: max_apdu
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: invoke_id
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: service
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: object_id
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: property_id
+  source: wire
+  confidence: implementation
+- message: read_property
+  field: array_index
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: bvlc_type
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: bvlc_function
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: bvlc_length
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: npdu_version
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: npdu_control
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: apdu_type
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: invoke_id
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: service
+  source: wire
+  confidence: implementation
+- message: read_property_ack
+  field: value
+  source: wire
+  confidence: implementation
+availability: Public OPC Foundation, RFC1006, Modbus current official PDF and open-source
+  implementations were consulted. Full ASHRAE, IEC and ODVA subscription texts were
+  not accessed.
+distinctions: semantic state IDs are unrelated to StateAFL memory-derived IDs
+validation:
+  protocol: bacnet_ip
+  messages: 3
+  fields: 29
+  semantic_states: 2
+  validated: true
+  runtime: true
+  scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is
+    with optional limits and ReadProperty with optional array index; application/context
+    tag walking and invoke correlation.
+  example_validation: protocol envelope and length consistency; not live service conformance

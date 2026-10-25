@@ -1,0 +1,98 @@
+{
+  "format_version": 1,
+  "initial": "tcp",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "opcua_tcp",
+  "states": [
+    {
+      "id": "tcp",
+      "meaning": "TCP connected"
+    },
+    {
+      "id": "hello_sent",
+      "meaning": "HEL sent"
+    },
+    {
+      "id": "acknowledged",
+      "meaning": "ACK received"
+    },
+    {
+      "id": "channel",
+      "meaning": "Successful OpenSecureChannel response received"
+    },
+    {
+      "id": "closed",
+      "meaning": "CLO sent"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [],
+      "from": "tcp",
+      "guard": "",
+      "message": "hello",
+      "response": "",
+      "to": "hello_sent"
+    },
+    {
+      "actions": [],
+      "from": "hello_sent",
+      "guard": "negotiated buffers",
+      "message": "ack",
+      "response": "",
+      "to": "acknowledged"
+    },
+    {
+      "actions": [
+        "cache channel/token"
+      ],
+      "from": "acknowledged",
+      "guard": "successful OPN response",
+      "message": "open_channel",
+      "response": "",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "increment sequence and correlate request ID"
+      ],
+      "from": "channel",
+      "guard": "UA session activation required for session services",
+      "message": "message",
+      "response": "",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "clear channel/token"
+      ],
+      "from": "channel",
+      "guard": "",
+      "message": "close_channel",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "tcp",
+      "guard": "reverse-connect role only",
+      "message": "reverse_hello",
+      "response": "",
+      "to": "tcp"
+    },
+    {
+      "actions": [],
+      "from": "tcp",
+      "guard": "transport error",
+      "message": "error",
+      "response": "",
+      "to": "tcp"
+    }
+  ]
+}

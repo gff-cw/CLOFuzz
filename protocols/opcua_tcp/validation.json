@@ -1,0 +1,10 @@
+{
+  "protocol": "opcua_tcp",
+  "messages": 7,
+  "fields": 53,
+  "semantic_states": 5,
+  "validated": true,
+  "runtime": false,
+  "scope": "HEL/ACK/ERR/RHE transport and UASC OPN/MSG/CLO header structures, UA Binary/NodeId and lifecycle descriptions. Only SecurityPolicy None is described.",
+  "example_validation": "protocol envelope and length consistency; not live service conformance"
+}

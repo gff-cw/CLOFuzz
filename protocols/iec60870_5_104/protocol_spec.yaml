@@ -1,0 +1,918 @@
+format_version: 1
+protocol_id: iec60870_5_104
+name: IEC 60870-5-104
+version: IEC 60870-5-104; lib60870 profile
+scope: I/S/U APCI; STARTDT, STOPDT, TESTFR and single-object C_IC_NA_1 ASDU; 2-byte
+  COT/CA and 3-byte IOA.
+transport: tcp
+framing: protocol length inside replayable records
+codec: iec104
+support:
+  runtime: false
+  level: static description; runtime encoder unavailable
+  excluded:
+  - other ASDU payload types
+  - TLS
+  - multi-object runtime generation
+sources:
+- id: wire
+  url: https://github.com/mz-automation/lib60870/blob/master/lib60870-C/src/iec60870/cs104/cs104_connection.c
+  basis: implementation
+  sections: APCI U controls, defaultAppLayerParameters, sequence update and acknowledgment
+    handlers
+- id: official
+  url: https://webstore.iec.ch/en/publication/25035
+  basis: implementation
+  sections: IEC 60870-5-104:2006+AMD1:2016 catalogue; full paid text not consulted
+messages:
+- id: start_act
+  example: '680407000000'
+  direction: request
+  weight: 2
+  match: start_act
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - control
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: control
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 7
+    min: 7
+    max: 7
+    values:
+    - 7
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  notes: ''
+- id: start_con
+  example: 68040b000000
+  direction: response
+  weight: 2
+  match: start_con
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - control
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: control
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 11
+    min: 11
+    max: 11
+    values:
+    - 11
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  notes: ''
+- id: stop_act
+  example: '680413000000'
+  direction: request
+  weight: 2
+  match: stop_act
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - control
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: control
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 19
+    min: 19
+    max: 19
+    values:
+    - 19
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  notes: ''
+- id: stop_con
+  example: '680423000000'
+  direction: response
+  weight: 2
+  match: stop_con
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - control
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: control
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 35
+    min: 35
+    max: 35
+    values:
+    - 35
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  notes: ''
+- id: test_act
+  example: '680443000000'
+  direction: request
+  weight: 2
+  match: test_act
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - control
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: control
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 67
+    min: 67
+    max: 67
+    values:
+    - 67
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  notes: ''
+- id: test_con
+  example: '680483000000'
+  direction: response
+  weight: 2
+  match: test_con
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - control
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: control
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 131
+    min: 131
+    max: 131
+    values:
+    - 131
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  notes: ''
+- id: s_ack
+  example: '680401000000'
+  direction: request
+  weight: 2
+  match: s_ack
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - format
+    - receive_seq
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: format
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: receive_seq
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: 15-bit sequence number shifted left one; acknowledge next expected
+      I frame.
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  notes: ''
+- id: interrogation
+  example: 680e0000000064010600010000000014
+  direction: request
+  weight: 2
+  match: interrogation
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - send_seq
+    - receive_seq
+    - type_id
+    - vsq
+    - cot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - common_address
+    - ioa
+    - qoi
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: send_seq
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 = logical sequence number 0..32767 shifted left one; low
+      bit zero. Increment logical N(S) modulo 32768 only on I frames. N(R) acknowledges
+      next expected peer I frame.
+  - id: receive_seq
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 = logical sequence number 0..32767 shifted left one; low
+      bit zero. Increment logical N(S) modulo 32768 only on I frames. N(R) acknowledges
+      next expected peer I frame.
+  - id: type_id
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 100
+    min: 100
+    max: 100
+    values:
+    - 100
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: vsq
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: C_IC_NA_1 contains exactly one information object; SQ=0 in this profile.
+  - id: cot
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 6
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: common_address
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: ioa
+    block: CONTENT
+    path: abs:12
+    locator: abs:12
+    type: uint24
+    width: 3
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: qoi
+    block: CONTENT
+    path: abs:15
+    locator: abs:15
+    type: uint8
+    width: 1
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 20
+    min: 0
+    max: 255
+    values:
+    - 20
+    - 21
+    - 36
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: information_object
+      kind: sequence
+      children:
+      - id: ioa
+        kind: field
+        type: uint24-little
+        min: 0
+        max: 0
+      - id: qoi
+        kind: field
+        type: uint8
+        min: 20
+        max: 36
+      encoding: single-C_IC_NA_1
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  - op: sequence_number
+    target: send_seq
+    source: $message
+    unit: 2
+    scope: connection
+  notes: 'ASDU C_IC_NA_1: count exactly one, IOA zero; sequence increments modulo
+    32768 before shift.'

@@ -1,0 +1,10 @@
+{
+  "protocol": "iec61850_mms_tcp",
+  "messages": 8,
+  "fields": 59,
+  "semantic_states": 5,
+  "validated": true,
+  "runtime": false,
+  "scope": "Transport COTP plus declarative ACSE/Initiate/confirmed GetNameList Read Write envelopes; nested BER; full session/presentation association requires an external complete codec.",
+  "example_validation": "protocol envelope and length consistency; not live service conformance"
+}

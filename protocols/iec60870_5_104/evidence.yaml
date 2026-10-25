@@ -1,0 +1,158 @@
+sources:
+- id: wire
+  url: https://github.com/mz-automation/lib60870/blob/master/lib60870-C/src/iec60870/cs104/cs104_connection.c
+  basis: implementation
+  sections: APCI U controls, defaultAppLayerParameters, sequence update and acknowledgment
+    handlers
+- id: official
+  url: https://webstore.iec.ch/en/publication/25035
+  basis: implementation
+  sections: IEC 60870-5-104:2006+AMD1:2016 catalogue; full paid text not consulted
+scope: I/S/U APCI; STARTDT, STOPDT, TESTFR and single-object C_IC_NA_1 ASDU; 2-byte
+  COT/CA and 3-byte IOA.
+confidence: Each field names its source and confidence; catalogue identity does not
+  establish normative wire details.
+accessed: '2026-10-25'
+field_sources:
+- message: start_act
+  field: start
+  source: wire
+  confidence: implementation
+- message: start_act
+  field: length
+  source: wire
+  confidence: implementation
+- message: start_act
+  field: control
+  source: wire
+  confidence: implementation
+- message: start_con
+  field: start
+  source: wire
+  confidence: implementation
+- message: start_con
+  field: length
+  source: wire
+  confidence: implementation
+- message: start_con
+  field: control
+  source: wire
+  confidence: implementation
+- message: stop_act
+  field: start
+  source: wire
+  confidence: implementation
+- message: stop_act
+  field: length
+  source: wire
+  confidence: implementation
+- message: stop_act
+  field: control
+  source: wire
+  confidence: implementation
+- message: stop_con
+  field: start
+  source: wire
+  confidence: implementation
+- message: stop_con
+  field: length
+  source: wire
+  confidence: implementation
+- message: stop_con
+  field: control
+  source: wire
+  confidence: implementation
+- message: test_act
+  field: start
+  source: wire
+  confidence: implementation
+- message: test_act
+  field: length
+  source: wire
+  confidence: implementation
+- message: test_act
+  field: control
+  source: wire
+  confidence: implementation
+- message: test_con
+  field: start
+  source: wire
+  confidence: implementation
+- message: test_con
+  field: length
+  source: wire
+  confidence: implementation
+- message: test_con
+  field: control
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: start
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: length
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: format
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: receive_seq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: start
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: length
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: send_seq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: receive_seq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: type_id
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: vsq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: cot
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: common_address
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: ioa
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: qoi
+  source: wire
+  confidence: implementation
+availability: Public OPC Foundation, RFC1006, Modbus current official PDF and open-source
+  implementations were consulted. Full ASHRAE, IEC and ODVA subscription texts were
+  not accessed.
+distinctions: semantic state IDs are unrelated to StateAFL memory-derived IDs
+validation:
+  protocol: iec60870_5_104
+  messages: 8
+  fields: 32
+  semantic_states: 4
+  validated: true
+  runtime: false
+  scope: I/S/U APCI; STARTDT, STOPDT, TESTFR and single-object C_IC_NA_1 ASDU; 2-byte
+    COT/CA and 3-byte IOA.
+  example_validation: protocol envelope and length consistency; not live service conformance

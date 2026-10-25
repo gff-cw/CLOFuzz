@@ -1,0 +1,66 @@
+format_version: 1
+protocol_id: opcua_tcp
+initial: tcp
+states:
+- id: tcp
+  meaning: TCP connected
+- id: hello_sent
+  meaning: HEL sent
+- id: acknowledged
+  meaning: ACK received
+- id: channel
+  meaning: Successful OpenSecureChannel response received
+- id: closed
+  meaning: CLO sent
+transitions:
+- from: tcp
+  to: hello_sent
+  message: hello
+  response: ''
+  guard: ''
+  actions: []
+- from: hello_sent
+  to: acknowledged
+  message: ack
+  response: ''
+  guard: negotiated buffers
+  actions: []
+- from: acknowledged
+  to: channel
+  message: open_channel
+  response: ''
+  guard: successful OPN response
+  actions:
+  - cache channel/token
+- from: channel
+  to: channel
+  message: message
+  response: ''
+  guard: UA session activation required for session services
+  actions:
+  - increment sequence and correlate request ID
+- from: channel
+  to: closed
+  message: close_channel
+  response: ''
+  guard: ''
+  actions:
+  - clear channel/token
+- from: tcp
+  to: tcp
+  message: reverse_hello
+  response: ''
+  guard: reverse-connect role only
+  actions: []
+- from: tcp
+  to: tcp
+  message: error
+  response: ''
+  guard: transport error
+  actions: []
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

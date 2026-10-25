@@ -1,0 +1,1886 @@
+{
+  "codec": "opcua",
+  "format_version": 1,
+  "framing": "protocol length inside replayable records",
+  "ir_version": 1,
+  "messages": [
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "protocol_version",
+            "receive_buffer",
+            "send_buffer",
+            "max_message_size",
+            "max_chunk_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "endpoint"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "request",
+      "example": "48454c4620000000000000000000010000000100000000000000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4998472,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4998472,
+          "min": 4998472,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4998472
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "000000000000010000000100000000000000000000000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks F/C/A.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "transport_fields",
+                "kind": "field",
+                "type": "UACP-negotiation"
+              },
+              {
+                "condition": "OPN/MSG/CLO",
+                "id": "sequence_header",
+                "kind": "field",
+                "type": "UInt32-sequence-and-request-id"
+              },
+              {
+                "children": [
+                  {
+                    "id": "numeric_nodeid",
+                    "kind": "field",
+                    "type": "TwoByte-FourByte-Numeric"
+                  },
+                  {
+                    "id": "string_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-String"
+                  },
+                  {
+                    "id": "guid_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-Guid"
+                  },
+                  {
+                    "id": "bytes_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-ByteString"
+                  }
+                ],
+                "condition": "OPN/MSG/CLO service encoding ID; body follows",
+                "id": "service",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian",
+            "id": "ua_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "protocol_version",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "receive_buffer",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "send_buffer",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "max_message_size",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "max_chunk_count",
+          "locator": "abs:24",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "endpoint",
+          "locator": "uabin:endpoint",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:endpoint",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Int32 byte length followed by UTF-8 endpoint URL. -1 means null, zero empty.",
+          "type": "string",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "hello",
+      "match": "hello",
+      "notes": "OPN/MSG/CLO are header fixtures without full service bodies; not valid complete services. SecurityPolicy None only; no signing/encryption.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "protocol_version",
+            "receive_buffer",
+            "send_buffer",
+            "max_message_size",
+            "max_chunk_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "response",
+      "example": "41434b461c0000000000000000000100000001000000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4932417,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4932417,
+          "min": 4932417,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4932417
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0000000000000100000001000000000000000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks F/C/A.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "transport_fields",
+                "kind": "field",
+                "type": "UACP-negotiation"
+              },
+              {
+                "condition": "OPN/MSG/CLO",
+                "id": "sequence_header",
+                "kind": "field",
+                "type": "UInt32-sequence-and-request-id"
+              },
+              {
+                "children": [
+                  {
+                    "id": "numeric_nodeid",
+                    "kind": "field",
+                    "type": "TwoByte-FourByte-Numeric"
+                  },
+                  {
+                    "id": "string_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-String"
+                  },
+                  {
+                    "id": "guid_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-Guid"
+                  },
+                  {
+                    "id": "bytes_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-ByteString"
+                  }
+                ],
+                "condition": "OPN/MSG/CLO service encoding ID; body follows",
+                "id": "service",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian",
+            "id": "ua_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "protocol_version",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "receive_buffer",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "send_buffer",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "max_message_size",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "max_chunk_count",
+          "locator": "abs:24",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "id": "ack",
+      "match": "ack",
+      "notes": "OPN/MSG/CLO are header fixtures without full service bodies; not valid complete services. SecurityPolicy None only; no signing/encryption.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "response",
+      "example": "45525246100000000000008000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5395013,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 5395013,
+          "min": 5395013,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            5395013
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0000008000000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks F/C/A.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "transport_fields",
+                "kind": "field",
+                "type": "UACP-negotiation"
+              },
+              {
+                "condition": "OPN/MSG/CLO",
+                "id": "sequence_header",
+                "kind": "field",
+                "type": "UInt32-sequence-and-request-id"
+              },
+              {
+                "children": [
+                  {
+                    "id": "numeric_nodeid",
+                    "kind": "field",
+                    "type": "TwoByte-FourByte-Numeric"
+                  },
+                  {
+                    "id": "string_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-String"
+                  },
+                  {
+                    "id": "guid_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-Guid"
+                  },
+                  {
+                    "id": "bytes_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-ByteString"
+                  }
+                ],
+                "condition": "OPN/MSG/CLO service encoding ID; body follows",
+                "id": "service",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian",
+            "id": "ua_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "error",
+      "match": "error",
+      "notes": "OPN/MSG/CLO are header fixtures without full service bodies; not valid complete services. SecurityPolicy None only; no signing/encryption.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "request",
+      "example": "52484546100000000000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4540498,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4540498,
+          "min": 4540498,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4540498
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0000000000000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks F/C/A.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "transport_fields",
+                "kind": "field",
+                "type": "UACP-negotiation"
+              },
+              {
+                "condition": "OPN/MSG/CLO",
+                "id": "sequence_header",
+                "kind": "field",
+                "type": "UInt32-sequence-and-request-id"
+              },
+              {
+                "children": [
+                  {
+                    "id": "numeric_nodeid",
+                    "kind": "field",
+                    "type": "TwoByte-FourByte-Numeric"
+                  },
+                  {
+                    "id": "string_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-String"
+                  },
+                  {
+                    "id": "guid_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-Guid"
+                  },
+                  {
+                    "id": "bytes_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-ByteString"
+                  }
+                ],
+                "condition": "OPN/MSG/CLO service encoding ID; body follows",
+                "id": "service",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian",
+            "id": "ua_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "reverse_hello",
+      "match": "reverse_hello",
+      "notes": "OPN/MSG/CLO are header fixtures without full service bodies; not valid complete services. SecurityPolicy None only; no signing/encryption.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "sequence",
+            "request_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "policy_uri"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "request",
+      "example": "4f504e464f000000000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff0100000001000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5132367,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 5132367,
+          "min": 5132367,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            5132367
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff0100000001000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks F/C/A.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "transport_fields",
+                "kind": "field",
+                "type": "UASC-security-header"
+              },
+              {
+                "condition": "OPN/MSG/CLO",
+                "id": "sequence_header",
+                "kind": "field",
+                "type": "UInt32-sequence-and-request-id"
+              },
+              {
+                "children": [
+                  {
+                    "id": "numeric_nodeid",
+                    "kind": "field",
+                    "type": "TwoByte-FourByte-Numeric"
+                  },
+                  {
+                    "id": "string_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-String"
+                  },
+                  {
+                    "id": "guid_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-Guid"
+                  },
+                  {
+                    "id": "bytes_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-ByteString"
+                  }
+                ],
+                "condition": "OPN/MSG/CLO service encoding ID; body follows",
+                "id": "service",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian",
+            "id": "ua_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "http://opcfoundation.org/UA/SecurityPolicy#None",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "policy_uri",
+          "locator": "uabin:policy",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:policy",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "sequence",
+          "locator": "uabin:sequence",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:sequence",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "request_id",
+          "locator": "uabin:request",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:request",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "id": "open_channel",
+      "match": "open_channel",
+      "notes": "OPN/MSG/CLO are header fixtures without full service bodies; not valid complete services. SecurityPolicy None only; no signing/encryption.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "token",
+            "sequence",
+            "request_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "request",
+      "example": "4d5347461c0000000100000001000000020000000100000001007702",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4674381,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4674381,
+          "min": 4674381,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4674381
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0100000001000000020000000100000001007702",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks F/C/A.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "transport_fields",
+                "kind": "field",
+                "type": "UASC-security-header"
+              },
+              {
+                "condition": "OPN/MSG/CLO",
+                "id": "sequence_header",
+                "kind": "field",
+                "type": "UInt32-sequence-and-request-id"
+              },
+              {
+                "children": [
+                  {
+                    "id": "numeric_nodeid",
+                    "kind": "field",
+                    "type": "TwoByte-FourByte-Numeric"
+                  },
+                  {
+                    "id": "string_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-String"
+                  },
+                  {
+                    "id": "guid_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-Guid"
+                  },
+                  {
+                    "id": "bytes_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-ByteString"
+                  }
+                ],
+                "condition": "OPN/MSG/CLO service encoding ID; body follows",
+                "id": "service",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian",
+            "id": "ua_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "token",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "sequence",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_id",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "01007702",
+          "endian": "big",
+          "evidence": "official",
+          "id": "service_nodeid",
+          "locator": "abs:24",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Four-byte numeric NodeId encoding 0x01; namespace byte then UInt16 identifier; full service body intentionally not generated.",
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "message",
+      "match": "message",
+      "notes": "OPN/MSG/CLO are header fixtures without full service bodies; not valid complete services. SecurityPolicy None only; no signing/encryption.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "token",
+            "sequence",
+            "request_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "request",
+      "example": "434c4f461c000000010000000100000003000000020000000100c401",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5196867,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 5196867,
+          "min": 5196867,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            5196867
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "010000000100000003000000020000000100c401",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "UA Binary little endian; Int32 length strings/arrays (-1 null); NodeId encoding mask selects two-byte/four-byte/numeric/string/guid/bytes. UASC OPN asymmetric and MSG/CLO symmetric headers differ. Final/intermediate/abort chunks F/C/A.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "transport_fields",
+                "kind": "field",
+                "type": "UASC-security-header"
+              },
+              {
+                "condition": "OPN/MSG/CLO",
+                "id": "sequence_header",
+                "kind": "field",
+                "type": "UInt32-sequence-and-request-id"
+              },
+              {
+                "children": [
+                  {
+                    "id": "numeric_nodeid",
+                    "kind": "field",
+                    "type": "TwoByte-FourByte-Numeric"
+                  },
+                  {
+                    "id": "string_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-String"
+                  },
+                  {
+                    "id": "guid_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-Guid"
+                  },
+                  {
+                    "id": "bytes_nodeid",
+                    "kind": "field",
+                    "type": "Namespace-ByteString"
+                  }
+                ],
+                "condition": "OPN/MSG/CLO service encoding ID; body follows",
+                "id": "service",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian",
+            "id": "ua_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "token",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 3,
+          "endian": "little",
+          "evidence": "official",
+          "id": "sequence",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_id",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "01007702",
+          "endian": "big",
+          "evidence": "official",
+          "id": "service_nodeid",
+          "locator": "abs:24",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Four-byte numeric NodeId encoding 0x01; namespace byte then UInt16 identifier; full service body intentionally not generated.",
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "close_channel",
+      "match": "close_channel",
+      "notes": "OPN/MSG/CLO are header fixtures without full service bodies; not valid complete services. SecurityPolicy None only; no signing/encryption.",
+      "weight": 2
+    }
+  ],
+  "name": "OPC UA TCP",
+  "protocol_id": "opcua_tcp",
+  "scope": "HEL/ACK/ERR/RHE transport and UASC OPN/MSG/CLO header structures, UA Binary/NodeId and lifecycle descriptions. Only SecurityPolicy None is described.",
+  "sources": [
+    {
+      "basis": "implementation",
+      "id": "wire",
+      "sections": "5.2 UA Binary; 6.7 UASC; 7.1 UACP",
+      "url": "https://reference.opcfoundation.org/specs/OPC-10000-6"
+    },
+    {
+      "basis": "normative",
+      "id": "official",
+      "sections": "Part 6 sections 5.2 UA Binary, 6.7 UASC, 7.1 UACP; SecurityPolicy None scope",
+      "url": "https://reference.opcfoundation.org/specs/OPC-10000-6"
+    }
+  ],
+  "support": {
+    "excluded": [
+      "signed or encrypted security modes",
+      "complete service bodies",
+      "session activation",
+      "runtime chunk reassembly",
+      "CreateSession/ActivateSession request bodies and authentication are not generated"
+    ],
+    "level": "static description; runtime encoder unavailable",
+    "runtime": false
+  },
+  "transport": "tcp",
+  "version": "OPC 10000 Parts 4/6 v1.05"
+}

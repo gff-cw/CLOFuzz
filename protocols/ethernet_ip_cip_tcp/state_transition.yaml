@@ -1,0 +1,51 @@
+format_version: 1
+protocol_id: ethernet_ip_cip_tcp
+initial: connected
+states:
+- id: connected
+  meaning: TCP connected
+- id: registered
+  meaning: Successful RegisterSession response; handle cached
+- id: closed
+  meaning: Unregistered session
+transitions:
+- from: connected
+  to: registered
+  message: register
+  response: register_response
+  guard: successful register response
+  actions:
+  - bind session handle
+- from: registered
+  to: registered
+  message: send_rr
+  response: ''
+  guard: valid session and CPF
+  actions:
+  - echo sender context
+- from: registered
+  to: registered
+  message: send_unit
+  response: ''
+  guard: ForwardOpen connection prerequisite; not generated
+  actions: []
+- from: registered
+  to: closed
+  message: unregister
+  response: ''
+  guard: matching handle
+  actions:
+  - clear handle
+- from: registered
+  to: registered
+  message: register_response
+  response: ''
+  guard: register success
+  actions:
+  - cache assigned session handle
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

@@ -1,0 +1,501 @@
+{
+  "type": "object",
+  "properties": {
+    "format_version": {
+      "const": 1
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 4096,
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 4096,
+      "minLength": 1
+    },
+    "scope": {
+      "type": "string",
+      "maxLength": 4096,
+      "minLength": 1
+    },
+    "transport": {
+      "enum": [
+        "udp",
+        "tcp"
+      ]
+    },
+    "framing": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "codec": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "support": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "type": "boolean"
+        },
+        "level": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 128
+        }
+      },
+      "required": [
+        "runtime",
+        "level",
+        "excluded"
+      ],
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "basis": {
+            "enum": [
+              "normative",
+              "implementation",
+              "inferred"
+            ]
+          },
+          "sections": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "basis",
+          "sections"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+          },
+          "direction": {
+            "enum": [
+              "request",
+              "response",
+              "both"
+            ]
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "example": {
+            "type": "string",
+            "maxLength": 131014
+          },
+          "match": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                  },
+                  "minItems": 0,
+                  "maxItems": 64
+                },
+                "parent": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                }
+              },
+              "required": [
+                "id",
+                "fields"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 16
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                },
+                "block": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "type": {
+                  "enum": [
+                    "uint8",
+                    "uint16",
+                    "uint24",
+                    "uint32",
+                    "uint64",
+                    "bytes",
+                    "string",
+                    "bacnet_tags",
+                    "ber_tlv",
+                    "epath",
+                    "nodeid"
+                  ]
+                },
+                "locator": {
+                  "type": "string",
+                  "maxLength": 63
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65507
+                },
+                "endian": {
+                  "enum": [
+                    "big",
+                    "little"
+                  ]
+                },
+                "role": {
+                  "enum": [
+                    "head",
+                    "content",
+                    "fixed",
+                    "derived"
+                  ]
+                },
+                "mutability": {
+                  "enum": [
+                    "fixed",
+                    "fuzzable",
+                    "derived",
+                    "conditional",
+                    "runtime_bound"
+                  ]
+                },
+                "default": {
+                  "type": [
+                    "string",
+                    "integer"
+                  ]
+                },
+                "min": {
+                  "type": "integer"
+                },
+                "max": {
+                  "type": "integer"
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "minItems": 0,
+                  "maxItems": 32
+                },
+                "strategies": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "minItems": 0,
+                  "maxItems": 6
+                },
+                "evidence": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                },
+                "confidence": {
+                  "enum": [
+                    "normative",
+                    "implementation",
+                    "inferred"
+                  ]
+                },
+                "when": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                    },
+                    "mask": {
+                      "type": "integer"
+                    },
+                    "equals": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "mask",
+                    "equals"
+                  ],
+                  "additionalProperties": false
+                },
+                "repeat": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                    },
+                    "max": {
+                      "type": "integer"
+                    },
+                    "min": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 256
+                    },
+                    "element_width": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65507
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                },
+                "structure": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "structure_model": {
+                  "$ref": "#/$defs/structure"
+                }
+              },
+              "required": [
+                "id",
+                "block",
+                "path",
+                "type",
+                "locator",
+                "width",
+                "endian",
+                "role",
+                "mutability",
+                "default",
+                "min",
+                "max",
+                "values",
+                "strategies",
+                "evidence",
+                "confidence"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 64
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "target": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                },
+                "source": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "message": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+                },
+                "unit": {
+                  "type": "integer"
+                },
+                "add": {
+                  "type": "integer"
+                },
+                "algorithm": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "scope": {
+                  "enum": [
+                    "testcase",
+                    "connection",
+                    "transaction"
+                  ]
+                },
+                "when": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "multiply": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65507
+                }
+              },
+              "required": [
+                "op",
+                "target",
+                "source"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 0,
+            "maxItems": 128
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "id",
+          "direction",
+          "weight",
+          "example",
+          "match",
+          "blocks",
+          "fields",
+          "dependencies",
+          "notes"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 128
+    }
+  },
+  "required": [
+    "format_version",
+    "protocol_id",
+    "name",
+    "version",
+    "scope",
+    "transport",
+    "framing",
+    "codec",
+    "support",
+    "sources",
+    "messages"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "structure": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+        },
+        "kind": {
+          "enum": [
+            "sequence",
+            "choice",
+            "repeat",
+            "tlv",
+            "field"
+          ]
+        },
+        "encoding": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "type": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "tag": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "min": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "condition": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/structure"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

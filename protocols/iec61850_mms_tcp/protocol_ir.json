@@ -1,0 +1,2090 @@
+{
+  "codec": "mms",
+  "format_version": 1,
+  "framing": "protocol length inside replayable records",
+  "ir_version": 1,
+  "messages": [
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "cotp_parameters"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "add": -5,
+          "op": "length_of",
+          "source": "$message",
+          "target": "cotp_li"
+        }
+      ],
+      "direction": "request",
+      "example": "0300001611e00000000100c0010ac1020001c2020001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 224,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 224,
+          "min": 224,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            224
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0000000100c0010ac1020001c2020001",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_parameters",
+          "locator": "abs:6",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "COTP connection references, class and variable TLV parameters.",
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "cotp_cr",
+      "match": "cotp_cr",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300000e02f0806005a103020100",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "6005a103020100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "mms.ber",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "mms.ber",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "association_fields",
+                "kind": "field",
+                "type": "ACSE-AARQ"
+              }
+            ],
+            "encoding": "BER-application-constructed",
+            "id": "acse",
+            "kind": "tlv",
+            "tag": 0
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "associate",
+      "match": "associate",
+      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300001702f080a80e800100810105820105830108a400",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "a80e800100810105820105830108a400",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "mms.ber",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "mms.ber",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "local_detail",
+                "kind": "field",
+                "tag": 0,
+                "type": "Unsigned32"
+              },
+              {
+                "id": "outstanding_calling",
+                "kind": "field",
+                "tag": 1,
+                "type": "Unsigned16"
+              },
+              {
+                "id": "outstanding_called",
+                "kind": "field",
+                "tag": 2,
+                "type": "Unsigned16"
+              },
+              {
+                "id": "nesting",
+                "kind": "field",
+                "tag": 3,
+                "type": "Unsigned8"
+              },
+              {
+                "children": [
+                  {
+                    "id": "version",
+                    "kind": "field",
+                    "tag": 0,
+                    "type": "Integer"
+                  },
+                  {
+                    "id": "parameter_cbb",
+                    "kind": "field",
+                    "tag": 1,
+                    "type": "BIT STRING"
+                  },
+                  {
+                    "id": "services_supported",
+                    "kind": "field",
+                    "tag": 2,
+                    "type": "BIT STRING"
+                  }
+                ],
+                "id": "detail",
+                "kind": "tlv",
+                "tag": 4
+              }
+            ],
+            "encoding": "BER-context-constructed",
+            "id": "initiate_request",
+            "kind": "tlv",
+            "tag": 8
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "initiate",
+      "match": "initiate",
+      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300001102f080a008020101a103800109",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "a008020101a103800109",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "mms.ber",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "mms.ber",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "invoke_id",
+                "kind": "field",
+                "tag": 2,
+                "type": "BER-Unsigned32"
+              },
+              {
+                "children": [
+                  {
+                    "id": "object_class",
+                    "kind": "field",
+                    "tag": 0,
+                    "type": "context-object-class"
+                  },
+                  {
+                    "id": "object_scope",
+                    "kind": "field",
+                    "tag": 1,
+                    "type": "context-scope-choice"
+                  },
+                  {
+                    "condition": "optional",
+                    "id": "continue_after",
+                    "kind": "field",
+                    "tag": 2,
+                    "type": "identifier"
+                  }
+                ],
+                "id": "service",
+                "kind": "tlv",
+                "tag": 1
+              }
+            ],
+            "encoding": "BER-context-constructed",
+            "id": "confirmed_request",
+            "kind": "tlv",
+            "tag": 0
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:confirmed.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:confirmed.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "id": "get_name_list",
+      "match": "get_name_list",
+      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300001202f080a009020101a404a0028000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "a009020101a404a0028000",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "mms.ber",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "mms.ber",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "invoke_id",
+                "kind": "field",
+                "tag": 2,
+                "type": "BER-Unsigned32"
+              },
+              {
+                "children": [
+                  {
+                    "condition": "optional",
+                    "id": "specification_with_result",
+                    "kind": "field",
+                    "tag": 0,
+                    "type": "boolean"
+                  },
+                  {
+                    "id": "variable_access",
+                    "kind": "field",
+                    "tag": 1,
+                    "type": "VariableAccessSpecification"
+                  }
+                ],
+                "id": "service",
+                "kind": "tlv",
+                "tag": 4
+              }
+            ],
+            "encoding": "BER-context-constructed",
+            "id": "confirmed_request",
+            "kind": "tlv",
+            "tag": 0
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:confirmed.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:confirmed.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "id": "read",
+      "match": "read",
+      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300001402f080a00b020101a506a0028000a000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "a00b020101a506a0028000a000",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "mms.ber",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "mms.ber",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "invoke_id",
+                "kind": "field",
+                "tag": 2,
+                "type": "BER-Unsigned32"
+              },
+              {
+                "children": [
+                  {
+                    "id": "variable_access",
+                    "kind": "field",
+                    "tag": 0,
+                    "type": "VariableAccessSpecification"
+                  },
+                  {
+                    "children": [
+                      {
+                        "id": "data",
+                        "kind": "field",
+                        "type": "MMS-Data-choice"
+                      }
+                    ],
+                    "id": "list_of_data",
+                    "kind": "repeat",
+                    "max": 64,
+                    "min": 1
+                  }
+                ],
+                "id": "service",
+                "kind": "tlv",
+                "tag": 5
+              }
+            ],
+            "encoding": "BER-context-constructed",
+            "id": "confirmed_request",
+            "kind": "tlv",
+            "tag": 0
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:confirmed.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:confirmed.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "id": "write",
+      "match": "write",
+      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300000c02f0806203800100",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "6203800100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "mms.ber",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "mms.ber",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "association_fields",
+                "kind": "field",
+                "type": "ACSE-RLRQ"
+              }
+            ],
+            "encoding": "BER-application-constructed",
+            "id": "acse",
+            "kind": "tlv",
+            "tag": 2
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "release",
+      "match": "release",
+      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        },
+        {
+          "message": "read",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "invoke_id",
+          "target": "invoke_id"
+        }
+      ],
+      "direction": "response",
+      "example": "0300001202f080a109020101a404a0028000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "a009020101a404a0028000",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "mms.ber",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "mms.ber",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "invoke_id",
+                "kind": "field",
+                "tag": 2,
+                "type": "BER-Unsigned32"
+              },
+              {
+                "children": [
+                  {
+                    "condition": "optional",
+                    "id": "specification_with_result",
+                    "kind": "field",
+                    "tag": 0,
+                    "type": "boolean"
+                  },
+                  {
+                    "id": "variable_access",
+                    "kind": "field",
+                    "tag": 1,
+                    "type": "VariableAccessSpecification"
+                  }
+                ],
+                "id": "service",
+                "kind": "tlv",
+                "tag": 4
+              }
+            ],
+            "encoding": "BER-context-constructed",
+            "id": "confirmed_request",
+            "kind": "tlv",
+            "tag": 0
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:confirmed.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:confirmed.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "id": "confirmed_response",
+      "match": "read",
+      "notes": "Structural ConfirmedResponse envelope with matching invoke field; service-specific result payload still needs a complete BER codec.",
+      "weight": 2
+    }
+  ],
+  "name": "IEC 61850 MMS over TCP",
+  "protocol_id": "iec61850_mms_tcp",
+  "scope": "Transport COTP plus declarative ACSE/Initiate/confirmed GetNameList Read Write envelopes; nested BER; full session/presentation association requires an external complete codec.",
+  "sources": [
+    {
+      "basis": "implementation",
+      "id": "wire",
+      "sections": "iso_mms ASN.1 definitions, iso_acse and iso_presentation; RFC1006 section 6",
+      "url": "https://github.com/mz-automation/libiec61850/tree/master/src/mms"
+    },
+    {
+      "basis": "normative",
+      "id": "official",
+      "sections": "RFC 1006 section 6 TPKT; MMS/ACSE semantics from libIEC61850 implementation",
+      "url": "https://www.rfc-editor.org/rfc/rfc1006"
+    },
+    {
+      "basis": "inferred",
+      "id": "iec_scope",
+      "sections": "IEC 61850-8-1 catalogue; paid normative text not consulted",
+      "url": "https://webstore.iec.ch/en/publication/6021"
+    }
+  ],
+  "support": {
+    "excluded": [
+      "complete session/presentation codec",
+      "runtime BER service encoding",
+      "all abstract IEC61850 services",
+      "TLS"
+    ],
+    "level": "static description; runtime encoder unavailable",
+    "runtime": false
+  },
+  "transport": "tcp",
+  "version": "IEC 61850-8-1 / ISO 9506 / RFC 1006"
+}

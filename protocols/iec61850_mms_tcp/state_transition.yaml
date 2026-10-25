@@ -1,0 +1,73 @@
+format_version: 1
+protocol_id: iec61850_mms_tcp
+initial: transport
+states:
+- id: transport
+  meaning: TCP connected
+- id: cotp
+  meaning: COTP established
+- id: associating
+  meaning: ACSE AARQ/AARE and MMS initiate negotiation
+- id: associated
+  meaning: Successful AARE and initiate response required
+- id: released
+  meaning: ACSE association released
+transitions:
+- from: transport
+  to: cotp
+  message: cotp_cr
+  response: ''
+  guard: COTP CC received
+  actions: []
+- from: cotp
+  to: associating
+  message: associate
+  response: ''
+  guard: presentation/session wrappers required
+  actions: []
+- from: associating
+  to: associated
+  message: initiate
+  response: ''
+  guard: successful AARE/initiate response
+  actions: []
+- from: associated
+  to: associated
+  message: get_name_list
+  response: ''
+  guard: confirmed invoke must match response
+  actions:
+  - cache invoke ID
+- from: associated
+  to: associated
+  message: read
+  response: ''
+  guard: confirmed invoke must match response
+  actions:
+  - cache invoke ID
+- from: associated
+  to: associated
+  message: write
+  response: ''
+  guard: confirmed invoke must match response
+  actions:
+  - cache invoke ID
+- from: associated
+  to: released
+  message: release
+  response: ''
+  guard: ACSE release handshake
+  actions: []
+- from: associated
+  to: associated
+  message: confirmed_response
+  response: ''
+  guard: pending invoke ID must match
+  actions:
+  - clear invoke context
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

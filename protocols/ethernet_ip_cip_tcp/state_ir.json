@@ -1,0 +1,76 @@
+{
+  "format_version": 1,
+  "initial": "connected",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "ethernet_ip_cip_tcp",
+  "states": [
+    {
+      "id": "connected",
+      "meaning": "TCP connected"
+    },
+    {
+      "id": "registered",
+      "meaning": "Successful RegisterSession response; handle cached"
+    },
+    {
+      "id": "closed",
+      "meaning": "Unregistered session"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [
+        "bind session handle"
+      ],
+      "from": "connected",
+      "guard": "successful register response",
+      "message": "register",
+      "response": "register_response",
+      "to": "registered"
+    },
+    {
+      "actions": [
+        "echo sender context"
+      ],
+      "from": "registered",
+      "guard": "valid session and CPF",
+      "message": "send_rr",
+      "response": "",
+      "to": "registered"
+    },
+    {
+      "actions": [],
+      "from": "registered",
+      "guard": "ForwardOpen connection prerequisite; not generated",
+      "message": "send_unit",
+      "response": "",
+      "to": "registered"
+    },
+    {
+      "actions": [
+        "clear handle"
+      ],
+      "from": "registered",
+      "guard": "matching handle",
+      "message": "unregister",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [
+        "cache assigned session handle"
+      ],
+      "from": "registered",
+      "guard": "register success",
+      "message": "register_response",
+      "response": "",
+      "to": "registered"
+    }
+  ]
+}

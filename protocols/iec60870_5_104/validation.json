@@ -1,0 +1,10 @@
+{
+  "protocol": "iec60870_5_104",
+  "messages": 8,
+  "fields": 32,
+  "semantic_states": 4,
+  "validated": true,
+  "runtime": false,
+  "scope": "I/S/U APCI; STARTDT, STOPDT, TESTFR and single-object C_IC_NA_1 ASDU; 2-byte COT/CA and 3-byte IOA.",
+  "example_validation": "protocol envelope and length consistency; not live service conformance"
+}

@@ -1,0 +1,60 @@
+{
+  "format_version": 1,
+  "initial": "ready",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "bacnet_ip",
+  "states": [
+    {
+      "id": "ready",
+      "meaning": "UDP endpoint ready; requests independent"
+    },
+    {
+      "id": "pending",
+      "meaning": "Confirmed request outstanding, scoped by invoke ID"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [],
+      "from": "ready",
+      "guard": "valid Who-Is",
+      "message": "who_is",
+      "response": "",
+      "to": "ready"
+    },
+    {
+      "actions": [
+        "cache invoke_id"
+      ],
+      "from": "ready",
+      "guard": "request sent",
+      "message": "read_property",
+      "response": "read_property_ack",
+      "to": "pending"
+    },
+    {
+      "actions": [
+        "clear transaction"
+      ],
+      "from": "pending",
+      "guard": "matching invoke ID",
+      "message": "read_property_ack",
+      "response": "",
+      "to": "ready"
+    },
+    {
+      "actions": [],
+      "from": "pending",
+      "guard": "additional independent invoke",
+      "message": "read_property",
+      "response": "read_property_ack",
+      "to": "pending"
+    }
+  ]
+}

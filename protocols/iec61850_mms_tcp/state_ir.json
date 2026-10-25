@@ -1,0 +1,108 @@
+{
+  "format_version": 1,
+  "initial": "transport",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "iec61850_mms_tcp",
+  "states": [
+    {
+      "id": "transport",
+      "meaning": "TCP connected"
+    },
+    {
+      "id": "cotp",
+      "meaning": "COTP established"
+    },
+    {
+      "id": "associating",
+      "meaning": "ACSE AARQ/AARE and MMS initiate negotiation"
+    },
+    {
+      "id": "associated",
+      "meaning": "Successful AARE and initiate response required"
+    },
+    {
+      "id": "released",
+      "meaning": "ACSE association released"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [],
+      "from": "transport",
+      "guard": "COTP CC received",
+      "message": "cotp_cr",
+      "response": "",
+      "to": "cotp"
+    },
+    {
+      "actions": [],
+      "from": "cotp",
+      "guard": "presentation/session wrappers required",
+      "message": "associate",
+      "response": "",
+      "to": "associating"
+    },
+    {
+      "actions": [],
+      "from": "associating",
+      "guard": "successful AARE/initiate response",
+      "message": "initiate",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "cache invoke ID"
+      ],
+      "from": "associated",
+      "guard": "confirmed invoke must match response",
+      "message": "get_name_list",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "cache invoke ID"
+      ],
+      "from": "associated",
+      "guard": "confirmed invoke must match response",
+      "message": "read",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "cache invoke ID"
+      ],
+      "from": "associated",
+      "guard": "confirmed invoke must match response",
+      "message": "write",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [],
+      "from": "associated",
+      "guard": "ACSE release handshake",
+      "message": "release",
+      "response": "",
+      "to": "released"
+    },
+    {
+      "actions": [
+        "clear invoke context"
+      ],
+      "from": "associated",
+      "guard": "pending invoke ID must match",
+      "message": "confirmed_response",
+      "response": "",
+      "to": "associated"
+    }
+  ]
+}
