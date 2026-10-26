@@ -96,3 +96,25 @@ python3 tools/proto_spec_compiler.py \
 ```
 
 统一模板的结构在六种具体协议配置中相同；各协议的字段、编码和状态定义不同。当前“可加载、可在线变异”只验证了 BACnet 有限范围，不等于其他五种协议已完成在线运行时。
+
+## 5. 配置的执行边界
+
+`protocol_spec.template.yaml` 与 `state_transition.template.yaml` 是待填写骨架，不能直接编译。完整参考输入是六个 `protocols/<协议>/protocol_spec.yaml` / `state_transition.yaml`；使用 `tools/init_protocol_spec.py --base <协议> --output-dir <新目录>` 复制它们，可保留字段证据、状态边和真实报文，避免把骨架里的演示布局当成协议。
+
+| 配置 | 当前含义 |
+| --- | --- |
+| `support.runtime` | 当前 C codec 是否可用。目前仅 BACnet/IP；静态模型通过编译不代表有执行器。 |
+| 消息 `fixture_status` | `complete` 为声明范围内完整消息；`fragment` 为静态片段，不能用于 runtime=true，也不生成 replay seed。省略时兼容旧描述，按 complete 处理。 |
+| 消息 `runtime_encode` | 能力断言：仅 runtime=true 的 request 为 true。它不是开关，不能靠它开启静态协议或禁用请求。 |
+| `role` / `mutability` | `fixed`、`derived` 必须双向一致；derived 恰有一个依赖写入者；runtime_bound 必须有绑定、关联或序列依赖。 |
+| `locator` / `path` | `locator` 参与执行，`path` 只是说明。BACnet 动态定位由专用解析器完成。 |
+| `example` / `default` | `example` 是完整单报文模板，连续十六进制、不含 replay LE32 前缀；`default` 只是字段默认值说明，不会重写模板。字节型 default 为十六进制，string 为 UTF-8 文本。 |
+| `blocks` / 字段 `block` | 编译器检查分组与引用；运行时按字段 role 选择 HEAD / CONTENT，不解释任意块层次。 |
+| `strategies` / `values` | HEAD 标量执行配置的枚举、边界、位翻转、算术；空 strategies 使用四种默认策略。CONTENT 标量投影 AFL 候选字节，不执行此列表。 |
+| `structure_model` / `structure` | 有界、类型化的结构元数据，不是编码程序；其中 condition 不执行。 |
+| 字段 `when` / `repeat` | 静态结构描述及引用检查；runtime=true 拒绝这些通用构造。BACnet 可选字段由专用 codec 处理。 |
+| 依赖 `scope` / `when` | 注释；不创建按 scope 区分的缓存，也不执行条件。当前缓存按 engine、消息、字段保存最近标量。 |
+| 状态 `guard` / `actions` | 注释；运行时按当前 state 和 message 选择边，不按 guard 消歧或执行 actions。运行时同一 `(from,message)` 只能有一条边。 |
+| `invalid_strategy` | 描述性说明；当前 invalid/near_valid 实现固定修改一条 BVLC 长度，不解释该字符串。 |
+
+编译器检查静态引用、数值边界和协议封装长度；运行时 BACnet 还检查专用 NPDU/APDU/tag 结构、例子的字段范围、方向及可用编码器。`validation.json` 的 `execution_contract` 明确列出静态元数据与运行时限制。通过这些检查不等于经过真实目标的成功交换，也不等于覆盖整个协议标准。

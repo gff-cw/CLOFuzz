@@ -58,7 +58,8 @@
           },
           "guard": {
             "type": "string",
-            "maxLength": 4096
+            "maxLength": 4096,
+            "description": "Static human-readable condition. Runtime selects an edge by current state and message only."
           },
           "actions": {
             "type": "array",
@@ -67,7 +68,8 @@
               "maxLength": 4096
             },
             "minItems": 0,
-            "maxItems": 128
+            "maxItems": 128,
+            "description": "Static human-readable annotations. Runtime actions must be represented by supported message dependencies."
           }
         },
         "required": [
@@ -111,7 +113,8 @@
     },
     "invalid_strategy": {
       "type": "string",
-      "maxLength": 4096
+      "maxLength": 4096,
+      "description": "Static description. Current runtime invalid/near_valid modes use a fixed BVLC length violation, not this string."
     }
   },
   "required": [

@@ -1,10 +1,11 @@
 format_version: 1
 protocol_id: iec61850_mms_tcp
 name: IEC 61850 MMS over TCP
-version: IEC 61850-8-1 / ISO 9506 / RFC 1006
-scope: Transport COTP plus declarative ACSE/Initiate/confirmed GetNameList Read Write
-  envelopes; nested BER; full session/presentation association requires an external
-  complete codec.
+version: RFC1006 / libIEC61850 v1.6 profile
+scope: Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE
+  AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific
+  named-variable Read/Write, MMS conclude and ACSE/session release, all successful
+  request/response layouts. BER definite lengths; no runtime encoder.
 transport: tcp
 framing: protocol length inside replayable records
 codec: mms
@@ -12,27 +13,31 @@ support:
   runtime: false
   level: static description; runtime encoder unavailable
   excluded:
-  - complete session/presentation codec
-  - runtime BER service encoding
-  - all abstract IEC61850 services
+  - full IEC61850 ACSI mapping
+  - reports/GOOSE/SV
+  - generalized arrays/alternate access and data-set services
+  - arbitrary ACSE authentication
+  - association rejection/abort and MMS confirmed-error/reject fixtures unverified
   - TLS
+  - runtime BER encoding
 sources:
 - id: wire
-  url: https://github.com/mz-automation/libiec61850/tree/master/src/mms
+  url: https://github.com/mz-automation/libiec61850/tree/6d231326bff8e9b6500aa1e345c076d3a329f211/src/mms
   basis: implementation
-  sections: iso_mms ASN.1 definitions, iso_acse and iso_presentation; RFC1006 section
-    6
-- id: official
-  url: https://www.rfc-editor.org/rfc/rfc1006
-  basis: normative
-  sections: RFC 1006 section 6 TPKT; MMS/ACSE semantics from libIEC61850 implementation
+  sections: iso_cotp, iso_session, iso_presentation, iso_acse, iso_mms client/server
+    and asn1c definitions; complete loopback fixtures constructed with this revision
 - id: iec_scope
   url: https://webstore.iec.ch/en/publication/6021
   basis: inferred
-  sections: IEC 61850-8-1 catalogue; paid normative text not consulted
+  sections: IEC61850-8-1 catalogue only; paid normative MMS/IEC texts not consulted
+- id: official
+  url: https://www.rfc-editor.org/rfc/rfc1006
+  basis: normative
+  sections: RFC 1006 section 6 TPKT/COTP only; MMS/ACSE/session/presentation from
+    libIEC61850
 messages:
 - id: cotp_cr
-  example: 0300001611e00000000100c0010ac1020001c2020001
+  example: 0300001611e00000000100c0010dc2020001c1020001
   direction: request
   weight: 2
   match: cotp_cr
@@ -44,6 +49,9 @@ messages:
     - tpkt_length
     - cotp_li
     - cotp_type
+    - destination_reference
+    - source_reference
+    - class_options
     parent: REQUEST
   - id: CONTENT
     fields:
@@ -155,16 +163,77 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: cotp_parameters
-    block: CONTENT
+  - id: destination_reference
+    block: HEAD
     path: abs:6
     locator: abs:6
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: source_reference
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: class_options
+    block: HEAD
+    path: abs:10
+    locator: abs:10
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_parameters
+    block: CONTENT
+    path: abs:11
+    locator: abs:11
     type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: 0000000100c0010ac1020001c2020001
+    default: c0010dc2020001c1020001
     min: 0
     max: 4096
     values: []
@@ -173,7 +242,22 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: COTP connection references, class and variable TLV parameters.
+    structure_model:
+      id: cotp_parameters
+      kind: sequence
+      children:
+      - id: tpdu_size
+        kind: field
+        type: TLV-0xC0-exponent
+        min: 7
+        max: 16
+      - id: called_tsap
+        kind: field
+        type: TLV-0xC2-octets
+      - id: calling_tsap
+        kind: field
+        type: TLV-0xC1-octets
+      encoding: COTP-TP0-parameters
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -182,9 +266,251 @@ messages:
     target: cotp_li
     source: $message
     add: -5
-  notes: ''
+  notes: Complete RFC1006 TP0 connection request/confirm. LI counts bytes after LI,
+    excluding TPKT; negotiated max TPDU is 2**13 in these reference fixtures.
+  fixture_status: complete
+  runtime_encode: false
+- id: cotp_cc
+  example: 0300001611d00001000100c0010dc2020001c1020001
+  direction: response
+  weight: 2
+  match: cotp_cc
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - destination_reference
+    - source_reference
+    - class_options
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - cotp_parameters
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 208
+    min: 208
+    max: 208
+    values:
+    - 208
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: destination_reference
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: source_reference
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: class_options
+    block: HEAD
+    path: abs:10
+    locator: abs:10
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_parameters
+    block: CONTENT
+    path: abs:11
+    locator: abs:11
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: c0010dc2020001c1020001
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: cotp_parameters
+      kind: sequence
+      children:
+      - id: tpdu_size
+        kind: field
+        type: TLV-0xC0-exponent
+        min: 7
+        max: 16
+      - id: called_tsap
+        kind: field
+        type: TLV-0xC2-octets
+      - id: calling_tsap
+        kind: field
+        type: TLV-0xC1-octets
+      encoding: COTP-TP0-parameters
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: length_of
+    target: cotp_li
+    source: $message
+    add: -5
+  - op: correlate_request_response
+    target: destination_reference
+    source: source_reference
+    message: cotp_cr
+    scope: connection
+  notes: Complete RFC1006 TP0 connection request/confirm. LI counts bytes after LI,
+    excluding TPKT; negotiated max TPDU is 2**13 in these reference fixtures.
+  fixture_status: complete
+  runtime_encode: false
 - id: associate
-  example: 0300000e02f0806005a103020100
+  example: 030000bb02f0800db20506130100160102140200023302000134020001c19c318199a003800101a28191810400000001820400000001a423300f0201010604520100013004060251013010020103060528ca220201300406025101615e305c020101a0576055a107060528ca220203a20706052901876701a30302010ca606060429018767a70302010cbe2f282d020103a028a826800300fde881010582010583010aa416800101810305f100820c03ee1c00000408000079ef18
   direction: request
   weight: 2
   match: associate
@@ -197,9 +523,15 @@ messages:
     - cotp_li
     - cotp_type
     - eot
+    - presentation_context
+    - max_outstanding_calling
+    - max_outstanding_called
+    - nesting_level
+    - mms_version
     parent: REQUEST
   - id: CONTENT
     fields:
+    - session
     - pdu
     parent: REQUEST
   - id: REQUEST
@@ -330,16 +662,16 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: pdu
+  - id: session
     block: CONTENT
-    path: mms.ber
-    locator: mms.ber
-    type: ber_tlv
+    path: iso:session
+    locator: iso:session
+    type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: 6005a103020100
+    default: 0db20506130100160102140200023302000134020001c19c
     min: 0
     max: 4096
     values: []
@@ -348,18 +680,246 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
-      service bodies are distinct. Full session/presentation wrappers required on
-      real MMS association.
     structure_model:
-      id: acse
-      kind: tlv
+      id: session
+      kind: sequence
       children:
-      - id: association_fields
+      - id: spdu_type
         kind: field
-        type: ACSE-AARQ
-      tag: 0
-      encoding: BER-application-constructed
+        type: CONNECT-0x0D
+      - id: spdu_length
+        kind: field
+        type: uint8
+      - id: connect_accept_item
+        kind: field
+        type: TLV-0x05-protocol-options-and-version2
+      - id: session_requirement
+        kind: field
+        type: TLV-0x14-duplex
+      - id: calling_selector
+        kind: field
+        type: TLV-0x33
+        condition: CONNECT
+      - id: called_selector
+        kind: field
+        type: TLV-0x34
+      - id: user_data
+        kind: field
+        type: TLV-0xC1-presentation
+      encoding: ISO-session-short-length-profile
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 318199a003800101a28191810400000001820400000001a423300f0201010604520100013004060251013010020103060528ca220201300406025101615e305c020101a0576055a107060528ca220203a20706052901876701a30302010ca606060429018767a70302010cbe2f282d020103a028a826800300fde881010582010583010aa416800101810305f100820c03ee1c00000408000079ef18
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: presentation_connect
+      kind: sequence
+      children:
+      - id: mode_selector
+        kind: field
+        type: normal-mode
+      - id: presentation_selectors
+        kind: field
+        type: calling/called-or-responding-octets
+      - id: context_definitions_or_results
+        kind: field
+        type: ACSE-context-1/MMS-context-3-BER-transfer-syntax
+      - id: fully_encoded_data
+        kind: sequence
+        children:
+        - id: context_id
+          kind: field
+          type: INTEGER-1
+        - id: acse
+          kind: tlv
+          children:
+          - id: application_context
+            kind: field
+            type: OID-1.0.9506.2.3
+            tag: 1
+          - id: called_ap_title
+            kind: field
+            type: OID
+            tag: 2
+          - id: called_ae_qualifier
+            kind: field
+            type: INTEGER
+            tag: 3
+          - id: calling_ap_title
+            kind: field
+            type: OID
+            tag: 6
+          - id: calling_ae_qualifier
+            kind: field
+            type: INTEGER
+            tag: 7
+          - id: user_information
+            kind: tlv
+            children:
+            - id: external
+              kind: tlv
+              children:
+              - id: indirect_reference
+                kind: field
+                type: INTEGER-3
+              - id: single_asn1_type
+                kind: tlv
+                children:
+                - id: initiate
+                  kind: tlv
+                  children:
+                  - id: local_detail
+                    kind: field
+                    type: context-Unsigned32
+                    tag: 0
+                  - id: max_outstanding_calling
+                    kind: field
+                    type: context-Unsigned16
+                    tag: 1
+                  - id: max_outstanding_called
+                    kind: field
+                    type: context-Unsigned16
+                    tag: 2
+                  - id: nesting_level
+                    kind: field
+                    type: context-Unsigned8
+                    tag: 3
+                  - id: initiate_detail
+                    kind: tlv
+                    children:
+                    - id: version
+                      kind: field
+                      type: context-Integer
+                      tag: 0
+                    - id: parameter_cbb
+                      kind: field
+                      type: context-BIT-STRING-unused-bits-first
+                      tag: 1
+                    - id: services_supported
+                      kind: field
+                      type: context-BIT-STRING-unused-bits-first
+                      tag: 2
+                    tag: 4
+                  tag: 8
+                tag: 0
+              tag: 8
+            tag: 30
+          tag: 0
+      encoding: BER-CP/CPA-SET
+  - id: presentation_context
+    block: HEAD
+    path: ber:presentation.context
+    locator: ber:presentation.context
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_outstanding_calling
+    block: HEAD
+    path: ber:initiate.calling
+    locator: ber:initiate.calling
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 5
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_outstanding_called
+    block: HEAD
+    path: ber:initiate.called
+    locator: ber:initiate.called
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 5
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: nesting_level
+    block: HEAD
+    path: ber:initiate.nesting
+    locator: ber:initiate.nesting
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 10
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: mms_version
+    block: HEAD
+    path: ber:initiate.version
+    locator: ber:initiate.version
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -367,13 +927,16 @@ messages:
   - op: tagged_length
     target: pdu
     source: $message
-  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
-    unavailable.
-- id: initiate
-  example: 0300001702f080a80e800100810105820105830108a400
-  direction: request
+  notes: Complete TPKT/COTP + session CONNECT/ACCEPT + presentation CP/CPA + ACSE
+    AARQ/AARE; MMS initiate request/response is nested in user-information, never
+    an independent TCP message.
+  fixture_status: complete
+  runtime_encode: false
+- id: associate_response
+  example: 0300008f02f0800e8605061301001601021402000234020001c1743172a003800101a26b830400000001a512300780010081025101300780010081025101614f304d020101a0486146a107060528ca220203a203020100a305a103020100be2f282d020103a028a926800300fde881010582010583010aa416800101810305f100820c03ee1c000000000000000118
+  direction: response
   weight: 2
-  match: initiate
+  match: associate_response
   blocks:
   - id: HEAD
     fields:
@@ -383,9 +946,16 @@ messages:
     - cotp_li
     - cotp_type
     - eot
+    - presentation_context
+    - max_outstanding_calling
+    - max_outstanding_called
+    - nesting_level
+    - mms_version
+    - association_result
     parent: REQUEST
   - id: CONTENT
     fields:
+    - session
     - pdu
     parent: REQUEST
   - id: REQUEST
@@ -516,16 +1086,16 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: pdu
+  - id: session
     block: CONTENT
-    path: mms.ber
-    locator: mms.ber
-    type: ber_tlv
+    path: iso:session
+    locator: iso:session
+    type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: a80e800100810105820105830108a400
+    default: 0e8605061301001601021402000234020001c174
     min: 0
     max: 4096
     values: []
@@ -534,47 +1104,259 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
-      service bodies are distinct. Full session/presentation wrappers required on
-      real MMS association.
     structure_model:
-      id: initiate_request
-      kind: tlv
+      id: session
+      kind: sequence
       children:
-      - id: local_detail
+      - id: spdu_type
         kind: field
-        type: Unsigned32
-        tag: 0
-      - id: outstanding_calling
+        type: ACCEPT-0x0E
+      - id: spdu_length
         kind: field
-        type: Unsigned16
-        tag: 1
-      - id: outstanding_called
+        type: uint8
+      - id: connect_accept_item
         kind: field
-        type: Unsigned16
-        tag: 2
-      - id: nesting
+        type: TLV-0x05-protocol-options-and-version2
+      - id: session_requirement
         kind: field
-        type: Unsigned8
-        tag: 3
-      - id: detail
-        kind: tlv
+        type: TLV-0x14-duplex
+      - id: calling_selector
+        kind: field
+        type: TLV-0x33
+        condition: CONNECT
+      - id: called_selector
+        kind: field
+        type: TLV-0x34
+      - id: user_data
+        kind: field
+        type: TLV-0xC1-presentation
+      encoding: ISO-session-short-length-profile
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 3172a003800101a26b830400000001a512300780010081025101300780010081025101614f304d020101a0486146a107060528ca220203a203020100a305a103020100be2f282d020103a028a926800300fde881010582010583010aa416800101810305f100820c03ee1c000000000000000118
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: presentation_connect
+      kind: sequence
+      children:
+      - id: mode_selector
+        kind: field
+        type: normal-mode
+      - id: presentation_selectors
+        kind: field
+        type: calling/called-or-responding-octets
+      - id: context_definitions_or_results
+        kind: field
+        type: ACSE-context-1/MMS-context-3-BER-transfer-syntax
+      - id: fully_encoded_data
+        kind: sequence
         children:
-        - id: version
+        - id: context_id
           kind: field
-          type: Integer
-          tag: 0
-        - id: parameter_cbb
-          kind: field
-          type: BIT STRING
+          type: INTEGER-1
+        - id: acse
+          kind: tlv
+          children:
+          - id: application_context
+            kind: field
+            type: OID-1.0.9506.2.3
+            tag: 1
+          - id: result
+            kind: field
+            type: INTEGER-accepted-zero
+            tag: 2
+          - id: result_source_diagnostic
+            kind: field
+            type: ACSE-user-zero
+            tag: 3
+          - id: user_information
+            kind: tlv
+            children:
+            - id: external
+              kind: tlv
+              children:
+              - id: indirect_reference
+                kind: field
+                type: INTEGER-3
+              - id: single_asn1_type
+                kind: tlv
+                children:
+                - id: initiate
+                  kind: tlv
+                  children:
+                  - id: local_detail
+                    kind: field
+                    type: context-Unsigned32
+                    tag: 0
+                  - id: max_outstanding_calling
+                    kind: field
+                    type: context-Unsigned16
+                    tag: 1
+                  - id: max_outstanding_called
+                    kind: field
+                    type: context-Unsigned16
+                    tag: 2
+                  - id: nesting_level
+                    kind: field
+                    type: context-Unsigned8
+                    tag: 3
+                  - id: initiate_detail
+                    kind: tlv
+                    children:
+                    - id: version
+                      kind: field
+                      type: context-Integer
+                      tag: 0
+                    - id: parameter_cbb
+                      kind: field
+                      type: context-BIT-STRING-unused-bits-first
+                      tag: 1
+                    - id: services_supported
+                      kind: field
+                      type: context-BIT-STRING-unused-bits-first
+                      tag: 2
+                    tag: 4
+                  tag: 9
+                tag: 0
+              tag: 8
+            tag: 30
           tag: 1
-        - id: services_supported
-          kind: field
-          type: BIT STRING
-          tag: 2
-        tag: 4
-      tag: 8
-      encoding: BER-context-constructed
+      encoding: BER-CP/CPA-SET
+  - id: presentation_context
+    block: HEAD
+    path: ber:presentation.context
+    locator: ber:presentation.context
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_outstanding_calling
+    block: HEAD
+    path: ber:initiate.calling
+    locator: ber:initiate.calling
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 5
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_outstanding_called
+    block: HEAD
+    path: ber:initiate.called
+    locator: ber:initiate.called
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 5
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: nesting_level
+    block: HEAD
+    path: ber:initiate.nesting
+    locator: ber:initiate.nesting
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 10
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: mms_version
+    block: HEAD
+    path: ber:initiate.version
+    locator: ber:initiate.version
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: association_result
+    block: HEAD
+    path: ber:acse.result
+    locator: ber:acse.result
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -582,10 +1364,13 @@ messages:
   - op: tagged_length
     target: pdu
     source: $message
-  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
-    unavailable.
+  notes: Complete TPKT/COTP + session CONNECT/ACCEPT + presentation CP/CPA + ACSE
+    AARQ/AARE; MMS initiate request/response is nested in user-information, never
+    an independent TCP message.
+  fixture_status: complete
+  runtime_encode: false
 - id: get_name_list
-  example: 0300001102f080a008020101a103800109
+  example: 0300002402f0800100010061173015020103a010a00e020101a109a003800109a1028000
   direction: request
   weight: 2
   match: get_name_list
@@ -602,6 +1387,7 @@ messages:
     parent: REQUEST
   - id: CONTENT
     fields:
+    - session
     - pdu
     parent: REQUEST
   - id: REQUEST
@@ -732,16 +1518,16 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: pdu
+  - id: session
     block: CONTENT
-    path: mms.ber
-    locator: mms.ber
-    type: ber_tlv
+    path: iso:session
+    locator: iso:session
+    type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: a008020101a103800109
+    default: '01000100'
     min: 0
     max: 4096
     values: []
@@ -750,40 +1536,75 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
-      service bodies are distinct. Full session/presentation wrappers required on
-      real MMS association.
     structure_model:
-      id: confirmed_request
-      kind: tlv
+      id: session
+      kind: sequence
       children:
-      - id: invoke_id
+      - id: spdu
         kind: field
-        type: BER-Unsigned32
-        tag: 2
-      - id: service
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 61173015020103a010a00e020101a109a003800109a1028000
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
         kind: tlv
         children:
-        - id: object_class
-          kind: field
-          type: context-object-class
+        - id: confirmed
+          kind: tlv
+          children:
+          - id: invoke_id
+            kind: field
+            type: Unsigned32-universal-INTEGER
+          - id: service
+            kind: tlv
+            children:
+            - id: object_class
+              kind: field
+              type: ExtendedObjectClass-basic-domain-9
+              tag: 0
+            - id: object_scope
+              kind: field
+              type: ObjectScope-vmd-specific-NULL
+              tag: 1
+            - id: continue_after
+              kind: field
+              type: Identifier
+              tag: 2
+              condition: optional
+            tag: 1
           tag: 0
-        - id: object_scope
-          kind: field
-          type: context-scope-choice
-          tag: 1
-        - id: continue_after
-          kind: field
-          type: identifier
-          tag: 2
-          condition: optional
-        tag: 1
-      tag: 0
-      encoding: BER-context-constructed
+        tag: 0
+      encoding: BER-application-1-PDV-list
   - id: invoke_id
     block: HEAD
-    path: ber:confirmed.invoke
-    locator: ber:confirmed.invoke
+    path: ber:mms.invoke
+    locator: ber:mms.invoke
     type: uint32
     width: 4
     endian: big
@@ -800,8 +1621,6 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: BER INTEGER payload location is determined by TLV tree, never absolute
-      byte offset.
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -809,10 +1628,279 @@ messages:
   - op: tagged_length
     target: pdu
     source: $message
-  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
-    unavailable.
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
+- id: get_name_list_response
+  example: 0300003302f0800100010061263024020103a01fa11d020101a118a0131a1173696d706c65494f47656e65726963494f810100
+  direction: response
+  weight: 2
+  match: get_name_list_response
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    - invoke_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - session
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: CONTENT
+    path: iso:session
+    locator: iso:session
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01000100'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: session
+      kind: sequence
+      children:
+      - id: spdu
+        kind: field
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 61263024020103a01fa11d020101a118a0131a1173696d706c65494f47656e65726963494f810100
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
+        kind: tlv
+        children:
+        - id: confirmed
+          kind: tlv
+          children:
+          - id: invoke_id
+            kind: field
+            type: Unsigned32-universal-INTEGER
+          - id: service
+            kind: tlv
+            children:
+            - id: identifiers
+              kind: repeat
+              children:
+              - id: identifier
+                kind: field
+                type: VisibleString
+              min: 0
+              max: 64
+            - id: more_follows
+              kind: field
+              type: context-BOOLEAN
+              tag: 1
+            tag: 1
+          tag: 1
+        tag: 0
+      encoding: BER-application-1-PDV-list
+  - id: invoke_id
+    block: HEAD
+    path: ber:mms.invoke
+    locator: ber:mms.invoke
+    type: uint32
+    width: 4
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  - op: correlate_request_response
+    target: invoke_id
+    source: invoke_id
+    message: get_name_list
+    scope: transaction
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
 - id: read
-  example: 0300001202f080a009020101a404a0028000
+  example: 0300005002f0800100010061433041020103a03ca03a020102a435a133a031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72
   direction: request
   weight: 2
   match: read
@@ -829,6 +1917,324 @@ messages:
     parent: REQUEST
   - id: CONTENT
     fields:
+    - session
+    - pdu
+    - domain_id
+    - item_id
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: CONTENT
+    path: iso:session
+    locator: iso:session
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01000100'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: session
+      kind: sequence
+      children:
+      - id: spdu
+        kind: field
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 61433041020103a03ca03a020102a435a133a031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
+        kind: tlv
+        children:
+        - id: confirmed
+          kind: tlv
+          children:
+          - id: invoke_id
+            kind: field
+            type: Unsigned32-universal-INTEGER
+          - id: service
+            kind: tlv
+            children:
+            - id: specification_with_result
+              kind: field
+              type: BOOLEAN-default-false
+              tag: 0
+              condition: optional
+            - id: variable_access
+              kind: choice
+              children:
+              - id: list_of_variable
+                kind: repeat
+                children:
+                - id: variable
+                  kind: sequence
+                  children:
+                  - id: domain_specific_name
+                    kind: sequence
+                    children:
+                    - id: domain_id
+                      kind: field
+                      type: VisibleString
+                    - id: item_id
+                      kind: field
+                      type: VisibleString
+                    encoding: ObjectName-domain-specific-[1]
+                min: 1
+                max: 64
+              - id: variable_list_name
+                kind: field
+                type: ObjectName
+            tag: 4
+          tag: 0
+        tag: 0
+      encoding: BER-application-1-PDV-list
+  - id: invoke_id
+    block: HEAD
+    path: ber:mms.invoke
+    locator: ber:mms.invoke
+    type: uint32
+    width: 4
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: domain_id
+    block: CONTENT
+    path: ber:mms.domain
+    locator: ber:mms.domain
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: simpleIOGenericIO
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: item_id
+    block: CONTENT
+    path: ber:mms.item
+    locator: ber:mms.item
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: GGIO1$DC$NamPlt$vendor
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
+- id: read_response
+  example: 0300001f02f0800100010061123010020103a00ba109020102a404a1028a00
+  direction: response
+  weight: 2
+  match: read_response
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    - invoke_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - session
     - pdu
     parent: REQUEST
   - id: REQUEST
@@ -959,16 +2365,16 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: pdu
+  - id: session
     block: CONTENT
-    path: mms.ber
-    locator: mms.ber
-    type: ber_tlv
+    path: iso:session
+    locator: iso:session
+    type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: a009020101a404a0028000
+    default: '01000100'
     min: 0
     max: 4096
     values: []
@@ -977,42 +2383,82 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
-      service bodies are distinct. Full session/presentation wrappers required on
-      real MMS association.
     structure_model:
-      id: confirmed_request
-      kind: tlv
+      id: session
+      kind: sequence
       children:
-      - id: invoke_id
+      - id: spdu
         kind: field
-        type: BER-Unsigned32
-        tag: 2
-      - id: service
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 61123010020103a00ba109020102a404a1028a00
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
         kind: tlv
         children:
-        - id: specification_with_result
-          kind: field
-          type: boolean
-          tag: 0
-          condition: optional
-        - id: variable_access
-          kind: field
-          type: VariableAccessSpecification
+        - id: confirmed
+          kind: tlv
+          children:
+          - id: invoke_id
+            kind: field
+            type: Unsigned32-universal-INTEGER
+          - id: service
+            kind: tlv
+            children:
+            - id: access_results
+              kind: repeat
+              children:
+              - id: result
+                kind: choice
+                children:
+                - id: failure
+                  kind: field
+                  type: DataAccessError-context-0
+                - id: success
+                  kind: field
+                  type: MMS-Data-choice
+              min: 1
+              max: 64
+            tag: 4
           tag: 1
-        tag: 4
-      tag: 0
-      encoding: BER-context-constructed
+        tag: 0
+      encoding: BER-application-1-PDV-list
   - id: invoke_id
     block: HEAD
-    path: ber:confirmed.invoke
-    locator: ber:confirmed.invoke
+    path: ber:mms.invoke
+    locator: ber:mms.invoke
     type: uint32
     width: 4
     endian: big
     role: head
     mutability: fuzzable
-    default: 1
+    default: 2
     min: 0
     max: 4294967295
     values: []
@@ -1023,8 +2469,6 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: BER INTEGER payload location is determined by TLV tree, never absolute
-      byte offset.
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -1032,10 +2476,17 @@ messages:
   - op: tagged_length
     target: pdu
     source: $message
-  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
-    unavailable.
+  - op: correlate_request_response
+    target: invoke_id
+    source: invoke_id
+    message: read
+    scope: transaction
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
 - id: write
-  example: 0300001402f080a00b020101a506a0028000a000
+  example: 0300005702f08001000100614a3048020103a043a041020103a53ca031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72a0078a056175646974
   direction: request
   weight: 2
   match: write
@@ -1052,6 +2503,346 @@ messages:
     parent: REQUEST
   - id: CONTENT
     fields:
+    - session
+    - pdu
+    - domain_id
+    - item_id
+    - value
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: CONTENT
+    path: iso:session
+    locator: iso:session
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01000100'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: session
+      kind: sequence
+      children:
+      - id: spdu
+        kind: field
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 614a3048020103a043a041020103a53ca031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72a0078a056175646974
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
+        kind: tlv
+        children:
+        - id: confirmed
+          kind: tlv
+          children:
+          - id: invoke_id
+            kind: field
+            type: Unsigned32-universal-INTEGER
+          - id: service
+            kind: tlv
+            children:
+            - id: variable_access
+              kind: choice
+              children:
+              - id: list_of_variable
+                kind: repeat
+                children:
+                - id: variable
+                  kind: sequence
+                  children:
+                  - id: domain_specific_name
+                    kind: sequence
+                    children:
+                    - id: domain_id
+                      kind: field
+                      type: VisibleString
+                    - id: item_id
+                      kind: field
+                      type: VisibleString
+                    encoding: ObjectName-domain-specific-[1]
+                min: 1
+                max: 64
+              - id: variable_list_name
+                kind: field
+                type: ObjectName
+            - id: list_of_data
+              kind: repeat
+              children:
+              - id: data
+                kind: field
+                type: MMS-Data-choice
+              min: 1
+              max: 64
+            tag: 5
+          tag: 0
+        tag: 0
+      encoding: BER-application-1-PDV-list
+  - id: invoke_id
+    block: HEAD
+    path: ber:mms.invoke
+    locator: ber:mms.invoke
+    type: uint32
+    width: 4
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 3
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: domain_id
+    block: CONTENT
+    path: ber:mms.domain
+    locator: ber:mms.domain
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: simpleIOGenericIO
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: item_id
+    block: CONTENT
+    path: ber:mms.item
+    locator: ber:mms.item
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: GGIO1$DC$NamPlt$vendor
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: value
+    block: CONTENT
+    path: ber:mms.data
+    locator: ber:mms.data
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: audit
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
+- id: write_response
+  example: 0300001d02f080010001006110300e020103a009a107020103a5028100
+  direction: response
+  weight: 2
+  match: write_response
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    - invoke_id
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - session
     - pdu
     parent: REQUEST
   - id: REQUEST
@@ -1182,16 +2973,16 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: pdu
+  - id: session
     block: CONTENT
-    path: mms.ber
-    locator: mms.ber
-    type: ber_tlv
+    path: iso:session
+    locator: iso:session
+    type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: a00b020101a506a0028000a000
+    default: '01000100'
     min: 0
     max: 4096
     values: []
@@ -1200,45 +2991,82 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
-      service bodies are distinct. Full session/presentation wrappers required on
-      real MMS association.
     structure_model:
-      id: confirmed_request
-      kind: tlv
+      id: session
+      kind: sequence
       children:
-      - id: invoke_id
+      - id: spdu
         kind: field
-        type: BER-Unsigned32
-        tag: 2
-      - id: service
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 6110300e020103a009a107020103a5028100
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
         kind: tlv
         children:
-        - id: variable_access
-          kind: field
-          type: VariableAccessSpecification
-          tag: 0
-        - id: list_of_data
-          kind: repeat
+        - id: confirmed
+          kind: tlv
           children:
-          - id: data
+          - id: invoke_id
             kind: field
-            type: MMS-Data-choice
-          min: 1
-          max: 64
-        tag: 5
-      tag: 0
-      encoding: BER-context-constructed
+            type: Unsigned32-universal-INTEGER
+          - id: service
+            kind: tlv
+            children:
+            - id: write_results
+              kind: repeat
+              children:
+              - id: result
+                kind: choice
+                children:
+                - id: failure
+                  kind: field
+                  type: DataAccessError-context-0
+                - id: success
+                  kind: field
+                  type: NULL-context-1
+              min: 1
+              max: 64
+            tag: 5
+          tag: 1
+        tag: 0
+      encoding: BER-application-1-PDV-list
   - id: invoke_id
     block: HEAD
-    path: ber:confirmed.invoke
-    locator: ber:confirmed.invoke
+    path: ber:mms.invoke
+    locator: ber:mms.invoke
     type: uint32
     width: 4
     endian: big
     role: head
     mutability: fuzzable
-    default: 1
+    default: 3
     min: 0
     max: 4294967295
     values: []
@@ -1249,8 +3077,6 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: BER INTEGER payload location is determined by TLV tree, never absolute
-      byte offset.
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -1258,10 +3084,459 @@ messages:
   - op: tagged_length
     target: pdu
     source: $message
-  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
-    unavailable.
+  - op: correlate_request_response
+    target: invoke_id
+    source: invoke_id
+    message: write
+    scope: transaction
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
+- id: conclude
+  example: 0300001602f0800100010061093007020103a0028b00
+  direction: request
+  weight: 2
+  match: conclude
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - session
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: CONTENT
+    path: iso:session
+    locator: iso:session
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01000100'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: session
+      kind: sequence
+      children:
+      - id: spdu
+        kind: field
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 61093007020103a0028b00
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
+        kind: tlv
+        children:
+        - id: conclude
+          kind: field
+          type: MMS-conclude-request-NULL-tag11
+        tag: 0
+      encoding: BER-application-1-PDV-list
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
+- id: conclude_response
+  example: 0300001602f0800100010061093007020103a0028c00
+  direction: response
+  weight: 2
+  match: conclude_response
+  blocks:
+  - id: HEAD
+    fields:
+    - version
+    - reserved
+    - tpkt_length
+    - cotp_li
+    - cotp_type
+    - eot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - session
+    - pdu
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: version
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: tpkt_length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_li
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cotp_type
+    block: HEAD
+    path: abs:5
+    locator: abs:5
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 240
+    min: 240
+    max: 240
+    values:
+    - 240
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: eot
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 128
+    min: 128
+    max: 128
+    values:
+    - 128
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: CONTENT
+    path: iso:session
+    locator: iso:session
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01000100'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: session
+      kind: sequence
+      children:
+      - id: spdu
+        kind: field
+        type: give-tokens-0x0100-data-0x0100
+      - id: user_data
+        kind: field
+        type: presentation-follows
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 61093007020103a0028c00
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-3
+      - id: single_asn1_type
+        kind: tlv
+        children:
+        - id: conclude
+          kind: field
+          type: MMS-conclude-response-NULL-tag12
+        tag: 0
+      encoding: BER-application-1-PDV-list
+  dependencies:
+  - op: length_of
+    target: tpkt_length
+    source: $message
+  - op: tagged_length
+    target: pdu
+    source: $message
+  notes: Complete reference profile message, including session DATA and presentation
+    context 3.
+  fixture_status: complete
+  runtime_encode: false
 - id: release
-  example: 0300000c02f0806203800100
+  example: 0300001902f0800910c10e610c300a020101a0056203800100
   direction: request
   weight: 2
   match: release
@@ -1277,6 +3552,7 @@ messages:
     parent: REQUEST
   - id: CONTENT
     fields:
+    - session
     - pdu
     parent: REQUEST
   - id: REQUEST
@@ -1407,16 +3683,16 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: pdu
+  - id: session
     block: CONTENT
-    path: mms.ber
-    locator: mms.ber
-    type: ber_tlv
+    path: iso:session
+    locator: iso:session
+    type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: '6203800100'
+    default: 0910c10e
     min: 0
     max: 4096
     values: []
@@ -1425,18 +3701,55 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
-      service bodies are distinct. Full session/presentation wrappers required on
-      real MMS association.
     structure_model:
-      id: acse
-      kind: tlv
+      id: session
+      kind: sequence
       children:
-      - id: association_fields
+      - id: spdu
         kind: field
-        type: ACSE-RLRQ
-      tag: 2
-      encoding: BER-application-constructed
+        type: FINISH-0x09
+      - id: user_data
+        kind: field
+        type: parameter-0xC1
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 610c300a020101a0056203800100
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-1
+      - id: single_asn1_type
+        kind: tlv
+        children:
+        - id: acse_release
+          kind: tlv
+          children:
+          - id: reason
+            kind: field
+            type: normal-context-0
+            condition: request optional reason
+          tag: 2
+        tag: 0
+      encoding: BER-application-1-PDV-list
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -1444,13 +3757,15 @@ messages:
   - op: tagged_length
     target: pdu
     source: $message
-  notes: Structural BER fixture only; not a complete on-wire MMS association. Runtime
-    unavailable.
-- id: confirmed_response
-  example: 0300001202f080a109020101a404a0028000
+  notes: Complete session FINISH/DISCONNECT carrying presentation context 1 and ACSE
+    RLRQ/RLRE; distinct from MMS conclude handshake.
+  fixture_status: complete
+  runtime_encode: false
+- id: release_response
+  example: 0300001602f0800a0dc10b61093007020101a0026300
   direction: response
   weight: 2
-  match: read
+  match: release_response
   blocks:
   - id: HEAD
     fields:
@@ -1460,10 +3775,10 @@ messages:
     - cotp_li
     - cotp_type
     - eot
-    - invoke_id
     parent: REQUEST
   - id: CONTENT
     fields:
+    - session
     - pdu
     parent: REQUEST
   - id: REQUEST
@@ -1594,16 +3909,16 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-  - id: pdu
+  - id: session
     block: CONTENT
-    path: mms.ber
-    locator: mms.ber
-    type: ber_tlv
+    path: iso:session
+    locator: iso:session
+    type: bytes
     width: 0
     endian: big
     role: content
     mutability: fuzzable
-    default: a009020101a404a0028000
+    default: 0a0dc10b
     min: 0
     max: 4096
     values: []
@@ -1612,54 +3927,55 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed
-      service bodies are distinct. Full session/presentation wrappers required on
-      real MMS association.
     structure_model:
-      id: confirmed_request
-      kind: tlv
+      id: session
+      kind: sequence
       children:
-      - id: invoke_id
+      - id: spdu
         kind: field
-        type: BER-Unsigned32
-        tag: 2
-      - id: service
-        kind: tlv
-        children:
-        - id: specification_with_result
-          kind: field
-          type: boolean
-          tag: 0
-          condition: optional
-        - id: variable_access
-          kind: field
-          type: VariableAccessSpecification
-          tag: 1
-        tag: 4
-      tag: 0
-      encoding: BER-context-constructed
-  - id: invoke_id
-    block: HEAD
-    path: ber:confirmed.invoke
-    locator: ber:confirmed.invoke
-    type: uint32
-    width: 4
+        type: DISCONNECT-0x0A
+      - id: user_data
+        kind: field
+        type: parameter-0xC1
+      encoding: ISO-session
+  - id: pdu
+    block: CONTENT
+    path: ber:presentation
+    locator: ber:presentation
+    type: ber_tlv
+    width: 0
     endian: big
-    role: head
+    role: content
     mutability: fuzzable
-    default: 1
+    default: 61093007020101a0026300
     min: 0
-    max: 4294967295
+    max: 4096
     values: []
     strategies:
-    - enum
-    - boundary
-    - bitflip
-    - arithmetic
+    - afl
+    - resize
     evidence: wire
     confidence: implementation
-    structure: BER INTEGER payload location is determined by TLV tree, never absolute
-      byte offset.
+    structure_model:
+      id: fully_encoded_data
+      kind: sequence
+      children:
+      - id: context_id
+        kind: field
+        type: INTEGER-1
+      - id: single_asn1_type
+        kind: tlv
+        children:
+        - id: acse_release
+          kind: tlv
+          children:
+          - id: reason
+            kind: field
+            type: normal-context-0
+            condition: request optional reason
+          tag: 3
+        tag: 0
+      encoding: BER-application-1-PDV-list
   dependencies:
   - op: length_of
     target: tpkt_length
@@ -1667,10 +3983,7 @@ messages:
   - op: tagged_length
     target: pdu
     source: $message
-  - op: correlate_request_response
-    target: invoke_id
-    source: invoke_id
-    message: read
-    scope: transaction
-  notes: Structural ConfirmedResponse envelope with matching invoke field; service-specific
-    result payload still needs a complete BER codec.
+  notes: Complete session FINISH/DISCONNECT carrying presentation context 1 and ACSE
+    RLRQ/RLRE; distinct from MMS conclude handshake.
+  fixture_status: complete
+  runtime_encode: false

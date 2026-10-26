@@ -25,6 +25,14 @@
     {
       "id": "stopping",
       "meaning": "STOPDT confirmation pending"
+    },
+    {
+      "id": "interrogating",
+      "meaning": "Activation sent; confirmation pending"
+    },
+    {
+      "id": "interrogation_data",
+      "meaning": "Positive activation confirmation; data/termination pending"
     }
   ],
   "transitions": [
@@ -61,16 +69,6 @@
       "to": "stopped"
     },
     {
-      "actions": [
-        "cache send sequence"
-      ],
-      "from": "active",
-      "guard": "increment N(S) modulo 32768",
-      "message": "interrogation",
-      "response": "",
-      "to": "active"
-    },
-    {
       "actions": [],
       "from": "active",
       "guard": "acknowledge received I frames",
@@ -83,7 +81,7 @@
       "from": "active",
       "guard": "TESTFR keepalive",
       "message": "test_act",
-      "response": "",
+      "response": "test_con",
       "to": "active"
     },
     {
@@ -95,9 +93,43 @@
       "to": "active"
     },
     {
+      "actions": [
+        "increment local N(S)"
+      ],
+      "from": "active",
+      "guard": "send window available",
+      "message": "interrogation",
+      "response": "interrogation_confirmation",
+      "to": "interrogating"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "positive activation confirmation; matching CA/QOI",
+      "message": "interrogation_confirmation",
+      "response": "",
+      "to": "interrogation_data"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "negative activation confirmation",
+      "message": "interrogation_negative",
+      "response": "",
+      "to": "active"
+    },
+    {
+      "actions": [],
+      "from": "interrogation_data",
+      "guard": "matching CA/QOI; all preceding I frames acknowledged",
+      "message": "interrogation_termination",
+      "response": "",
+      "to": "active"
+    },
+    {
       "actions": [],
       "from": "stopped",
-      "guard": "TESTFR is independent of data-transfer activation",
+      "guard": "TESTFR does not depend on transfer phase",
       "message": "test_act",
       "response": "test_con",
       "to": "stopped"
@@ -105,10 +137,42 @@
     {
       "actions": [],
       "from": "stopped",
-      "guard": "TESTFR is independent of data-transfer activation",
+      "guard": "TESTFR does not depend on transfer phase",
       "message": "test_con",
       "response": "",
       "to": "stopped"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_act",
+      "response": "test_con",
+      "to": "interrogating"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_con",
+      "response": "",
+      "to": "interrogating"
+    },
+    {
+      "actions": [],
+      "from": "interrogation_data",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_act",
+      "response": "test_con",
+      "to": "interrogation_data"
+    },
+    {
+      "actions": [],
+      "from": "interrogation_data",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_con",
+      "response": "",
+      "to": "interrogation_data"
     }
   ]
 }

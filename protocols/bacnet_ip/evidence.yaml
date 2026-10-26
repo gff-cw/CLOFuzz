@@ -4,13 +4,13 @@ sources:
   basis: implementation
   sections: src/bacnet/{npdu,bacdcode,rp}.c; datalink/bvlc.c; apps/server/main.c
 - id: official
-  url: https://www.ashrae.org/technical-resources/standards-and-guidelines/titles-purposes-and-scopes
-  basis: implementation
-  sections: ASHRAE 135 catalogue identity only; wire semantics verified against local
-    BACnet Stack 1.5.0
-scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is
-  with optional limits and ReadProperty with optional array index; application/context
-  tag walking and invoke correlation.
+  url: https://www.ashrae.org/technical-resources/bookstore/bacnet
+  basis: inferred
+  sections: ASHRAE 135 identity/scope only; paid text not consulted; wire details
+    from BACnet Stack 1.5.0
+scope: BVLC Original-Unicast-NPDU, optional routed NPDU addresses; unsegmented Who-Is/I-Am;
+  ReadProperty request/ACK/Error and Reject/server-Abort. Runtime generates only Who-Is
+  and ReadProperty requests; response layouts are complete static descriptions.
 confidence: Each field names its source and confidence; catalogue identity does not
   establish normative wire details.
 accessed: '2026-10-25'
@@ -131,18 +131,212 @@ field_sources:
   field: value
   source: wire
   confidence: implementation
+- message: i_am
+  field: bvlc_type
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: bvlc_function
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: bvlc_length
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: npdu_version
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: npdu_control
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: apdu_type
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: service
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: device_identifier
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: max_apdu_accepted
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: segmentation
+  source: wire
+  confidence: implementation
+- message: i_am
+  field: vendor_identifier
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: bvlc_type
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: bvlc_function
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: bvlc_length
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: npdu_version
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: npdu_control
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: apdu_type
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: invoke_id
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: service
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: error_class
+  source: wire
+  confidence: implementation
+- message: read_property_error
+  field: error_code
+  source: wire
+  confidence: implementation
+- message: reject
+  field: bvlc_type
+  source: wire
+  confidence: implementation
+- message: reject
+  field: bvlc_function
+  source: wire
+  confidence: implementation
+- message: reject
+  field: bvlc_length
+  source: wire
+  confidence: implementation
+- message: reject
+  field: npdu_version
+  source: wire
+  confidence: implementation
+- message: reject
+  field: npdu_control
+  source: wire
+  confidence: implementation
+- message: reject
+  field: apdu_type
+  source: wire
+  confidence: implementation
+- message: reject
+  field: invoke_id
+  source: wire
+  confidence: implementation
+- message: reject
+  field: reason
+  source: wire
+  confidence: implementation
+- message: abort
+  field: bvlc_type
+  source: wire
+  confidence: implementation
+- message: abort
+  field: bvlc_function
+  source: wire
+  confidence: implementation
+- message: abort
+  field: bvlc_length
+  source: wire
+  confidence: implementation
+- message: abort
+  field: npdu_version
+  source: wire
+  confidence: implementation
+- message: abort
+  field: npdu_control
+  source: wire
+  confidence: implementation
+- message: abort
+  field: apdu_type
+  source: wire
+  confidence: implementation
+- message: abort
+  field: invoke_id
+  source: wire
+  confidence: implementation
+- message: abort
+  field: reason
+  source: wire
+  confidence: implementation
 availability: Public OPC Foundation, RFC1006, Modbus current official PDF and open-source
   implementations were consulted. Full ASHRAE, IEC and ODVA subscription texts were
   not accessed.
 distinctions: semantic state IDs are unrelated to StateAFL memory-derived IDs
+fixture_counts:
+  complete: 7
+  fragment: 0
+fixture_verification: 'Independent bounded structural readers: tests/protocol/test_model_completeness.py.
+  Compiler validation covers the documented envelope/runtime subset, not complete
+  service conformance.'
+fixture_provenance: Constructed from the named public specification/implementation
+  and checked by independent bounded structural readers; see audit for live-test limits.
 validation:
   protocol: bacnet_ip
-  messages: 3
-  fields: 29
+  messages: 7
+  fields: 66
   semantic_states: 2
   validated: true
   runtime: true
-  scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is
-    with optional limits and ReadProperty with optional array index; application/context
-    tag walking and invoke correlation.
-  example_validation: protocol envelope and length consistency; not live service conformance
+  scope: BVLC Original-Unicast-NPDU, optional routed NPDU addresses; unsegmented Who-Is/I-Am;
+    ReadProperty request/ACK/Error and Reject/server-Abort. Runtime generates only
+    Who-Is and ReadProperty requests; response layouts are complete static descriptions.
+  example_validation: protocol envelope and length consistency; scoped BACnet decoder
+    checks for runtime fixtures; not live service conformance
+  execution_contract:
+    static_only: false
+    static_metadata:
+      protocol:
+      - name
+      - version
+      - scope
+      - framing
+      - sources
+      message:
+      - match
+      - blocks
+      - notes
+      - fixture_status
+      - runtime_encode
+      field:
+      - block
+      - path
+      - default
+      - evidence
+      - confidence
+      - structure
+      - structure_model
+      dependency:
+      - scope
+      - when
+      state:
+      - states[].meaning
+      - transitions[].guard
+      - transitions[].actions
+      - invalid_strategy
+    field_when_repeat: static-only; rejected by runtime-enabled profiles
+    dependencies: whitelisted operations only; scope and when are annotations
+    content_scalar_strategies: runtime uses AFL field projection; values/strategies
+      are annotations for CONTENT scalars
+    runtime_encode: capability assertion derived from runtime support and message
+      direction; never an execution switch

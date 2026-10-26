@@ -17,5 +17,7 @@ limits:
   max_repeat: 4
   max_bytes: 1048576
 invalid_strategy: "{{invalid_strategy}}" # 人读说明；不能自行定义任意执行代码
+# runtime=true时，同一个(from,message)只能有一条边；guard不会消歧。
+# response非空时，to状态必须存在接收该response消息的后续边。
 # 有会话建立/释放语义时增加真实状态和边；独立请求协议无需虚构复杂状态。
 # 这些是 protocol semantic states，与 StateAFL 内存推断状态分开。

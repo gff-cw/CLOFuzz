@@ -125,6 +125,9 @@ static u8 protocol_base[MAX_FILE], protocol_wire[MAX_FILE];
 static size_t protocol_base_len;
 static size_t protocol_surrounding_records;
 static u64 protocol_raw_runs, protocol_structured_runs, protocol_rejections;
+static u8 fixed_random_seed, experiment_active;
+static u32 experiment_seed, protocol_candidate_limit, protocol_candidates_saved;
+static u8 *protocol_candidate_dir;
 static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
 
 EXP_ST u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
@@ -1479,6 +1482,7 @@ void wait_for_state_sequence(void) {
 int send_over_network()
 {
   int n;
+  u32 complete_messages = 0;
   u8 likely_buggy = 0;
   struct sockaddr_in serv_addr;
   struct sockaddr_in local_serv_addr;
@@ -1606,6 +1610,7 @@ int send_over_network()
     if (n != kl_val(it)->msize) {
       goto HANDLE_RESPONSES;
     }
+    complete_messages++;
 
     //retrieve server response
     u32 prev_buf_size = response_buf_size;
@@ -1647,6 +1652,24 @@ HANDLE_RESPONSES:
   }
 
   close(sockfd);
+
+  /* Explicit, bounded experiment tracing: save the exact complete datagrams
+     after session bindings, including raw controls, only after calibration. */
+  if (experiment_active && protocol_candidate_dir && complete_messages &&
+      protocol_candidates_saved < protocol_candidate_limit) {
+    u8 *sample = alloc_printf("%s/%06u.replay", protocol_candidate_dir, protocol_candidates_saved);
+    save_kl_messages_to_file(kl_messages, sample, 1, complete_messages);
+    ck_free(sample);
+    u8 *metadata = alloc_printf("%s/%06u.json", protocol_candidate_dir, protocol_candidates_saved);
+    FILE *record = fopen((char *)metadata, "w");
+    if (!record) PFATAL("Cannot write experiment candidate metadata");
+    fprintf(record, "{\"structured\":%s,\"sent_messages\":%u,\"execution_counter\":%llu,\"forkserver\":\"%s\"}\n",
+            protocol_structured_run ? "true" : "false", complete_messages, total_execs,
+            current_fsrv == stateafl_fsrv ? "state" : "coverage");
+    if (fclose(record)) PFATAL("Cannot close experiment candidate metadata");
+    ck_free(metadata);
+    protocol_candidates_saved++;
+  }
 
   if (likely_buggy && false_negative_reduction) return 0;
 
@@ -1696,7 +1719,7 @@ static u64 get_cur_time_us(void) {
 
 static inline u32 UR(u32 limit) {
 
-  if (unlikely(!rand_cnt--)) {
+  if (!fixed_random_seed && unlikely(!rand_cnt--)) {
 
     u32 seed[2];
 
@@ -5293,6 +5316,8 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
              orig_cmdline, slowest_exec_ms);
              /* ignore errors */
 
+  if (fixed_random_seed) fprintf(f, "random_seed       : %u\n", experiment_seed);
+  if (protocol_candidate_limit) fprintf(f, "saved_candidates  : %u\n", protocol_candidates_saved);
   if (protocol_engine) {
     fprintf(f, "protocol_mode     : %s\nprotocol_structured: %llu\n"
                "protocol_raw      : %llu\nprotocol_rejected : %llu\n",
@@ -6354,6 +6379,22 @@ static void show_init_stats(void) {
   if (dumb_mode && !getenv("AFL_HANG_TMOUT"))
     hang_tmout = MIN(EXEC_TIMEOUT, exec_tmout * 2 + 100);
 
+  if (fixed_random_seed || protocol_candidate_limit) {
+    u8 *path = alloc_printf("%s/experiment_baseline.json", out_dir);
+    FILE *baseline = fopen((char *)path, "w");
+    if (!baseline) PFATAL("Cannot write experiment baseline");
+    fprintf(baseline, "{\"execs_done\":%llu,\"paths_total\":%u,\"coverage_edges\":%u,\"memory_states\":%u,\"protocol_structured\":%llu,\"protocol_raw\":%llu,\"protocol_rejected\":%llu,\"timestamp_ms\":%llu}\n",
+            total_execs, queued_paths, count_non_255_bytes(virgin_bits), state_ids_count,
+            protocol_structured_runs, protocol_raw_runs, protocol_rejections, get_cur_time());
+    if (fclose(baseline)) PFATAL("Cannot close experiment baseline");
+    ck_free(path);
+    if (protocol_engine) {
+      path = alloc_printf("%s/experiment_protocol_baseline.json", out_dir);
+      proto_write_stats(protocol_engine, (char *)path);
+      ck_free(path);
+    }
+  }
+  experiment_active = 1;
   OKF("All set and ready to roll!");
   fflush(stdout);
 
@@ -9480,6 +9521,8 @@ static void usage(u8* argv0) {
        "  --mutation-layers set - head | head,content | head,content,sequence (default all)\n"
        "  --protocol-ratio pct  - structured share in hybrid mode, 0..100 (default 70)\n"
        "  --protocol-fallback   - explicitly allow raw fallback on rejected candidates\n\n"
+       "  --random-seed n       - fixed uint32 mutation RNG seed for repeated experiments\n"
+       "  --protocol-save-candidates n - save up to n sent sequences after calibration (default 0)\n\n"
 
        "Other stuff:\n\n"
 
@@ -10209,6 +10252,8 @@ int main(int argc, char** argv) {
     {"mutation-layers", required_argument, NULL, 1003},
     {"protocol-ratio", required_argument, NULL, 1004},
     {"protocol-fallback", no_argument, NULL, 1005},
+    {"random-seed", required_argument, NULL, 1006},
+    {"protocol-save-candidates", required_argument, NULL, 1007},
     {NULL, 0, NULL, 0}
   };
   while ((opt = getopt_long(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:r:w:e:P:KEq:s:RFc:l:u:U:", protocol_options, NULL)) > 0)
@@ -10239,6 +10284,21 @@ int main(int argc, char** argv) {
         protocol_options_given = 1; protocol_ratio = ratio; break;
       }
       case 1005: protocol_options_given = 1; protocol_fallback = 1; break;
+      case 1006: {
+        char *end; errno = 0;
+        unsigned long long seed = strtoull(optarg, &end, 10);
+        if (fixed_random_seed || errno || !*optarg || *end || *optarg == '-' || seed > 0xffffffffULL)
+          FATAL("--random-seed requires one uint32 integer in 0..4294967295");
+        fixed_random_seed = 1; experiment_seed = seed;
+        srandom(experiment_seed); break;
+      }
+      case 1007: {
+        char *end; errno = 0;
+        unsigned long count = strtoul(optarg, &end, 10);
+        if (errno || !*optarg || *end || *optarg == '-' || count > 1000000)
+          FATAL("--protocol-save-candidates requires an integer in 0..1000000");
+        protocol_candidate_limit = count; break;
+      }
 
       case 'i': /* input dir */
 
@@ -10648,6 +10708,10 @@ int main(int argc, char** argv) {
   setup_ipsm();
 
   setup_dirs_fds();
+  if (protocol_candidate_limit) {
+    protocol_candidate_dir = alloc_printf("%s/protocol-candidates", out_dir);
+    if (mkdir((char *)protocol_candidate_dir, 0700)) PFATAL("Cannot create protocol candidate directory");
+  }
   if (protocol_engine) {
     u8 *log_path = alloc_printf("%s/protocol_mutations.jsonl", out_dir);
     protocol_log = fopen((char *)log_path, "w");
@@ -10890,6 +10954,7 @@ stop_fuzzing:
 
   if (protocol_log) fclose(protocol_log);
   proto_free(protocol_engine);
+  ck_free(protocol_candidate_dir);
 
   alloc_report();
 

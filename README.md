@@ -374,3 +374,12 @@ separate namespace from inferred memory states.
 See [architecture](docs/architecture.md), [description language](docs/protocol-description-language.md),
 [scope and sources](docs/references.md), [actual BACnet results](docs/bacnet-integration-test.md)
 and [implementation review](docs/implementation-review.md).
+
+
+The [six-protocol description index](protocols/README.md) lists complete fixtures within each declared profile.
+See the [template audit](docs/template-audit.md), [protocol model audit](docs/protocol-model-audit.md)
+and [repeated BACnet controls](docs/bacnet-controlled-results.md). Run
+`python3 tests/protocol/controlled_experiments.py --output /tmp/bacnet-comparison --repeats 3 --seconds 20`
+for repeated comparisons and independent YAML-to-wire controls. `--random-seed` controls the internal RNG;
+`--protocol-save-candidates` explicitly enables bounded actual-send capture (default zero).
+Export the six packages with `python3 tools/export_protocol_bundle.py --output deliverables/industrial-protocol-descriptions.zip`.

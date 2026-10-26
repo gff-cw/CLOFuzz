@@ -13,15 +13,15 @@
             "session",
             "status",
             "context",
-            "options"
+            "options",
+            "protocol_version",
+            "option_flags"
           ],
           "id": "HEAD",
           "parent": "REQUEST"
         },
         {
-          "fields": [
-            "payload"
-          ],
+          "fields": [],
           "id": "CONTENT",
           "parent": "REQUEST"
         },
@@ -97,11 +97,11 @@
           "evidence": "wire",
           "id": "session",
           "locator": "abs:4",
-          "max": 4294967295,
+          "max": 0,
           "min": 0,
-          "mutability": "runtime_bound",
+          "mutability": "fixed",
           "path": "abs:4",
-          "role": "head",
+          "role": "fixed",
           "strategies": [
             "enum",
             "boundary",
@@ -109,7 +109,9 @@
             "arithmetic"
           ],
           "type": "uint32",
-          "values": [],
+          "values": [
+            0
+          ],
           "width": 4
         },
         {
@@ -186,31 +188,61 @@
           "width": 4
         },
         {
-          "block": "CONTENT",
+          "block": "HEAD",
           "confidence": "implementation",
-          "default": "01000000",
-          "endian": "big",
+          "default": 1,
+          "endian": "little",
           "evidence": "wire",
-          "id": "payload",
+          "id": "protocol_version",
           "locator": "abs:24",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
           "path": "abs:24",
-          "role": "content",
+          "role": "fixed",
           "strategies": [
-            "afl",
-            "resize"
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
           ],
-          "structure": "RegisterSession version/options or Common Packet Format item count and items; CIP Service plus response bit, EPATH word count and logical class/instance/attribute segments; SendUnitData needs prior ForwardOpen connection.",
-          "type": "bytes",
-          "values": [],
-          "width": 0
+          "type": "uint16",
+          "values": [
+            1
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "option_flags",
+          "locator": "abs:26",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:26",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
         }
       ],
+      "fixture_status": "complete",
       "id": "register",
       "match": "register",
-      "notes": "Session handle bound from successful RegisterSession response; Sender Context echoed. Explicit TCP messaging only.",
+      "notes": "RegisterSession request handle is zero. A successful response assigns a nonzero handle; Sender Context is echoed. Registration request alone does not establish a registered session.",
+      "runtime_encode": false,
       "weight": 2
     },
     {
@@ -253,7 +285,7 @@
         }
       ],
       "direction": "request",
-      "example": "660000000000000000000000010000000000000000000000",
+      "example": "660000000100000000000000010000000000000000000000",
       "fields": [
         {
           "block": "HEAD",
@@ -306,7 +338,7 @@
         {
           "block": "HEAD",
           "confidence": "implementation",
-          "default": 0,
+          "default": 1,
           "endian": "little",
           "evidence": "wire",
           "id": "session",
@@ -400,9 +432,11 @@
           "width": 4
         }
       ],
+      "fixture_status": "complete",
       "id": "unregister",
       "match": "unregister",
-      "notes": "Session handle bound from successful RegisterSession response; Sender Context echoed. Explicit TCP messaging only.",
+      "notes": "UnregisterSession has no command-specific data and no response; closes registered encapsulation session and its connections.",
+      "runtime_encode": false,
       "weight": 2
     },
     {
@@ -415,670 +449,14 @@
             "status",
             "context",
             "options",
-            "cip_service",
-            "path_words"
+            "protocol_version",
+            "option_flags"
           ],
           "id": "HEAD",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [
-            "payload",
-            "epath"
-          ],
-          "id": "CONTENT",
           "parent": "REQUEST"
         },
         {
           "fields": [],
-          "id": "REQUEST"
-        }
-      ],
-      "dependencies": [
-        {
-          "add": -24,
-          "op": "length_of",
-          "source": "$message",
-          "target": "length"
-        },
-        {
-          "op": "count_of",
-          "source": "epath",
-          "target": "path_words",
-          "unit": 2
-        },
-        {
-          "message": "register_response",
-          "op": "bind_from_response",
-          "scope": "connection",
-          "source": "session",
-          "target": "session"
-        }
-      ],
-      "direction": "request",
-      "example": "6f0018000000000000000000010000000000000000000000000000000000020000000000b20008000e03200124013001",
-      "fields": [
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 111,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "command",
-          "locator": "abs:0",
-          "max": 111,
-          "min": 111,
-          "mutability": "fixed",
-          "path": "abs:0",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint16",
-          "values": [
-            111
-          ],
-          "width": 2
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "length",
-          "locator": "abs:2",
-          "max": 65535,
-          "min": 0,
-          "mutability": "derived",
-          "path": "abs:2",
-          "role": "derived",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint16",
-          "values": [],
-          "width": 2
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "session",
-          "locator": "abs:4",
-          "max": 4294967295,
-          "min": 0,
-          "mutability": "runtime_bound",
-          "path": "abs:4",
-          "role": "head",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint32",
-          "values": [],
-          "width": 4
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "status",
-          "locator": "abs:8",
-          "max": 0,
-          "min": 0,
-          "mutability": "fixed",
-          "path": "abs:8",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint32",
-          "values": [
-            0
-          ],
-          "width": 4
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 1,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "context",
-          "locator": "abs:12",
-          "max": 18446744073709551615,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:12",
-          "role": "head",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint64",
-          "values": [],
-          "width": 8
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "options",
-          "locator": "abs:20",
-          "max": 0,
-          "min": 0,
-          "mutability": "fixed",
-          "path": "abs:20",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint32",
-          "values": [
-            0
-          ],
-          "width": 4
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "000000000000020000000000b20008000e03200124013001",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "payload",
-          "locator": "abs:24",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:24",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "RegisterSession version/options or Common Packet Format item count and items; CIP Service plus response bit, EPATH word count and logical class/instance/attribute segments; SendUnitData needs prior ForwardOpen connection.",
-          "type": "bytes",
-          "values": [],
-          "width": 0
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 14,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cip_service",
-          "locator": "abs:40",
-          "max": 255,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:40",
-          "role": "head",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "structure": "Request service; response has bit 7 set.",
-          "type": "uint8",
-          "values": [
-            1,
-            14,
-            16
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "path_words",
-          "locator": "abs:41",
-          "max": 255,
-          "min": 0,
-          "mutability": "derived",
-          "path": "abs:41",
-          "role": "derived",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [],
-          "width": 1
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "200124013001",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "epath",
-          "locator": "abs:42",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:42",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "Logical segments class 0x20, instance 0x24, attribute 0x30; one-byte segment values. Word count includes segments and padding.",
-          "structure_model": {
-            "children": [
-              {
-                "children": [
-                  {
-                    "id": "class",
-                    "kind": "field",
-                    "type": "logical-segment-0x20"
-                  },
-                  {
-                    "id": "instance",
-                    "kind": "field",
-                    "type": "logical-segment-0x24"
-                  },
-                  {
-                    "id": "attribute",
-                    "kind": "field",
-                    "type": "logical-segment-0x30"
-                  }
-                ],
-                "id": "segment",
-                "kind": "choice"
-              }
-            ],
-            "encoding": "16-bit-words",
-            "id": "epath",
-            "kind": "repeat",
-            "max": 64,
-            "min": 0
-          },
-          "type": "epath",
-          "values": [],
-          "width": 0
-        }
-      ],
-      "id": "send_rr",
-      "match": "send_rr",
-      "notes": "Session handle bound from successful RegisterSession response; Sender Context echoed. Explicit TCP messaging only.",
-      "weight": 2
-    },
-    {
-      "blocks": [
-        {
-          "fields": [
-            "command",
-            "length",
-            "session",
-            "status",
-            "context",
-            "options",
-            "cip_service",
-            "path_words"
-          ],
-          "id": "HEAD",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [
-            "payload",
-            "epath"
-          ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
-        }
-      ],
-      "dependencies": [
-        {
-          "add": -24,
-          "op": "length_of",
-          "source": "$message",
-          "target": "length"
-        },
-        {
-          "op": "count_of",
-          "source": "epath",
-          "target": "path_words",
-          "unit": 2
-        },
-        {
-          "message": "register_response",
-          "op": "bind_from_response",
-          "scope": "connection",
-          "source": "session",
-          "target": "session"
-        }
-      ],
-      "direction": "request",
-      "example": "70001e0000000000000000000100000000000000000000000000000000000200a100040001000000b1000a0001000e03200124013001",
-      "fields": [
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 112,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "command",
-          "locator": "abs:0",
-          "max": 112,
-          "min": 112,
-          "mutability": "fixed",
-          "path": "abs:0",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint16",
-          "values": [
-            112
-          ],
-          "width": 2
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "length",
-          "locator": "abs:2",
-          "max": 65535,
-          "min": 0,
-          "mutability": "derived",
-          "path": "abs:2",
-          "role": "derived",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint16",
-          "values": [],
-          "width": 2
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "session",
-          "locator": "abs:4",
-          "max": 4294967295,
-          "min": 0,
-          "mutability": "runtime_bound",
-          "path": "abs:4",
-          "role": "head",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint32",
-          "values": [],
-          "width": 4
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "status",
-          "locator": "abs:8",
-          "max": 0,
-          "min": 0,
-          "mutability": "fixed",
-          "path": "abs:8",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint32",
-          "values": [
-            0
-          ],
-          "width": 4
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 1,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "context",
-          "locator": "abs:12",
-          "max": 18446744073709551615,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:12",
-          "role": "head",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint64",
-          "values": [],
-          "width": 8
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "little",
-          "evidence": "wire",
-          "id": "options",
-          "locator": "abs:20",
-          "max": 0,
-          "min": 0,
-          "mutability": "fixed",
-          "path": "abs:20",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint32",
-          "values": [
-            0
-          ],
-          "width": 4
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "0000000000000200a100040001000000b1000a0001000e03200124013001",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "payload",
-          "locator": "abs:24",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:24",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "RegisterSession version/options or Common Packet Format item count and items; CIP Service plus response bit, EPATH word count and logical class/instance/attribute segments; SendUnitData needs prior ForwardOpen connection.",
-          "type": "bytes",
-          "values": [],
-          "width": 0
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 14,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cip_service",
-          "locator": "abs:46",
-          "max": 255,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:46",
-          "role": "head",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "structure": "Request service; response has bit 7 set.",
-          "type": "uint8",
-          "values": [
-            1,
-            14,
-            16
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "path_words",
-          "locator": "abs:47",
-          "max": 255,
-          "min": 0,
-          "mutability": "derived",
-          "path": "abs:47",
-          "role": "derived",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [],
-          "width": 1
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "200124013001",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "epath",
-          "locator": "abs:48",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "abs:48",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "Logical segments class 0x20, instance 0x24, attribute 0x30; one-byte segment values. Word count includes segments and padding.",
-          "structure_model": {
-            "children": [
-              {
-                "children": [
-                  {
-                    "id": "class",
-                    "kind": "field",
-                    "type": "logical-segment-0x20"
-                  },
-                  {
-                    "id": "instance",
-                    "kind": "field",
-                    "type": "logical-segment-0x24"
-                  },
-                  {
-                    "id": "attribute",
-                    "kind": "field",
-                    "type": "logical-segment-0x30"
-                  }
-                ],
-                "id": "segment",
-                "kind": "choice"
-              }
-            ],
-            "encoding": "16-bit-words",
-            "id": "epath",
-            "kind": "repeat",
-            "max": 64,
-            "min": 0
-          },
-          "type": "epath",
-          "values": [],
-          "width": 0
-        }
-      ],
-      "id": "send_unit",
-      "match": "send_unit",
-      "notes": "Session handle bound from successful RegisterSession response; Sender Context echoed. Explicit TCP messaging only.",
-      "weight": 2
-    },
-    {
-      "blocks": [
-        {
-          "fields": [
-            "command",
-            "length",
-            "session",
-            "status",
-            "context",
-            "options"
-          ],
-          "id": "HEAD",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [
-            "payload"
-          ],
           "id": "CONTENT",
           "parent": "REQUEST"
         },
@@ -1156,7 +534,274 @@
         {
           "block": "HEAD",
           "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
           "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "status",
+          "locator": "abs:8",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "context",
+          "locator": "abs:12",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "options",
+          "locator": "abs:20",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:20",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "protocol_version",
+          "locator": "abs:24",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "abs:24",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            1
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "option_flags",
+          "locator": "abs:26",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:26",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "register_response",
+      "match": "register_response",
+      "notes": "Successful RegisterSession response: version/options echoed, nonzero peer-assigned session handle, Sender Context echoed.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "command",
+            "length",
+            "session",
+            "status",
+            "context",
+            "options",
+            "interface_handle",
+            "timeout",
+            "item_count",
+            "address_type",
+            "address_length",
+            "data_type",
+            "data_length",
+            "cip_service",
+            "path_words"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "cip",
+            "epath"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -24,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "length_of",
+          "source": "cip",
+          "target": "data_length"
+        },
+        {
+          "message": "register_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "session",
+          "target": "session"
+        },
+        {
+          "op": "count_of",
+          "source": "epath",
+          "target": "path_words",
+          "unit": 2
+        }
+      ],
+      "direction": "request",
+      "example": "6f0018000100000000000000010000000000000000000000000000000000020000000000b20008000e03200124013001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 111,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "command",
+          "locator": "abs:0",
+          "max": 111,
+          "min": 111,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            111
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
           "endian": "little",
           "evidence": "wire",
           "id": "session",
@@ -1250,57 +895,3334 @@
           "width": 4
         },
         {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "interface_handle",
+          "locator": "abs:24",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:24",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "timeout",
+          "locator": "abs:28",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:28",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "item_count",
+          "locator": "abs:30",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:30",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "interface_handle",
+                "kind": "field",
+                "type": "uint32-little-zero"
+              },
+              {
+                "id": "timeout",
+                "kind": "field",
+                "type": "uint16-little"
+              },
+              {
+                "id": "item_count",
+                "kind": "field",
+                "type": "uint16-little-2"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "type",
+                        "kind": "field",
+                        "type": "uint16-little"
+                      },
+                      {
+                        "id": "length",
+                        "kind": "field",
+                        "type": "uint16-little"
+                      },
+                      {
+                        "id": "data",
+                        "kind": "field",
+                        "type": "length-octets"
+                      }
+                    ],
+                    "id": "item",
+                    "kind": "tlv"
+                  }
+                ],
+                "id": "items",
+                "kind": "repeat",
+                "max": 2,
+                "min": 2
+              }
+            ],
+            "encoding": "CPF NullAddress followed by UnconnectedData",
+            "id": "cpf",
+            "kind": "sequence"
+          },
+          "type": "uint16",
+          "values": [
+            2
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_type",
+          "locator": "abs:32",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:32",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_length",
+          "locator": "abs:34",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:34",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 178,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_type",
+          "locator": "abs:36",
+          "max": 178,
+          "min": 178,
+          "mutability": "fixed",
+          "path": "abs:36",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            178
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_length",
+          "locator": "abs:38",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:38",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
           "block": "CONTENT",
           "confidence": "implementation",
-          "default": "01000000",
+          "default": "0e03200124013001",
           "endian": "big",
           "evidence": "wire",
-          "id": "payload",
-          "locator": "abs:24",
+          "id": "cip",
+          "locator": "abs:40",
           "max": 4096,
           "min": 0,
           "mutability": "fuzzable",
-          "path": "abs:24",
+          "path": "abs:40",
           "role": "content",
           "strategies": [
             "afl",
             "resize"
           ],
-          "structure": "RegisterSession version/options or Common Packet Format item count and items; CIP Service plus response bit, EPATH word count and logical class/instance/attribute segments; SendUnitData needs prior ForwardOpen connection.",
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 14,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip_service",
+          "locator": "abs:40",
+          "max": 14,
+          "min": 14,
+          "mutability": "fixed",
+          "path": "abs:40",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            14
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "path_words",
+          "locator": "abs:41",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:41",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "200124013001",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "epath",
+          "locator": "abs:42",
+          "max": 128,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:42",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "children": [
+                  {
+                    "id": "class8",
+                    "kind": "field",
+                    "type": "segment-0x20-value8"
+                  },
+                  {
+                    "id": "instance8",
+                    "kind": "field",
+                    "type": "segment-0x24-value8"
+                  },
+                  {
+                    "id": "attribute8",
+                    "kind": "field",
+                    "type": "segment-0x30-value8"
+                  }
+                ],
+                "id": "logical_segment",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "padded-16-bit-words",
+            "id": "epath",
+            "kind": "repeat",
+            "max": 64,
+            "min": 0
+          },
+          "type": "epath",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "send_rr",
+      "match": "send_rr",
+      "notes": "CIP GetAttributeSingle Identity class 1/instance 1/attribute 1 (Vendor ID). Response bit7 set; additional-status size counts UInt16 words.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "command",
+            "length",
+            "session",
+            "status",
+            "context",
+            "options",
+            "interface_handle",
+            "timeout",
+            "item_count",
+            "address_type",
+            "address_length",
+            "data_type",
+            "data_length",
+            "cip_service",
+            "reserved",
+            "general_status",
+            "additional_status_words"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "cip",
+            "additional_status",
+            "response_data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -24,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "length_of",
+          "source": "cip",
+          "target": "data_length"
+        },
+        {
+          "message": "register_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "session",
+          "target": "session"
+        },
+        {
+          "op": "count_of",
+          "source": "additional_status",
+          "target": "additional_status_words",
+          "unit": 2
+        },
+        {
+          "message": "send_rr",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "context",
+          "target": "context"
+        }
+      ],
+      "direction": "response",
+      "example": "6f0016000100000000000000010000000000000000000000000000000000020000000000b20006008e0000000100",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 111,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "command",
+          "locator": "abs:0",
+          "max": 111,
+          "min": 111,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            111
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "status",
+          "locator": "abs:8",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "context",
+          "locator": "abs:12",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "options",
+          "locator": "abs:20",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:20",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "interface_handle",
+          "locator": "abs:24",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:24",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "timeout",
+          "locator": "abs:28",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:28",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "item_count",
+          "locator": "abs:30",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:30",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "interface_handle",
+                "kind": "field",
+                "type": "uint32-little-zero"
+              },
+              {
+                "id": "timeout",
+                "kind": "field",
+                "type": "uint16-little"
+              },
+              {
+                "id": "item_count",
+                "kind": "field",
+                "type": "uint16-little-2"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "type",
+                        "kind": "field",
+                        "type": "uint16-little"
+                      },
+                      {
+                        "id": "length",
+                        "kind": "field",
+                        "type": "uint16-little"
+                      },
+                      {
+                        "id": "data",
+                        "kind": "field",
+                        "type": "length-octets"
+                      }
+                    ],
+                    "id": "item",
+                    "kind": "tlv"
+                  }
+                ],
+                "id": "items",
+                "kind": "repeat",
+                "max": 2,
+                "min": 2
+              }
+            ],
+            "encoding": "CPF NullAddress followed by UnconnectedData",
+            "id": "cpf",
+            "kind": "sequence"
+          },
+          "type": "uint16",
+          "values": [
+            2
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_type",
+          "locator": "abs:32",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:32",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_length",
+          "locator": "abs:34",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:34",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 178,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_type",
+          "locator": "abs:36",
+          "max": 178,
+          "min": 178,
+          "mutability": "fixed",
+          "path": "abs:36",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            178
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_length",
+          "locator": "abs:38",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:38",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "8e0000000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip",
+          "locator": "abs:40",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:40",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 142,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip_service",
+          "locator": "abs:40",
+          "max": 142,
+          "min": 142,
+          "mutability": "fixed",
+          "path": "abs:40",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            142
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:41",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:41",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "general_status",
+          "locator": "abs:42",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:42",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0,
+            5,
+            8,
+            14,
+            20
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "additional_status_words",
+          "locator": "abs:43",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:43",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "additional_status",
+          "locator": "cip:additional_status",
+          "max": 64,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "cip:additional_status",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "word",
+                "kind": "field",
+                "type": "uint16-little"
+              }
+            ],
+            "encoding": "additional_status_words*2",
+            "id": "additional_status",
+            "kind": "repeat",
+            "max": 32,
+            "min": 0
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "response_data",
+          "locator": "cip:response_data",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "cip:response_data",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
           "type": "bytes",
           "values": [],
           "width": 0
         }
       ],
-      "id": "register_response",
-      "match": "register",
-      "notes": "Session handle bound from successful RegisterSession response; Sender Context echoed. Explicit TCP messaging only.",
+      "fixture_status": "complete",
+      "id": "send_rr_response",
+      "match": "send_rr_response",
+      "notes": "CIP GetAttributeSingle Identity class 1/instance 1/attribute 1 (Vendor ID). Response bit7 set; additional-status size counts UInt16 words.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "command",
+            "length",
+            "session",
+            "status",
+            "context",
+            "options",
+            "interface_handle",
+            "timeout",
+            "item_count",
+            "address_type",
+            "address_length",
+            "data_type",
+            "data_length",
+            "cip_service",
+            "reserved",
+            "general_status",
+            "additional_status_words"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "cip",
+            "additional_status",
+            "response_data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -24,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "length_of",
+          "source": "cip",
+          "target": "data_length"
+        },
+        {
+          "message": "register_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "session",
+          "target": "session"
+        },
+        {
+          "op": "count_of",
+          "source": "additional_status",
+          "target": "additional_status_words",
+          "unit": 2
+        },
+        {
+          "message": "send_rr",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "context",
+          "target": "context"
+        }
+      ],
+      "direction": "response",
+      "example": "6f0014000100000000000000010000000000000000000000000000000000020000000000b20004008e001400",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 111,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "command",
+          "locator": "abs:0",
+          "max": 111,
+          "min": 111,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            111
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "status",
+          "locator": "abs:8",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "context",
+          "locator": "abs:12",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "options",
+          "locator": "abs:20",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:20",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "interface_handle",
+          "locator": "abs:24",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:24",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "timeout",
+          "locator": "abs:28",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:28",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "item_count",
+          "locator": "abs:30",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:30",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "interface_handle",
+                "kind": "field",
+                "type": "uint32-little-zero"
+              },
+              {
+                "id": "timeout",
+                "kind": "field",
+                "type": "uint16-little"
+              },
+              {
+                "id": "item_count",
+                "kind": "field",
+                "type": "uint16-little-2"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "type",
+                        "kind": "field",
+                        "type": "uint16-little"
+                      },
+                      {
+                        "id": "length",
+                        "kind": "field",
+                        "type": "uint16-little"
+                      },
+                      {
+                        "id": "data",
+                        "kind": "field",
+                        "type": "length-octets"
+                      }
+                    ],
+                    "id": "item",
+                    "kind": "tlv"
+                  }
+                ],
+                "id": "items",
+                "kind": "repeat",
+                "max": 2,
+                "min": 2
+              }
+            ],
+            "encoding": "CPF NullAddress followed by UnconnectedData",
+            "id": "cpf",
+            "kind": "sequence"
+          },
+          "type": "uint16",
+          "values": [
+            2
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_type",
+          "locator": "abs:32",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:32",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_length",
+          "locator": "abs:34",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:34",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 178,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_type",
+          "locator": "abs:36",
+          "max": 178,
+          "min": 178,
+          "mutability": "fixed",
+          "path": "abs:36",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            178
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_length",
+          "locator": "abs:38",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:38",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "8e001400",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip",
+          "locator": "abs:40",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:40",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 142,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip_service",
+          "locator": "abs:40",
+          "max": 142,
+          "min": 142,
+          "mutability": "fixed",
+          "path": "abs:40",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            142
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:41",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:41",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 20,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "general_status",
+          "locator": "abs:42",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:42",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0,
+            5,
+            8,
+            14,
+            20
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "additional_status_words",
+          "locator": "abs:43",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:43",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "additional_status",
+          "locator": "cip:additional_status",
+          "max": 64,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "cip:additional_status",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "word",
+                "kind": "field",
+                "type": "uint16-little"
+              }
+            ],
+            "encoding": "additional_status_words*2",
+            "id": "additional_status",
+            "kind": "repeat",
+            "max": 32,
+            "min": 0
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "response_data",
+          "locator": "cip:response_data",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "cip:response_data",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "send_rr_error",
+      "match": "send_rr_error",
+      "notes": "CIP GetAttributeSingle Identity class 1/instance 1/attribute 1 (Vendor ID). Response bit7 set; additional-status size counts UInt16 words.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "command",
+            "length",
+            "session",
+            "status",
+            "context",
+            "options",
+            "interface_handle",
+            "timeout",
+            "item_count",
+            "address_type",
+            "address_length",
+            "data_type",
+            "data_length",
+            "cip_service",
+            "path_words",
+            "connection_id",
+            "connected_sequence"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "cip",
+            "epath"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -24,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "add": 2,
+          "op": "length_of",
+          "source": "cip",
+          "target": "data_length"
+        },
+        {
+          "message": "register_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "session",
+          "target": "session"
+        },
+        {
+          "op": "count_of",
+          "source": "epath",
+          "target": "path_words",
+          "unit": 2
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "connected_sequence"
+        }
+      ],
+      "direction": "request",
+      "example": "70001e0001000000000000000100000000000000000000000000000000000200a100040001000010b1000a0001000e03200124013001",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 112,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "command",
+          "locator": "abs:0",
+          "max": 112,
+          "min": 112,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            112
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "status",
+          "locator": "abs:8",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "context",
+          "locator": "abs:12",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "options",
+          "locator": "abs:20",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:20",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "interface_handle",
+          "locator": "abs:24",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:24",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "timeout",
+          "locator": "abs:28",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:28",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "item_count",
+          "locator": "abs:30",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:30",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "interface_handle",
+                "kind": "field",
+                "type": "uint32-little-zero"
+              },
+              {
+                "id": "timeout",
+                "kind": "field",
+                "type": "uint16-little-zero"
+              },
+              {
+                "id": "item_count",
+                "kind": "field",
+                "type": "uint16-little-2"
+              },
+              {
+                "children": [
+                  {
+                    "id": "connection_id",
+                    "kind": "field",
+                    "type": "UInt32-little-direction-specific"
+                  }
+                ],
+                "encoding": "UInt16 type + UInt16 length=4",
+                "id": "connected_address",
+                "kind": "tlv",
+                "tag": 161
+              },
+              {
+                "children": [
+                  {
+                    "id": "connected_sequence",
+                    "kind": "field",
+                    "type": "UInt16-little"
+                  },
+                  {
+                    "id": "cip",
+                    "kind": "field",
+                    "type": "complete-CIP-request-or-response"
+                  }
+                ],
+                "encoding": "UInt16 type + UInt16 length=2+CIP-octets",
+                "id": "connected_data",
+                "kind": "tlv",
+                "tag": 177
+              }
+            ],
+            "encoding": "CPF-class3-connected-explicit",
+            "id": "cpf",
+            "kind": "sequence"
+          },
+          "type": "uint16",
+          "values": [
+            2
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 161,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_type",
+          "locator": "abs:32",
+          "max": 161,
+          "min": 161,
+          "mutability": "fixed",
+          "path": "abs:32",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            161
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 4,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_length",
+          "locator": "abs:34",
+          "max": 4,
+          "min": 4,
+          "mutability": "fixed",
+          "path": "abs:34",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            4
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 177,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_type",
+          "locator": "abs:40",
+          "max": 177,
+          "min": 177,
+          "mutability": "fixed",
+          "path": "abs:40",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            177
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_length",
+          "locator": "abs:42",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:42",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0e03200124013001",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip",
+          "locator": "abs:46",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:46",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 14,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip_service",
+          "locator": "abs:46",
+          "max": 14,
+          "min": 14,
+          "mutability": "fixed",
+          "path": "abs:46",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            14
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "path_words",
+          "locator": "abs:47",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:47",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "200124013001",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "epath",
+          "locator": "abs:48",
+          "max": 128,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:48",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "children": [
+                  {
+                    "id": "class8",
+                    "kind": "field",
+                    "type": "segment-0x20-value8"
+                  },
+                  {
+                    "id": "instance8",
+                    "kind": "field",
+                    "type": "segment-0x24-value8"
+                  },
+                  {
+                    "id": "attribute8",
+                    "kind": "field",
+                    "type": "segment-0x30-value8"
+                  }
+                ],
+                "id": "logical_segment",
+                "kind": "choice"
+              }
+            ],
+            "encoding": "padded-16-bit-words",
+            "id": "epath",
+            "kind": "repeat",
+            "max": 64,
+            "min": 0
+          },
+          "type": "epath",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 268435457,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "connection_id",
+          "locator": "abs:36",
+          "max": 4294967295,
+          "min": 1,
+          "mutability": "conditional",
+          "path": "abs:36",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Externally negotiated O->T consumed ID in request; T->O produced ID in response. These illustrative IDs require replacement from successful external ForwardOpen on the same session; no model writer establishes them.",
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "connected_sequence",
+          "locator": "abs:44",
+          "max": 65535,
+          "min": 0,
+          "mutability": "conditional",
+          "path": "abs:44",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Class-3 sequence UInt16 precedes CIP; request advances modulo 65536, response echoes this request sequence. It is separate from Sender Context and CIP service bytes.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "send_unit",
+      "match": "send_unit",
+      "notes": "Complete static SendUnitData packet: ConnectedAddress(0xA1,length=4), ConnectedData(0xB1) with UInt16 sequence plus complete GetAttributeSingle CIP. EXTERNAL PRECONDITION: a successful ForwardOpen has already established an unexpired class-3 explicit connection in this registered session and supplied both directional connection IDs. RegisterSession alone is insufficient. IDs 0x10000001/0x20000001 are illustrative placeholders, not an automatically established connection; no ForwardOpen fixture or automatic provisioning is claimed.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "command",
+            "length",
+            "session",
+            "status",
+            "context",
+            "options",
+            "interface_handle",
+            "timeout",
+            "item_count",
+            "address_type",
+            "address_length",
+            "data_type",
+            "data_length",
+            "cip_service",
+            "reserved",
+            "general_status",
+            "additional_status_words",
+            "connection_id",
+            "connected_sequence"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "cip",
+            "additional_status",
+            "response_data"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -24,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "add": 2,
+          "op": "length_of",
+          "source": "cip",
+          "target": "data_length"
+        },
+        {
+          "message": "register_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "session",
+          "target": "session"
+        },
+        {
+          "op": "count_of",
+          "source": "additional_status",
+          "target": "additional_status_words",
+          "unit": 2
+        },
+        {
+          "message": "send_unit",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "context",
+          "target": "context"
+        },
+        {
+          "message": "send_unit",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "connected_sequence",
+          "target": "connected_sequence"
+        }
+      ],
+      "direction": "response",
+      "example": "70001c0001000000000000000100000000000000000000000000000000000200a100040001000020b100080001008e0000000100",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 112,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "command",
+          "locator": "abs:0",
+          "max": 112,
+          "min": 112,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            112
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "status",
+          "locator": "abs:8",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "context",
+          "locator": "abs:12",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "options",
+          "locator": "abs:20",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:20",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "interface_handle",
+          "locator": "abs:24",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:24",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "timeout",
+          "locator": "abs:28",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:28",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            0
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "item_count",
+          "locator": "abs:30",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:30",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "interface_handle",
+                "kind": "field",
+                "type": "uint32-little-zero"
+              },
+              {
+                "id": "timeout",
+                "kind": "field",
+                "type": "uint16-little-zero"
+              },
+              {
+                "id": "item_count",
+                "kind": "field",
+                "type": "uint16-little-2"
+              },
+              {
+                "children": [
+                  {
+                    "id": "connection_id",
+                    "kind": "field",
+                    "type": "UInt32-little-direction-specific"
+                  }
+                ],
+                "encoding": "UInt16 type + UInt16 length=4",
+                "id": "connected_address",
+                "kind": "tlv",
+                "tag": 161
+              },
+              {
+                "children": [
+                  {
+                    "id": "connected_sequence",
+                    "kind": "field",
+                    "type": "UInt16-little"
+                  },
+                  {
+                    "id": "cip",
+                    "kind": "field",
+                    "type": "complete-CIP-request-or-response"
+                  }
+                ],
+                "encoding": "UInt16 type + UInt16 length=2+CIP-octets",
+                "id": "connected_data",
+                "kind": "tlv",
+                "tag": 177
+              }
+            ],
+            "encoding": "CPF-class3-connected-explicit",
+            "id": "cpf",
+            "kind": "sequence"
+          },
+          "type": "uint16",
+          "values": [
+            2
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 161,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_type",
+          "locator": "abs:32",
+          "max": 161,
+          "min": 161,
+          "mutability": "fixed",
+          "path": "abs:32",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            161
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 4,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "address_length",
+          "locator": "abs:34",
+          "max": 4,
+          "min": 4,
+          "mutability": "fixed",
+          "path": "abs:34",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            4
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 177,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_type",
+          "locator": "abs:40",
+          "max": 177,
+          "min": 177,
+          "mutability": "fixed",
+          "path": "abs:40",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            177
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "data_length",
+          "locator": "abs:42",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:42",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "8e0000000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip",
+          "locator": "abs:46",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:46",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 142,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cip_service",
+          "locator": "abs:46",
+          "max": 142,
+          "min": 142,
+          "mutability": "fixed",
+          "path": "abs:46",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            142
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:47",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:47",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "general_status",
+          "locator": "abs:48",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:48",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0,
+            5,
+            8,
+            14,
+            20
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "additional_status_words",
+          "locator": "abs:49",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:49",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "additional_status",
+          "locator": "cip:additional_status",
+          "max": 64,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "cip:additional_status",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "word",
+                "kind": "field",
+                "type": "uint16-little"
+              }
+            ],
+            "encoding": "additional_status_words*2",
+            "id": "additional_status",
+            "kind": "repeat",
+            "max": 32,
+            "min": 0
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "response_data",
+          "locator": "cip:response_data",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "cip:response_data",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 536870913,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "connection_id",
+          "locator": "abs:36",
+          "max": 4294967295,
+          "min": 1,
+          "mutability": "conditional",
+          "path": "abs:36",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Externally negotiated O->T consumed ID in request; T->O produced ID in response. These illustrative IDs require replacement from successful external ForwardOpen on the same session; no model writer establishes them.",
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "connected_sequence",
+          "locator": "abs:44",
+          "max": 65535,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:44",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Class-3 sequence UInt16 precedes CIP; request advances modulo 65536, response echoes this request sequence. It is separate from Sender Context and CIP service bytes.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "send_unit_response",
+      "match": "send_unit_response",
+      "notes": "Complete static SendUnitData packet: ConnectedAddress(0xA1,length=4), ConnectedData(0xB1) with UInt16 sequence plus complete GetAttributeSingle CIP. EXTERNAL PRECONDITION: a successful ForwardOpen has already established an unexpired class-3 explicit connection in this registered session and supplied both directional connection IDs. RegisterSession alone is insufficient. IDs 0x10000001/0x20000001 are illustrative placeholders, not an automatically established connection; no ForwardOpen fixture or automatic provisioning is claimed.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "command",
+            "length",
+            "session",
+            "status",
+            "context",
+            "options"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -24,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "register",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "context",
+          "target": "context"
+        }
+      ],
+      "direction": "response",
+      "example": "650000000000000069000000010000000000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 101,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "command",
+          "locator": "abs:0",
+          "max": 101,
+          "min": 101,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            101
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 105,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "status",
+          "locator": "abs:8",
+          "max": 105,
+          "min": 105,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            105
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "context",
+          "locator": "abs:12",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "options",
+          "locator": "abs:20",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:20",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "register_error",
+      "match": "register_error",
+      "notes": "Encapsulation status error; no command payload in this fixture.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "command",
+            "length",
+            "session",
+            "status",
+            "context",
+            "options"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -24,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "message": "send_rr",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "context",
+          "target": "context"
+        }
+      ],
+      "direction": "response",
+      "example": "6f0000000100000064000000010000000000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 111,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "command",
+          "locator": "abs:0",
+          "max": 111,
+          "min": 111,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            111
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 100,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "status",
+          "locator": "abs:8",
+          "max": 100,
+          "min": 100,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            100
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "context",
+          "locator": "abs:12",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "options",
+          "locator": "abs:20",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:20",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "invalid_session",
+      "match": "invalid_session",
+      "notes": "Encapsulation status error; no command payload in this fixture.",
+      "runtime_encode": false,
       "weight": 2
     }
   ],
   "name": "EtherNet/IP and CIP explicit TCP",
   "protocol_id": "ethernet_ip_cip_tcp",
-  "scope": "Encapsulation lifecycle, SendRRData/SendUnitData CPF and CIP path description. No implicit UDP I/O.",
+  "scope": "EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply), SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response layouts and encapsulation/CIP errors. SendUnitData requires an externally successful ForwardOpen establishing class-3 connection and supplying directional IDs; this model does not establish that prerequisite. Complete static explicit-message profile; no runtime encoder.",
   "sources": [
     {
       "basis": "implementation",
       "id": "wire",
-      "sections": "encap.c encapsulation command definitions; cpf.c item lengths; CIP message router EPATH parser",
-      "url": "https://github.com/EIPStackGroup/OpENer/blob/master/source/src/enet_encap/encap.c"
+      "sections": "encap.c; cpf.c NotifyConnectedCommonPacketFormat/AssembleLinearMessage; cipconnectionmanager.c GetConnectedObject/AssembleForwardOpenResponse; cipclass3connection.c EstablishClass3Connection. ForwardOpen request is not a verified fixture in this profile.",
+      "url": "https://github.com/EIPStackGroup/OpENer/tree/d8820ef41ce30dda06d213438ba81c81de33ffe2/source/src"
     },
     {
-      "basis": "implementation",
+      "basis": "inferred",
       "id": "official",
-      "sections": "ODVA specification catalogue and subscription boundaries; wire details from OpENer",
+      "sections": "ODVA catalogue/subscription boundary only; paid volumes not consulted; wire details from OpENer",
       "url": "https://www.odva.org/subscriptions-services/specifications/"
     }
   ],
   "support": {
     "excluded": [
+      "ForwardOpen/ForwardClose fixture generation and automatic class-3 connection establishment (external prerequisite for SendUnitData)",
       "implicit UDP I/O",
-      "ForwardOpen runtime binding",
       "CIP Security",
-      "subscription-only ODVA details not independently verified"
+      "other CIP objects/services",
+      "full subscription-only ODVA normative conformance"
     ],
     "level": "static description; runtime encoder unavailable",
     "runtime": false

@@ -1,15 +1,26 @@
 sources:
 - id: wire
-  url: https://reference.opcfoundation.org/specs/OPC-10000-6
+  url: https://github.com/FreeOpcUa/opcua-asyncio/tree/c321a240e53d083fd6e167c67f795915d8f236fd/asyncua/ua
   basis: implementation
-  sections: 5.2 UA Binary; 6.7 UASC; 7.1 UACP
-- id: official
-  url: https://reference.opcfoundation.org/specs/OPC-10000-6
+  sections: 'ua_binary.py and generated uaprotocol_auto.py: all service fixtures decoded
+    completely and re-encoded byte-for-byte; no network exchange'
+- id: services
+  url: https://reference.opcfoundation.org/specs/OPC-10000-4/5.5.1
   basis: normative
-  sections: Part 6 sections 5.2 UA Binary, 6.7 UASC, 7.1 UACP; SecurityPolicy None
-    scope
-scope: HEL/ACK/ERR/RHE transport and UASC OPN/MSG/CLO header structures, UA Binary/NodeId
-  and lifecycle descriptions. Only SecurityPolicy None is described.
+  sections: Discovery service set; Session not required
+- id: nodeids
+  url: https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/latest/Schema/NodeIds.csv
+  basis: normative
+  sections: 'namespace0 binary encoding IDs: 397,428,431,446,449,452'
+- id: official
+  url: https://reference.opcfoundation.org/specs/OPC-10000-6/full
+  basis: normative
+  sections: Part 6 5.2 UA Binary, 6.7 UASC, 7.1 UACP; SecurityPolicy None, single
+    final chunk
+scope: Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue
+  OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault,
+  implementation-profile CloseSecureChannel. Complete UA Binary headers and nested
+  endpoint/token arrays; no Session services or runtime encoder.
 confidence: Each field names its source and confidence; catalogue identity does not
   establish normative wire details.
 accessed: '2026-10-25'
@@ -32,28 +43,28 @@ field_sources:
   confidence: normative
 - message: hello
   field: protocol_version
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: hello
   field: receive_buffer
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: hello
   field: send_buffer
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: hello
   field: max_message_size
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: hello
   field: max_chunk_count
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: hello
   field: endpoint
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: ack
   field: message_type
   source: official
@@ -72,24 +83,24 @@ field_sources:
   confidence: normative
 - message: ack
   field: protocol_version
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: ack
   field: receive_buffer
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: ack
   field: send_buffer
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: ack
   field: max_message_size
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: ack
   field: max_chunk_count
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: error
   field: message_type
   source: official
@@ -106,6 +117,14 @@ field_sources:
   field: body
   source: official
   confidence: normative
+- message: error
+  field: error_code
+  source: official
+  confidence: normative
+- message: error
+  field: reason
+  source: official
+  confidence: normative
 - message: reverse_hello
   field: message_type
   source: official
@@ -120,6 +139,14 @@ field_sources:
   confidence: normative
 - message: reverse_hello
   field: body
+  source: official
+  confidence: normative
+- message: reverse_hello
+  field: server_uri
+  source: official
+  confidence: normative
+- message: reverse_hello
+  field: endpoint
   source: official
   confidence: normative
 - message: open_channel
@@ -140,20 +167,120 @@ field_sources:
   confidence: normative
 - message: open_channel
   field: channel
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
+- message: open_channel
+  field: sequence
+  source: official
+  confidence: normative
+- message: open_channel
+  field: request_id
+  source: official
+  confidence: normative
+- message: open_channel
+  field: service_nodeid
+  source: official
+  confidence: normative
+- message: open_channel
+  field: request_handle
+  source: official
+  confidence: normative
 - message: open_channel
   field: policy_uri
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: open_channel
+  field: sender_certificate
+  source: official
+  confidence: normative
+- message: open_channel
+  field: receiver_thumbprint
+  source: official
+  confidence: normative
+- message: open_channel
+  field: protocol_version
+  source: official
+  confidence: normative
+- message: open_channel
+  field: request_type
+  source: official
+  confidence: normative
+- message: open_channel
+  field: security_mode
+  source: official
+  confidence: normative
+- message: open_channel
+  field: requested_lifetime
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: message_type
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: chunk
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: message_size
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: body
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: channel
+  source: official
+  confidence: normative
+- message: open_channel_response
   field: sequence
-  source: wire
-  confidence: implementation
-- message: open_channel
+  source: official
+  confidence: normative
+- message: open_channel_response
   field: request_id
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: service_nodeid
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: request_handle
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: policy_uri
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: sender_certificate
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: receiver_thumbprint
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: token
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: token_channel
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: created_at
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: revised_lifetime
+  source: official
+  confidence: normative
+- message: open_channel_response
+  field: service_result
+  source: official
+  confidence: normative
 - message: message
   field: message_type
   source: official
@@ -175,10 +302,6 @@ field_sources:
   source: official
   confidence: normative
 - message: message
-  field: token
-  source: official
-  confidence: normative
-- message: message
   field: sequence
   source: official
   confidence: normative
@@ -188,55 +311,207 @@ field_sources:
   confidence: normative
 - message: message
   field: service_nodeid
+  source: official
+  confidence: normative
+- message: message
+  field: request_handle
+  source: official
+  confidence: normative
+- message: message
+  field: token
+  source: official
+  confidence: normative
+- message: message
+  field: endpoint
+  source: official
+  confidence: normative
+- message: message_response
+  field: message_type
+  source: official
+  confidence: normative
+- message: message_response
+  field: chunk
+  source: official
+  confidence: normative
+- message: message_response
+  field: message_size
+  source: official
+  confidence: normative
+- message: message_response
+  field: body
+  source: official
+  confidence: normative
+- message: message_response
+  field: channel
+  source: official
+  confidence: normative
+- message: message_response
+  field: sequence
+  source: official
+  confidence: normative
+- message: message_response
+  field: request_id
+  source: official
+  confidence: normative
+- message: message_response
+  field: service_nodeid
+  source: official
+  confidence: normative
+- message: message_response
+  field: request_handle
+  source: official
+  confidence: normative
+- message: message_response
+  field: token
+  source: official
+  confidence: normative
+- message: message_response
+  field: service_result
+  source: official
+  confidence: normative
+- message: service_fault
+  field: message_type
+  source: official
+  confidence: normative
+- message: service_fault
+  field: chunk
+  source: official
+  confidence: normative
+- message: service_fault
+  field: message_size
+  source: official
+  confidence: normative
+- message: service_fault
+  field: body
+  source: official
+  confidence: normative
+- message: service_fault
+  field: channel
+  source: official
+  confidence: normative
+- message: service_fault
+  field: sequence
+  source: official
+  confidence: normative
+- message: service_fault
+  field: request_id
+  source: official
+  confidence: normative
+- message: service_fault
+  field: service_nodeid
+  source: official
+  confidence: normative
+- message: service_fault
+  field: request_handle
+  source: official
+  confidence: normative
+- message: service_fault
+  field: token
+  source: official
+  confidence: normative
+- message: service_fault
+  field: service_result
   source: official
   confidence: normative
 - message: close_channel
   field: message_type
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
 - message: close_channel
   field: chunk
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
 - message: close_channel
   field: message_size
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
 - message: close_channel
   field: body
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
 - message: close_channel
   field: channel
-  source: official
-  confidence: normative
-- message: close_channel
-  field: token
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
 - message: close_channel
   field: sequence
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
 - message: close_channel
   field: request_id
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
 - message: close_channel
   field: service_nodeid
-  source: official
-  confidence: normative
+  source: wire
+  confidence: implementation
+- message: close_channel
+  field: request_handle
+  source: wire
+  confidence: implementation
+- message: close_channel
+  field: token
+  source: wire
+  confidence: implementation
 availability: Public OPC Foundation, RFC1006, Modbus current official PDF and open-source
   implementations were consulted. Full ASHRAE, IEC and ODVA subscription texts were
   not accessed.
 distinctions: semantic state IDs are unrelated to StateAFL memory-derived IDs
+fixture_counts:
+  complete: 10
+  fragment: 0
+fixture_verification: 'Independent bounded structural readers: tests/protocol/test_model_completeness.py.
+  Compiler validation covers the documented envelope/runtime subset, not complete
+  service conformance.'
+fixture_provenance: UA service fixtures were serialized and completely decoded/re-encoded
+  with asyncua c321a240e53d083fd6e167c67f795915d8f236fd; no UA network exchange.
 validation:
   protocol: opcua_tcp
-  messages: 7
-  fields: 53
-  semantic_states: 5
+  messages: 10
+  fields: 107
+  semantic_states: 6
   validated: true
   runtime: false
-  scope: HEL/ACK/ERR/RHE transport and UASC OPN/MSG/CLO header structures, UA Binary/NodeId
-    and lifecycle descriptions. Only SecurityPolicy None is described.
-  example_validation: protocol envelope and length consistency; not live service conformance
+  scope: Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None
+    Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response,
+    ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers
+    and nested endpoint/token arrays; no Session services or runtime encoder.
+  example_validation: protocol envelope and length consistency; scoped BACnet decoder
+    checks for runtime fixtures; not live service conformance
+  execution_contract:
+    static_only: true
+    static_metadata:
+      protocol:
+      - name
+      - version
+      - scope
+      - framing
+      - sources
+      message:
+      - match
+      - blocks
+      - notes
+      - fixture_status
+      - runtime_encode
+      field:
+      - block
+      - path
+      - default
+      - evidence
+      - confidence
+      - structure
+      - structure_model
+      dependency:
+      - scope
+      - when
+      state:
+      - states[].meaning
+      - transitions[].guard
+      - transitions[].actions
+      - invalid_strategy
+    field_when_repeat: static-only; rejected by runtime-enabled profiles
+    dependencies: whitelisted operations only; scope and when are annotations
+    content_scalar_strategies: runtime uses AFL field projection; values/strategies
+      are annotations for CONTENT scalars
+    runtime_encode: capability assertion derived from runtime support and message
+      direction; never an execution switch

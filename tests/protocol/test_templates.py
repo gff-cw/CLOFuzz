@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import yaml
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tools'))
@@ -127,6 +128,29 @@ class TemplateTests(unittest.TestCase):
             with self.assertRaisesRegex(SpecError,'overwrite'):instantiate('bacnet_ip',path)
             self.assertEqual((path/'keep').read_text(),'original')
             self.assertEqual(sorted(f.name for f in path.iterdir()),['keep'])
+
+    def test_broken_symlink_destination_is_preserved(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'existing';path.symlink_to('missing-target')
+            with self.assertRaisesRegex(SpecError,'overwrite'):instantiate('bacnet_ip',path)
+            self.assertTrue(path.is_symlink())
+            self.assertEqual(os.readlink(path),'missing-target')
+
+    def test_fragment_examples_are_not_packaged_as_replay_seeds(self):
+        profile=load(ROOT/'protocols/modbus_tcp/protocol_spec.yaml')
+        state=load(ROOT/'protocols/modbus_tcp/state_transition.yaml')
+        request=next(m for m in profile['messages'] if m['direction']=='request')
+        request['fixture_status']='fragment'
+        original_load=load
+        def selected(path):
+            path=Path(path)
+            if path.parent.name=='modbus_tcp':
+                return profile if path.name=='protocol_spec.yaml' else state
+            return original_load(path)
+        with tempfile.TemporaryDirectory() as folder, mock.patch('init_protocol_spec.load',side_effect=selected):
+            path=Path(folder)/'configured';instantiate('modbus_tcp',path)
+            self.assertFalse((path/'seeds'/f"{request['id']}.replay").exists())
+            self.assertEqual(load(path/'evidence.yaml')['skipped_fragment_seeds'],[request['id']])
 
     def test_static_profile_cannot_become_runtime_by_copying(self):
         with tempfile.TemporaryDirectory() as folder:

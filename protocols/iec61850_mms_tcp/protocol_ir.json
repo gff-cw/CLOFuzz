@@ -12,7 +12,10 @@
             "reserved",
             "tpkt_length",
             "cotp_li",
-            "cotp_type"
+            "cotp_type",
+            "destination_reference",
+            "source_reference",
+            "class_options"
           ],
           "id": "HEAD",
           "parent": "REQUEST"
@@ -43,7 +46,7 @@
         }
       ],
       "direction": "request",
-      "example": "0300001611e00000000100c0010ac1020001c2020001",
+      "example": "0300001611e00000000100c0010dc2020001c1020001",
       "fields": [
         {
           "block": "HEAD",
@@ -167,31 +170,127 @@
           "width": 1
         },
         {
-          "block": "CONTENT",
+          "block": "HEAD",
           "confidence": "implementation",
-          "default": "0000000100c0010ac1020001c2020001",
+          "default": 0,
           "endian": "big",
           "evidence": "wire",
-          "id": "cotp_parameters",
+          "id": "destination_reference",
           "locator": "abs:6",
-          "max": 4096,
+          "max": 65535,
           "min": 0,
           "mutability": "fuzzable",
           "path": "abs:6",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "source_reference",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "class_options",
+          "locator": "abs:10",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:10",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "c0010dc2020001c1020001",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_parameters",
+          "locator": "abs:11",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:11",
           "role": "content",
           "strategies": [
             "afl",
             "resize"
           ],
-          "structure": "COTP connection references, class and variable TLV parameters.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "tpdu_size",
+                "kind": "field",
+                "max": 16,
+                "min": 7,
+                "type": "TLV-0xC0-exponent"
+              },
+              {
+                "id": "called_tsap",
+                "kind": "field",
+                "type": "TLV-0xC2-octets"
+              },
+              {
+                "id": "calling_tsap",
+                "kind": "field",
+                "type": "TLV-0xC1-octets"
+              }
+            ],
+            "encoding": "COTP-TP0-parameters",
+            "id": "cotp_parameters",
+            "kind": "sequence"
+          },
           "type": "bytes",
           "values": [],
           "width": 0
         }
       ],
+      "fixture_status": "complete",
       "id": "cotp_cr",
       "match": "cotp_cr",
-      "notes": "",
+      "notes": "Complete RFC1006 TP0 connection request/confirm. LI counts bytes after LI, excluding TPKT; negotiated max TPDU is 2**13 in these reference fixtures.",
+      "runtime_encode": false,
       "weight": 2
     },
     {
@@ -203,14 +302,16 @@
             "tpkt_length",
             "cotp_li",
             "cotp_type",
-            "eot"
+            "destination_reference",
+            "source_reference",
+            "class_options"
           ],
           "id": "HEAD",
           "parent": "REQUEST"
         },
         {
           "fields": [
-            "pdu"
+            "cotp_parameters"
           ],
           "id": "CONTENT",
           "parent": "REQUEST"
@@ -227,13 +328,21 @@
           "target": "tpkt_length"
         },
         {
-          "op": "tagged_length",
+          "add": -5,
+          "op": "length_of",
           "source": "$message",
-          "target": "pdu"
+          "target": "cotp_li"
+        },
+        {
+          "message": "cotp_cr",
+          "op": "correlate_request_response",
+          "scope": "connection",
+          "source": "source_reference",
+          "target": "destination_reference"
         }
       ],
-      "direction": "request",
-      "example": "0300000e02f0806005a103020100",
+      "direction": "response",
+      "example": "0300001611d00001000100c0010dc2020001c1020001",
       "fields": [
         {
           "block": "HEAD",
@@ -311,222 +420,15 @@
         {
           "block": "HEAD",
           "confidence": "implementation",
-          "default": 2,
+          "default": 0,
           "endian": "big",
           "evidence": "wire",
           "id": "cotp_li",
           "locator": "abs:4",
-          "max": 2,
-          "min": 2,
-          "mutability": "fixed",
-          "path": "abs:4",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            2
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 240,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cotp_type",
-          "locator": "abs:5",
-          "max": 240,
-          "min": 240,
-          "mutability": "fixed",
-          "path": "abs:5",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            240
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 128,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "eot",
-          "locator": "abs:6",
-          "max": 128,
-          "min": 128,
-          "mutability": "fixed",
-          "path": "abs:6",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            128
-          ],
-          "width": 1
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "6005a103020100",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "pdu",
-          "locator": "mms.ber",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "mms.ber",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
-          "structure_model": {
-            "children": [
-              {
-                "id": "association_fields",
-                "kind": "field",
-                "type": "ACSE-AARQ"
-              }
-            ],
-            "encoding": "BER-application-constructed",
-            "id": "acse",
-            "kind": "tlv",
-            "tag": 0
-          },
-          "type": "ber_tlv",
-          "values": [],
-          "width": 0
-        }
-      ],
-      "id": "associate",
-      "match": "associate",
-      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
-      "weight": 2
-    },
-    {
-      "blocks": [
-        {
-          "fields": [
-            "version",
-            "reserved",
-            "tpkt_length",
-            "cotp_li",
-            "cotp_type",
-            "eot"
-          ],
-          "id": "HEAD",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [
-            "pdu"
-          ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
-        }
-      ],
-      "dependencies": [
-        {
-          "op": "length_of",
-          "source": "$message",
-          "target": "tpkt_length"
-        },
-        {
-          "op": "tagged_length",
-          "source": "$message",
-          "target": "pdu"
-        }
-      ],
-      "direction": "request",
-      "example": "0300001702f080a80e800100810105820105830108a400",
-      "fields": [
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 3,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "version",
-          "locator": "abs:0",
-          "max": 3,
-          "min": 3,
-          "mutability": "fixed",
-          "path": "abs:0",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            3
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "reserved",
-          "locator": "abs:1",
-          "max": 0,
-          "min": 0,
-          "mutability": "fixed",
-          "path": "abs:1",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            0
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "tpkt_length",
-          "locator": "abs:2",
-          "max": 65535,
+          "max": 255,
           "min": 0,
           "mutability": "derived",
-          "path": "abs:2",
+          "path": "abs:4",
           "role": "derived",
           "strategies": [
             "enum",
@@ -534,45 +436,20 @@
             "bitflip",
             "arithmetic"
           ],
-          "type": "uint16",
-          "values": [],
-          "width": 2
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 2,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cotp_li",
-          "locator": "abs:4",
-          "max": 2,
-          "min": 2,
-          "mutability": "fixed",
-          "path": "abs:4",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
           "type": "uint8",
-          "values": [
-            2
-          ],
+          "values": [],
           "width": 1
         },
         {
           "block": "HEAD",
           "confidence": "implementation",
-          "default": 240,
+          "default": 208,
           "endian": "big",
           "evidence": "wire",
           "id": "cotp_type",
           "locator": "abs:5",
-          "max": 240,
-          "min": 240,
+          "max": 208,
+          "min": 208,
           "mutability": "fixed",
           "path": "abs:5",
           "role": "fixed",
@@ -584,371 +461,9 @@
           ],
           "type": "uint8",
           "values": [
-            240
+            208
           ],
           "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 128,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "eot",
-          "locator": "abs:6",
-          "max": 128,
-          "min": 128,
-          "mutability": "fixed",
-          "path": "abs:6",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            128
-          ],
-          "width": 1
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "a80e800100810105820105830108a400",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "pdu",
-          "locator": "mms.ber",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "mms.ber",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
-          "structure_model": {
-            "children": [
-              {
-                "id": "local_detail",
-                "kind": "field",
-                "tag": 0,
-                "type": "Unsigned32"
-              },
-              {
-                "id": "outstanding_calling",
-                "kind": "field",
-                "tag": 1,
-                "type": "Unsigned16"
-              },
-              {
-                "id": "outstanding_called",
-                "kind": "field",
-                "tag": 2,
-                "type": "Unsigned16"
-              },
-              {
-                "id": "nesting",
-                "kind": "field",
-                "tag": 3,
-                "type": "Unsigned8"
-              },
-              {
-                "children": [
-                  {
-                    "id": "version",
-                    "kind": "field",
-                    "tag": 0,
-                    "type": "Integer"
-                  },
-                  {
-                    "id": "parameter_cbb",
-                    "kind": "field",
-                    "tag": 1,
-                    "type": "BIT STRING"
-                  },
-                  {
-                    "id": "services_supported",
-                    "kind": "field",
-                    "tag": 2,
-                    "type": "BIT STRING"
-                  }
-                ],
-                "id": "detail",
-                "kind": "tlv",
-                "tag": 4
-              }
-            ],
-            "encoding": "BER-context-constructed",
-            "id": "initiate_request",
-            "kind": "tlv",
-            "tag": 8
-          },
-          "type": "ber_tlv",
-          "values": [],
-          "width": 0
-        }
-      ],
-      "id": "initiate",
-      "match": "initiate",
-      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
-      "weight": 2
-    },
-    {
-      "blocks": [
-        {
-          "fields": [
-            "version",
-            "reserved",
-            "tpkt_length",
-            "cotp_li",
-            "cotp_type",
-            "eot",
-            "invoke_id"
-          ],
-          "id": "HEAD",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [
-            "pdu"
-          ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
-        }
-      ],
-      "dependencies": [
-        {
-          "op": "length_of",
-          "source": "$message",
-          "target": "tpkt_length"
-        },
-        {
-          "op": "tagged_length",
-          "source": "$message",
-          "target": "pdu"
-        }
-      ],
-      "direction": "request",
-      "example": "0300001102f080a008020101a103800109",
-      "fields": [
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 3,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "version",
-          "locator": "abs:0",
-          "max": 3,
-          "min": 3,
-          "mutability": "fixed",
-          "path": "abs:0",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            3
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "reserved",
-          "locator": "abs:1",
-          "max": 0,
-          "min": 0,
-          "mutability": "fixed",
-          "path": "abs:1",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            0
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "tpkt_length",
-          "locator": "abs:2",
-          "max": 65535,
-          "min": 0,
-          "mutability": "derived",
-          "path": "abs:2",
-          "role": "derived",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint16",
-          "values": [],
-          "width": 2
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 2,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cotp_li",
-          "locator": "abs:4",
-          "max": 2,
-          "min": 2,
-          "mutability": "fixed",
-          "path": "abs:4",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            2
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 240,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cotp_type",
-          "locator": "abs:5",
-          "max": 240,
-          "min": 240,
-          "mutability": "fixed",
-          "path": "abs:5",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            240
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 128,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "eot",
-          "locator": "abs:6",
-          "max": 128,
-          "min": 128,
-          "mutability": "fixed",
-          "path": "abs:6",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            128
-          ],
-          "width": 1
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "a008020101a103800109",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "pdu",
-          "locator": "mms.ber",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "mms.ber",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
-          "structure_model": {
-            "children": [
-              {
-                "id": "invoke_id",
-                "kind": "field",
-                "tag": 2,
-                "type": "BER-Unsigned32"
-              },
-              {
-                "children": [
-                  {
-                    "id": "object_class",
-                    "kind": "field",
-                    "tag": 0,
-                    "type": "context-object-class"
-                  },
-                  {
-                    "id": "object_scope",
-                    "kind": "field",
-                    "tag": 1,
-                    "type": "context-scope-choice"
-                  },
-                  {
-                    "condition": "optional",
-                    "id": "continue_after",
-                    "kind": "field",
-                    "tag": 2,
-                    "type": "identifier"
-                  }
-                ],
-                "id": "service",
-                "kind": "tlv",
-                "tag": 1
-              }
-            ],
-            "encoding": "BER-context-constructed",
-            "id": "confirmed_request",
-            "kind": "tlv",
-            "tag": 0
-          },
-          "type": "ber_tlv",
-          "values": [],
-          "width": 0
         },
         {
           "block": "HEAD",
@@ -956,135 +471,13 @@
           "default": 1,
           "endian": "big",
           "evidence": "wire",
-          "id": "invoke_id",
-          "locator": "ber:confirmed.invoke",
-          "max": 4294967295,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "ber:confirmed.invoke",
-          "role": "head",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
-          "type": "uint32",
-          "values": [],
-          "width": 4
-        }
-      ],
-      "id": "get_name_list",
-      "match": "get_name_list",
-      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
-      "weight": 2
-    },
-    {
-      "blocks": [
-        {
-          "fields": [
-            "version",
-            "reserved",
-            "tpkt_length",
-            "cotp_li",
-            "cotp_type",
-            "eot",
-            "invoke_id"
-          ],
-          "id": "HEAD",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [
-            "pdu"
-          ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
-        }
-      ],
-      "dependencies": [
-        {
-          "op": "length_of",
-          "source": "$message",
-          "target": "tpkt_length"
-        },
-        {
-          "op": "tagged_length",
-          "source": "$message",
-          "target": "pdu"
-        }
-      ],
-      "direction": "request",
-      "example": "0300001202f080a009020101a404a0028000",
-      "fields": [
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 3,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "version",
-          "locator": "abs:0",
-          "max": 3,
-          "min": 3,
-          "mutability": "fixed",
-          "path": "abs:0",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            3
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "reserved",
-          "locator": "abs:1",
-          "max": 0,
-          "min": 0,
-          "mutability": "fixed",
-          "path": "abs:1",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            0
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 0,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "tpkt_length",
-          "locator": "abs:2",
+          "id": "destination_reference",
+          "locator": "abs:6",
           "max": 65535,
           "min": 0,
-          "mutability": "derived",
-          "path": "abs:2",
-          "role": "derived",
+          "mutability": "fuzzable",
+          "path": "abs:6",
+          "role": "head",
           "strategies": [
             "enum",
             "boundary",
@@ -1094,137 +487,6 @@
           "type": "uint16",
           "values": [],
           "width": 2
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 2,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cotp_li",
-          "locator": "abs:4",
-          "max": 2,
-          "min": 2,
-          "mutability": "fixed",
-          "path": "abs:4",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            2
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 240,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "cotp_type",
-          "locator": "abs:5",
-          "max": 240,
-          "min": 240,
-          "mutability": "fixed",
-          "path": "abs:5",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            240
-          ],
-          "width": 1
-        },
-        {
-          "block": "HEAD",
-          "confidence": "implementation",
-          "default": 128,
-          "endian": "big",
-          "evidence": "wire",
-          "id": "eot",
-          "locator": "abs:6",
-          "max": 128,
-          "min": 128,
-          "mutability": "fixed",
-          "path": "abs:6",
-          "role": "fixed",
-          "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
-          ],
-          "type": "uint8",
-          "values": [
-            128
-          ],
-          "width": 1
-        },
-        {
-          "block": "CONTENT",
-          "confidence": "implementation",
-          "default": "a009020101a404a0028000",
-          "endian": "big",
-          "evidence": "wire",
-          "id": "pdu",
-          "locator": "mms.ber",
-          "max": 4096,
-          "min": 0,
-          "mutability": "fuzzable",
-          "path": "mms.ber",
-          "role": "content",
-          "strategies": [
-            "afl",
-            "resize"
-          ],
-          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
-          "structure_model": {
-            "children": [
-              {
-                "id": "invoke_id",
-                "kind": "field",
-                "tag": 2,
-                "type": "BER-Unsigned32"
-              },
-              {
-                "children": [
-                  {
-                    "condition": "optional",
-                    "id": "specification_with_result",
-                    "kind": "field",
-                    "tag": 0,
-                    "type": "boolean"
-                  },
-                  {
-                    "id": "variable_access",
-                    "kind": "field",
-                    "tag": 1,
-                    "type": "VariableAccessSpecification"
-                  }
-                ],
-                "id": "service",
-                "kind": "tlv",
-                "tag": 4
-              }
-            ],
-            "encoding": "BER-context-constructed",
-            "id": "confirmed_request",
-            "kind": "tlv",
-            "tag": 0
-          },
-          "type": "ber_tlv",
-          "values": [],
-          "width": 0
         },
         {
           "block": "HEAD",
@@ -1232,12 +494,12 @@
           "default": 1,
           "endian": "big",
           "evidence": "wire",
-          "id": "invoke_id",
-          "locator": "ber:confirmed.invoke",
-          "max": 4294967295,
+          "id": "source_reference",
+          "locator": "abs:8",
+          "max": 65535,
           "min": 0,
           "mutability": "fuzzable",
-          "path": "ber:confirmed.invoke",
+          "path": "abs:8",
           "role": "head",
           "strategies": [
             "enum",
@@ -1245,15 +507,86 @@
             "bitflip",
             "arithmetic"
           ],
-          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
-          "type": "uint32",
+          "type": "uint16",
           "values": [],
-          "width": 4
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "class_options",
+          "locator": "abs:10",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:10",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "c0010dc2020001c1020001",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_parameters",
+          "locator": "abs:11",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:11",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "tpdu_size",
+                "kind": "field",
+                "max": 16,
+                "min": 7,
+                "type": "TLV-0xC0-exponent"
+              },
+              {
+                "id": "called_tsap",
+                "kind": "field",
+                "type": "TLV-0xC2-octets"
+              },
+              {
+                "id": "calling_tsap",
+                "kind": "field",
+                "type": "TLV-0xC1-octets"
+              }
+            ],
+            "encoding": "COTP-TP0-parameters",
+            "id": "cotp_parameters",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
         }
       ],
-      "id": "read",
-      "match": "read",
-      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "fixture_status": "complete",
+      "id": "cotp_cc",
+      "match": "cotp_cc",
+      "notes": "Complete RFC1006 TP0 connection request/confirm. LI counts bytes after LI, excluding TPKT; negotiated max TPDU is 2**13 in these reference fixtures.",
+      "runtime_encode": false,
       "weight": 2
     },
     {
@@ -1266,13 +599,18 @@
             "cotp_li",
             "cotp_type",
             "eot",
-            "invoke_id"
+            "presentation_context",
+            "max_outstanding_calling",
+            "max_outstanding_called",
+            "nesting_level",
+            "mms_version"
           ],
           "id": "HEAD",
           "parent": "REQUEST"
         },
         {
           "fields": [
+            "session",
             "pdu"
           ],
           "id": "CONTENT",
@@ -1296,7 +634,7 @@
         }
       ],
       "direction": "request",
-      "example": "0300001402f080a00b020101a506a0028000a000",
+      "example": "030000bb02f0800db20506130100160102140200023302000134020001c19c318199a003800101a28191810400000001820400000001a423300f0201010604520100013004060251013010020103060528ca220201300406025101615e305c020101a0576055a107060528ca220203a20706052901876701a30302010ca606060429018767a70302010cbe2f282d020103a028a826800300fde881010582010583010aa416800101810305f100820c03ee1c00000408000079ef18",
       "fields": [
         {
           "block": "HEAD",
@@ -1449,60 +787,235 @@
         {
           "block": "CONTENT",
           "confidence": "implementation",
-          "default": "a00b020101a506a0028000a000",
+          "default": "0db20506130100160102140200023302000134020001c19c",
           "endian": "big",
           "evidence": "wire",
-          "id": "pdu",
-          "locator": "mms.ber",
+          "id": "session",
+          "locator": "iso:session",
           "max": 4096,
           "min": 0,
           "mutability": "fuzzable",
-          "path": "mms.ber",
+          "path": "iso:session",
           "role": "content",
           "strategies": [
             "afl",
             "resize"
           ],
-          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
           "structure_model": {
             "children": [
               {
-                "id": "invoke_id",
+                "id": "spdu_type",
                 "kind": "field",
-                "tag": 2,
-                "type": "BER-Unsigned32"
+                "type": "CONNECT-0x0D"
+              },
+              {
+                "id": "spdu_length",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "id": "connect_accept_item",
+                "kind": "field",
+                "type": "TLV-0x05-protocol-options-and-version2"
+              },
+              {
+                "id": "session_requirement",
+                "kind": "field",
+                "type": "TLV-0x14-duplex"
+              },
+              {
+                "condition": "CONNECT",
+                "id": "calling_selector",
+                "kind": "field",
+                "type": "TLV-0x33"
+              },
+              {
+                "id": "called_selector",
+                "kind": "field",
+                "type": "TLV-0x34"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "TLV-0xC1-presentation"
+              }
+            ],
+            "encoding": "ISO-session-short-length-profile",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "318199a003800101a28191810400000001820400000001a423300f0201010604520100013004060251013010020103060528ca220201300406025101615e305c020101a0576055a107060528ca220203a20706052901876701a30302010ca606060429018767a70302010cbe2f282d020103a028a826800300fde881010582010583010aa416800101810305f100820c03ee1c00000408000079ef18",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "mode_selector",
+                "kind": "field",
+                "type": "normal-mode"
+              },
+              {
+                "id": "presentation_selectors",
+                "kind": "field",
+                "type": "calling/called-or-responding-octets"
+              },
+              {
+                "id": "context_definitions_or_results",
+                "kind": "field",
+                "type": "ACSE-context-1/MMS-context-3-BER-transfer-syntax"
               },
               {
                 "children": [
                   {
-                    "id": "variable_access",
+                    "id": "context_id",
                     "kind": "field",
-                    "tag": 0,
-                    "type": "VariableAccessSpecification"
+                    "type": "INTEGER-1"
                   },
                   {
                     "children": [
                       {
-                        "id": "data",
+                        "id": "application_context",
                         "kind": "field",
-                        "type": "MMS-Data-choice"
+                        "tag": 1,
+                        "type": "OID-1.0.9506.2.3"
+                      },
+                      {
+                        "id": "called_ap_title",
+                        "kind": "field",
+                        "tag": 2,
+                        "type": "OID"
+                      },
+                      {
+                        "id": "called_ae_qualifier",
+                        "kind": "field",
+                        "tag": 3,
+                        "type": "INTEGER"
+                      },
+                      {
+                        "id": "calling_ap_title",
+                        "kind": "field",
+                        "tag": 6,
+                        "type": "OID"
+                      },
+                      {
+                        "id": "calling_ae_qualifier",
+                        "kind": "field",
+                        "tag": 7,
+                        "type": "INTEGER"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "id": "indirect_reference",
+                                "kind": "field",
+                                "type": "INTEGER-3"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [
+                                      {
+                                        "id": "local_detail",
+                                        "kind": "field",
+                                        "tag": 0,
+                                        "type": "context-Unsigned32"
+                                      },
+                                      {
+                                        "id": "max_outstanding_calling",
+                                        "kind": "field",
+                                        "tag": 1,
+                                        "type": "context-Unsigned16"
+                                      },
+                                      {
+                                        "id": "max_outstanding_called",
+                                        "kind": "field",
+                                        "tag": 2,
+                                        "type": "context-Unsigned16"
+                                      },
+                                      {
+                                        "id": "nesting_level",
+                                        "kind": "field",
+                                        "tag": 3,
+                                        "type": "context-Unsigned8"
+                                      },
+                                      {
+                                        "children": [
+                                          {
+                                            "id": "version",
+                                            "kind": "field",
+                                            "tag": 0,
+                                            "type": "context-Integer"
+                                          },
+                                          {
+                                            "id": "parameter_cbb",
+                                            "kind": "field",
+                                            "tag": 1,
+                                            "type": "context-BIT-STRING-unused-bits-first"
+                                          },
+                                          {
+                                            "id": "services_supported",
+                                            "kind": "field",
+                                            "tag": 2,
+                                            "type": "context-BIT-STRING-unused-bits-first"
+                                          }
+                                        ],
+                                        "id": "initiate_detail",
+                                        "kind": "tlv",
+                                        "tag": 4
+                                      }
+                                    ],
+                                    "id": "initiate",
+                                    "kind": "tlv",
+                                    "tag": 8
+                                  }
+                                ],
+                                "id": "single_asn1_type",
+                                "kind": "tlv",
+                                "tag": 0
+                              }
+                            ],
+                            "id": "external",
+                            "kind": "tlv",
+                            "tag": 8
+                          }
+                        ],
+                        "id": "user_information",
+                        "kind": "tlv",
+                        "tag": 30
                       }
                     ],
-                    "id": "list_of_data",
-                    "kind": "repeat",
-                    "max": 64,
-                    "min": 1
+                    "id": "acse",
+                    "kind": "tlv",
+                    "tag": 0
                   }
                 ],
-                "id": "service",
-                "kind": "tlv",
-                "tag": 5
+                "id": "fully_encoded_data",
+                "kind": "sequence"
               }
             ],
-            "encoding": "BER-context-constructed",
-            "id": "confirmed_request",
-            "kind": "tlv",
-            "tag": 0
+            "encoding": "BER-CP/CPA-SET",
+            "id": "presentation_connect",
+            "kind": "sequence"
           },
           "type": "ber_tlv",
           "values": [],
@@ -1514,12 +1027,12 @@
           "default": 1,
           "endian": "big",
           "evidence": "wire",
-          "id": "invoke_id",
-          "locator": "ber:confirmed.invoke",
-          "max": 4294967295,
+          "id": "presentation_context",
+          "locator": "ber:presentation.context",
+          "max": 255,
           "min": 0,
           "mutability": "fuzzable",
-          "path": "ber:confirmed.invoke",
+          "path": "ber:presentation.context",
           "role": "head",
           "strategies": [
             "enum",
@@ -1527,15 +1040,108 @@
             "bitflip",
             "arithmetic"
           ],
-          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
-          "type": "uint32",
+          "type": "uint8",
           "values": [],
-          "width": 4
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 5,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "max_outstanding_calling",
+          "locator": "ber:initiate.calling",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.calling",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 5,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "max_outstanding_called",
+          "locator": "ber:initiate.called",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.called",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 10,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "nesting_level",
+          "locator": "ber:initiate.nesting",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.nesting",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "mms_version",
+          "locator": "ber:initiate.version",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.version",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
         }
       ],
-      "id": "write",
-      "match": "write",
-      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "fixture_status": "complete",
+      "id": "associate",
+      "match": "associate",
+      "notes": "Complete TPKT/COTP + session CONNECT/ACCEPT + presentation CP/CPA + ACSE AARQ/AARE; MMS initiate request/response is nested in user-information, never an independent TCP message.",
+      "runtime_encode": false,
       "weight": 2
     },
     {
@@ -1547,13 +1153,20 @@
             "tpkt_length",
             "cotp_li",
             "cotp_type",
-            "eot"
+            "eot",
+            "presentation_context",
+            "max_outstanding_calling",
+            "max_outstanding_called",
+            "nesting_level",
+            "mms_version",
+            "association_result"
           ],
           "id": "HEAD",
           "parent": "REQUEST"
         },
         {
           "fields": [
+            "session",
             "pdu"
           ],
           "id": "CONTENT",
@@ -1576,8 +1189,8 @@
           "target": "pdu"
         }
       ],
-      "direction": "request",
-      "example": "0300000c02f0806203800100",
+      "direction": "response",
+      "example": "0300008f02f0800e8605061301001601021402000234020001c1743172a003800101a26b830400000001a512300780010081025101300780010081025101614f304d020101a0486146a107060528ca220203a203020100a305a103020100be2f282d020103a028a926800300fde881010582010583010aa416800101810305f100820c03ee1c000000000000000118",
       "fields": [
         {
           "block": "HEAD",
@@ -1730,42 +1343,374 @@
         {
           "block": "CONTENT",
           "confidence": "implementation",
-          "default": "6203800100",
+          "default": "0e8605061301001601021402000234020001c174",
           "endian": "big",
           "evidence": "wire",
-          "id": "pdu",
-          "locator": "mms.ber",
+          "id": "session",
+          "locator": "iso:session",
           "max": 4096,
           "min": 0,
           "mutability": "fuzzable",
-          "path": "mms.ber",
+          "path": "iso:session",
           "role": "content",
           "strategies": [
             "afl",
             "resize"
           ],
-          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
           "structure_model": {
             "children": [
               {
-                "id": "association_fields",
+                "id": "spdu_type",
                 "kind": "field",
-                "type": "ACSE-RLRQ"
+                "type": "ACCEPT-0x0E"
+              },
+              {
+                "id": "spdu_length",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "id": "connect_accept_item",
+                "kind": "field",
+                "type": "TLV-0x05-protocol-options-and-version2"
+              },
+              {
+                "id": "session_requirement",
+                "kind": "field",
+                "type": "TLV-0x14-duplex"
+              },
+              {
+                "condition": "CONNECT",
+                "id": "calling_selector",
+                "kind": "field",
+                "type": "TLV-0x33"
+              },
+              {
+                "id": "called_selector",
+                "kind": "field",
+                "type": "TLV-0x34"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "TLV-0xC1-presentation"
               }
             ],
-            "encoding": "BER-application-constructed",
-            "id": "acse",
-            "kind": "tlv",
-            "tag": 2
+            "encoding": "ISO-session-short-length-profile",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "3172a003800101a26b830400000001a512300780010081025101300780010081025101614f304d020101a0486146a107060528ca220203a203020100a305a103020100be2f282d020103a028a926800300fde881010582010583010aa416800101810305f100820c03ee1c000000000000000118",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "mode_selector",
+                "kind": "field",
+                "type": "normal-mode"
+              },
+              {
+                "id": "presentation_selectors",
+                "kind": "field",
+                "type": "calling/called-or-responding-octets"
+              },
+              {
+                "id": "context_definitions_or_results",
+                "kind": "field",
+                "type": "ACSE-context-1/MMS-context-3-BER-transfer-syntax"
+              },
+              {
+                "children": [
+                  {
+                    "id": "context_id",
+                    "kind": "field",
+                    "type": "INTEGER-1"
+                  },
+                  {
+                    "children": [
+                      {
+                        "id": "application_context",
+                        "kind": "field",
+                        "tag": 1,
+                        "type": "OID-1.0.9506.2.3"
+                      },
+                      {
+                        "id": "result",
+                        "kind": "field",
+                        "tag": 2,
+                        "type": "INTEGER-accepted-zero"
+                      },
+                      {
+                        "id": "result_source_diagnostic",
+                        "kind": "field",
+                        "tag": 3,
+                        "type": "ACSE-user-zero"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "id": "indirect_reference",
+                                "kind": "field",
+                                "type": "INTEGER-3"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [
+                                      {
+                                        "id": "local_detail",
+                                        "kind": "field",
+                                        "tag": 0,
+                                        "type": "context-Unsigned32"
+                                      },
+                                      {
+                                        "id": "max_outstanding_calling",
+                                        "kind": "field",
+                                        "tag": 1,
+                                        "type": "context-Unsigned16"
+                                      },
+                                      {
+                                        "id": "max_outstanding_called",
+                                        "kind": "field",
+                                        "tag": 2,
+                                        "type": "context-Unsigned16"
+                                      },
+                                      {
+                                        "id": "nesting_level",
+                                        "kind": "field",
+                                        "tag": 3,
+                                        "type": "context-Unsigned8"
+                                      },
+                                      {
+                                        "children": [
+                                          {
+                                            "id": "version",
+                                            "kind": "field",
+                                            "tag": 0,
+                                            "type": "context-Integer"
+                                          },
+                                          {
+                                            "id": "parameter_cbb",
+                                            "kind": "field",
+                                            "tag": 1,
+                                            "type": "context-BIT-STRING-unused-bits-first"
+                                          },
+                                          {
+                                            "id": "services_supported",
+                                            "kind": "field",
+                                            "tag": 2,
+                                            "type": "context-BIT-STRING-unused-bits-first"
+                                          }
+                                        ],
+                                        "id": "initiate_detail",
+                                        "kind": "tlv",
+                                        "tag": 4
+                                      }
+                                    ],
+                                    "id": "initiate",
+                                    "kind": "tlv",
+                                    "tag": 9
+                                  }
+                                ],
+                                "id": "single_asn1_type",
+                                "kind": "tlv",
+                                "tag": 0
+                              }
+                            ],
+                            "id": "external",
+                            "kind": "tlv",
+                            "tag": 8
+                          }
+                        ],
+                        "id": "user_information",
+                        "kind": "tlv",
+                        "tag": 30
+                      }
+                    ],
+                    "id": "acse",
+                    "kind": "tlv",
+                    "tag": 1
+                  }
+                ],
+                "id": "fully_encoded_data",
+                "kind": "sequence"
+              }
+            ],
+            "encoding": "BER-CP/CPA-SET",
+            "id": "presentation_connect",
+            "kind": "sequence"
           },
           "type": "ber_tlv",
           "values": [],
           "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "presentation_context",
+          "locator": "ber:presentation.context",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation.context",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 5,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "max_outstanding_calling",
+          "locator": "ber:initiate.calling",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.calling",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 5,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "max_outstanding_called",
+          "locator": "ber:initiate.called",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.called",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 10,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "nesting_level",
+          "locator": "ber:initiate.nesting",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.nesting",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "mms_version",
+          "locator": "ber:initiate.version",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:initiate.version",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "association_result",
+          "locator": "ber:acse.result",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "ber:acse.result",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
         }
       ],
-      "id": "release",
-      "match": "release",
-      "notes": "Structural BER fixture only; not a complete on-wire MMS association. Runtime unavailable.",
+      "fixture_status": "complete",
+      "id": "associate_response",
+      "match": "associate_response",
+      "notes": "Complete TPKT/COTP + session CONNECT/ACCEPT + presentation CP/CPA + ACSE AARQ/AARE; MMS initiate request/response is nested in user-information, never an independent TCP message.",
+      "runtime_encode": false,
       "weight": 2
     },
     {
@@ -1785,6 +1730,1102 @@
         },
         {
           "fields": [
+            "session",
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300002402f0800100010061173015020103a010a00e020101a109a003800109a1028000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "61173015020103a010a00e020101a109a003800109a1028000",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "invoke_id",
+                        "kind": "field",
+                        "type": "Unsigned32-universal-INTEGER"
+                      },
+                      {
+                        "children": [
+                          {
+                            "id": "object_class",
+                            "kind": "field",
+                            "tag": 0,
+                            "type": "ExtendedObjectClass-basic-domain-9"
+                          },
+                          {
+                            "id": "object_scope",
+                            "kind": "field",
+                            "tag": 1,
+                            "type": "ObjectScope-vmd-specific-NULL"
+                          },
+                          {
+                            "condition": "optional",
+                            "id": "continue_after",
+                            "kind": "field",
+                            "tag": 2,
+                            "type": "Identifier"
+                          }
+                        ],
+                        "id": "service",
+                        "kind": "tlv",
+                        "tag": 1
+                      }
+                    ],
+                    "id": "confirmed",
+                    "kind": "tlv",
+                    "tag": 0
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:mms.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "get_name_list",
+      "match": "get_name_list",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        },
+        {
+          "message": "get_name_list",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "invoke_id",
+          "target": "invoke_id"
+        }
+      ],
+      "direction": "response",
+      "example": "0300003302f0800100010061263024020103a01fa11d020101a118a0131a1173696d706c65494f47656e65726963494f810100",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "61263024020103a01fa11d020101a118a0131a1173696d706c65494f47656e65726963494f810100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "invoke_id",
+                        "kind": "field",
+                        "type": "Unsigned32-universal-INTEGER"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "id": "identifier",
+                                "kind": "field",
+                                "type": "VisibleString"
+                              }
+                            ],
+                            "id": "identifiers",
+                            "kind": "repeat",
+                            "max": 64,
+                            "min": 0
+                          },
+                          {
+                            "id": "more_follows",
+                            "kind": "field",
+                            "tag": 1,
+                            "type": "context-BOOLEAN"
+                          }
+                        ],
+                        "id": "service",
+                        "kind": "tlv",
+                        "tag": 1
+                      }
+                    ],
+                    "id": "confirmed",
+                    "kind": "tlv",
+                    "tag": 1
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:mms.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "get_name_list_response",
+      "match": "get_name_list_response",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu",
+            "domain_id",
+            "item_id"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300005002f0800100010061433041020103a03ca03a020102a435a133a031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "61433041020103a03ca03a020102a435a133a031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "invoke_id",
+                        "kind": "field",
+                        "type": "Unsigned32-universal-INTEGER"
+                      },
+                      {
+                        "children": [
+                          {
+                            "condition": "optional",
+                            "id": "specification_with_result",
+                            "kind": "field",
+                            "tag": 0,
+                            "type": "BOOLEAN-default-false"
+                          },
+                          {
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [
+                                      {
+                                        "children": [
+                                          {
+                                            "id": "domain_id",
+                                            "kind": "field",
+                                            "type": "VisibleString"
+                                          },
+                                          {
+                                            "id": "item_id",
+                                            "kind": "field",
+                                            "type": "VisibleString"
+                                          }
+                                        ],
+                                        "encoding": "ObjectName-domain-specific-[1]",
+                                        "id": "domain_specific_name",
+                                        "kind": "sequence"
+                                      }
+                                    ],
+                                    "id": "variable",
+                                    "kind": "sequence"
+                                  }
+                                ],
+                                "id": "list_of_variable",
+                                "kind": "repeat",
+                                "max": 64,
+                                "min": 1
+                              },
+                              {
+                                "id": "variable_list_name",
+                                "kind": "field",
+                                "type": "ObjectName"
+                              }
+                            ],
+                            "id": "variable_access",
+                            "kind": "choice"
+                          }
+                        ],
+                        "id": "service",
+                        "kind": "tlv",
+                        "tag": 4
+                      }
+                    ],
+                    "id": "confirmed",
+                    "kind": "tlv",
+                    "tag": 0
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:mms.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "simpleIOGenericIO",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "domain_id",
+          "locator": "ber:mms.domain",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.domain",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "GGIO1$DC$NamPlt$vendor",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "item_id",
+          "locator": "ber:mms.item",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.item",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "read",
+      "match": "read",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
             "pdu"
           ],
           "id": "CONTENT",
@@ -1815,7 +2856,7 @@
         }
       ],
       "direction": "response",
-      "example": "0300001202f080a109020101a404a0028000",
+      "example": "0300001f02f0800100010061123010020103a00ba109020102a404a1028a00",
       "fields": [
         {
           "block": "HEAD",
@@ -1968,54 +3009,119 @@
         {
           "block": "CONTENT",
           "confidence": "implementation",
-          "default": "a009020101a404a0028000",
+          "default": "01000100",
           "endian": "big",
           "evidence": "wire",
-          "id": "pdu",
-          "locator": "mms.ber",
+          "id": "session",
+          "locator": "iso:session",
           "max": 4096,
           "min": 0,
           "mutability": "fuzzable",
-          "path": "mms.ber",
+          "path": "iso:session",
           "role": "content",
           "strategies": [
             "afl",
             "resize"
           ],
-          "structure": "Definite BER TLV tree; ACSE associate/release and MMS initiate/confirmed service bodies are distinct. Full session/presentation wrappers required on real MMS association.",
           "structure_model": {
             "children": [
               {
-                "id": "invoke_id",
+                "id": "spdu",
                 "kind": "field",
-                "tag": 2,
-                "type": "BER-Unsigned32"
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "61123010020103a00ba109020102a404a1028a00",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
               },
               {
                 "children": [
                   {
-                    "condition": "optional",
-                    "id": "specification_with_result",
-                    "kind": "field",
-                    "tag": 0,
-                    "type": "boolean"
-                  },
-                  {
-                    "id": "variable_access",
-                    "kind": "field",
-                    "tag": 1,
-                    "type": "VariableAccessSpecification"
+                    "children": [
+                      {
+                        "id": "invoke_id",
+                        "kind": "field",
+                        "type": "Unsigned32-universal-INTEGER"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "id": "failure",
+                                    "kind": "field",
+                                    "type": "DataAccessError-context-0"
+                                  },
+                                  {
+                                    "id": "success",
+                                    "kind": "field",
+                                    "type": "MMS-Data-choice"
+                                  }
+                                ],
+                                "id": "result",
+                                "kind": "choice"
+                              }
+                            ],
+                            "id": "access_results",
+                            "kind": "repeat",
+                            "max": 64,
+                            "min": 1
+                          }
+                        ],
+                        "id": "service",
+                        "kind": "tlv",
+                        "tag": 4
+                      }
+                    ],
+                    "id": "confirmed",
+                    "kind": "tlv",
+                    "tag": 1
                   }
                 ],
-                "id": "service",
+                "id": "single_asn1_type",
                 "kind": "tlv",
-                "tag": 4
+                "tag": 0
               }
             ],
-            "encoding": "BER-context-constructed",
-            "id": "confirmed_request",
-            "kind": "tlv",
-            "tag": 0
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
           },
           "type": "ber_tlv",
           "values": [],
@@ -2024,15 +3130,15 @@
         {
           "block": "HEAD",
           "confidence": "implementation",
-          "default": 1,
+          "default": 2,
           "endian": "big",
           "evidence": "wire",
           "id": "invoke_id",
-          "locator": "ber:confirmed.invoke",
+          "locator": "ber:mms.invoke",
           "max": 4294967295,
           "min": 0,
           "mutability": "fuzzable",
-          "path": "ber:confirmed.invoke",
+          "path": "ber:mms.invoke",
           "role": "head",
           "strategies": [
             "enum",
@@ -2040,51 +3146,1985 @@
             "bitflip",
             "arithmetic"
           ],
-          "structure": "BER INTEGER payload location is determined by TLV tree, never absolute byte offset.",
           "type": "uint32",
           "values": [],
           "width": 4
         }
       ],
-      "id": "confirmed_response",
-      "match": "read",
-      "notes": "Structural ConfirmedResponse envelope with matching invoke field; service-specific result payload still needs a complete BER codec.",
+      "fixture_status": "complete",
+      "id": "read_response",
+      "match": "read_response",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu",
+            "domain_id",
+            "item_id",
+            "value"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300005702f08001000100614a3048020103a043a041020103a53ca031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72a0078a056175646974",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "614a3048020103a043a041020103a53ca031302fa02da12b1a1173696d706c65494f47656e65726963494f1a164747494f31244443244e616d506c742476656e646f72a0078a056175646974",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "invoke_id",
+                        "kind": "field",
+                        "type": "Unsigned32-universal-INTEGER"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [
+                                      {
+                                        "children": [
+                                          {
+                                            "id": "domain_id",
+                                            "kind": "field",
+                                            "type": "VisibleString"
+                                          },
+                                          {
+                                            "id": "item_id",
+                                            "kind": "field",
+                                            "type": "VisibleString"
+                                          }
+                                        ],
+                                        "encoding": "ObjectName-domain-specific-[1]",
+                                        "id": "domain_specific_name",
+                                        "kind": "sequence"
+                                      }
+                                    ],
+                                    "id": "variable",
+                                    "kind": "sequence"
+                                  }
+                                ],
+                                "id": "list_of_variable",
+                                "kind": "repeat",
+                                "max": 64,
+                                "min": 1
+                              },
+                              {
+                                "id": "variable_list_name",
+                                "kind": "field",
+                                "type": "ObjectName"
+                              }
+                            ],
+                            "id": "variable_access",
+                            "kind": "choice"
+                          },
+                          {
+                            "children": [
+                              {
+                                "id": "data",
+                                "kind": "field",
+                                "type": "MMS-Data-choice"
+                              }
+                            ],
+                            "id": "list_of_data",
+                            "kind": "repeat",
+                            "max": 64,
+                            "min": 1
+                          }
+                        ],
+                        "id": "service",
+                        "kind": "tlv",
+                        "tag": 5
+                      }
+                    ],
+                    "id": "confirmed",
+                    "kind": "tlv",
+                    "tag": 0
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:mms.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "simpleIOGenericIO",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "domain_id",
+          "locator": "ber:mms.domain",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.domain",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "GGIO1$DC$NamPlt$vendor",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "item_id",
+          "locator": "ber:mms.item",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.item",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "audit",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "value",
+          "locator": "ber:mms.data",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.data",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "write",
+      "match": "write",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot",
+            "invoke_id"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        },
+        {
+          "message": "write",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "invoke_id",
+          "target": "invoke_id"
+        }
+      ],
+      "direction": "response",
+      "example": "0300001d02f080010001006110300e020103a009a107020103a5028100",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "6110300e020103a009a107020103a5028100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "invoke_id",
+                        "kind": "field",
+                        "type": "Unsigned32-universal-INTEGER"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "id": "failure",
+                                    "kind": "field",
+                                    "type": "DataAccessError-context-0"
+                                  },
+                                  {
+                                    "id": "success",
+                                    "kind": "field",
+                                    "type": "NULL-context-1"
+                                  }
+                                ],
+                                "id": "result",
+                                "kind": "choice"
+                              }
+                            ],
+                            "id": "write_results",
+                            "kind": "repeat",
+                            "max": 64,
+                            "min": 1
+                          }
+                        ],
+                        "id": "service",
+                        "kind": "tlv",
+                        "tag": 5
+                      }
+                    ],
+                    "id": "confirmed",
+                    "kind": "tlv",
+                    "tag": 1
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "ber:mms.invoke",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:mms.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "write_response",
+      "match": "write_response",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300001602f0800100010061093007020103a0028b00",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "61093007020103a0028b00",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
+              },
+              {
+                "children": [
+                  {
+                    "id": "conclude",
+                    "kind": "field",
+                    "type": "MMS-conclude-request-NULL-tag11"
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "conclude",
+      "match": "conclude",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "response",
+      "example": "0300001602f0800100010061093007020103a0028c00",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "01000100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "give-tokens-0x0100-data-0x0100"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "presentation-follows"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "61093007020103a0028c00",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-3"
+              },
+              {
+                "children": [
+                  {
+                    "id": "conclude",
+                    "kind": "field",
+                    "type": "MMS-conclude-response-NULL-tag12"
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "conclude_response",
+      "match": "conclude_response",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "request",
+      "example": "0300001902f0800910c10e610c300a020101a0056203800100",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0910c10e",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "FINISH-0x09"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "parameter-0xC1"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "610c300a020101a0056203800100",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-1"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "condition": "request optional reason",
+                        "id": "reason",
+                        "kind": "field",
+                        "type": "normal-context-0"
+                      }
+                    ],
+                    "id": "acse_release",
+                    "kind": "tlv",
+                    "tag": 2
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "release",
+      "match": "release",
+      "notes": "Complete session FINISH/DISCONNECT carrying presentation context 1 and ACSE RLRQ/RLRE; distinct from MMS conclude handshake.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "version",
+            "reserved",
+            "tpkt_length",
+            "cotp_li",
+            "cotp_type",
+            "eot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "session",
+            "pdu"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "tpkt_length"
+        },
+        {
+          "op": "tagged_length",
+          "source": "$message",
+          "target": "pdu"
+        }
+      ],
+      "direction": "response",
+      "example": "0300001602f0800a0dc10b61093007020101a0026300",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "version",
+          "locator": "abs:0",
+          "max": 3,
+          "min": 3,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            3
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "reserved",
+          "locator": "abs:1",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:1",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "tpkt_length",
+          "locator": "abs:2",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:2",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_li",
+          "locator": "abs:4",
+          "max": 2,
+          "min": 2,
+          "mutability": "fixed",
+          "path": "abs:4",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            2
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 240,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "cotp_type",
+          "locator": "abs:5",
+          "max": 240,
+          "min": 240,
+          "mutability": "fixed",
+          "path": "abs:5",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            240
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 128,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "eot",
+          "locator": "abs:6",
+          "max": 128,
+          "min": 128,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            128
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0a0dc10b",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "session",
+          "locator": "iso:session",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "iso:session",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "spdu",
+                "kind": "field",
+                "type": "DISCONNECT-0x0A"
+              },
+              {
+                "id": "user_data",
+                "kind": "field",
+                "type": "parameter-0xC1"
+              }
+            ],
+            "encoding": "ISO-session",
+            "id": "session",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "61093007020101a0026300",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "pdu",
+          "locator": "ber:presentation",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "ber:presentation",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "context_id",
+                "kind": "field",
+                "type": "INTEGER-1"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "condition": "request optional reason",
+                        "id": "reason",
+                        "kind": "field",
+                        "type": "normal-context-0"
+                      }
+                    ],
+                    "id": "acse_release",
+                    "kind": "tlv",
+                    "tag": 3
+                  }
+                ],
+                "id": "single_asn1_type",
+                "kind": "tlv",
+                "tag": 0
+              }
+            ],
+            "encoding": "BER-application-1-PDV-list",
+            "id": "fully_encoded_data",
+            "kind": "sequence"
+          },
+          "type": "ber_tlv",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "release_response",
+      "match": "release_response",
+      "notes": "Complete session FINISH/DISCONNECT carrying presentation context 1 and ACSE RLRQ/RLRE; distinct from MMS conclude handshake.",
+      "runtime_encode": false,
       "weight": 2
     }
   ],
   "name": "IEC 61850 MMS over TCP",
   "protocol_id": "iec61850_mms_tcp",
-  "scope": "Transport COTP plus declarative ACSE/Initiate/confirmed GetNameList Read Write envelopes; nested BER; full session/presentation association requires an external complete codec.",
+  "scope": "Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific named-variable Read/Write, MMS conclude and ACSE/session release, all successful request/response layouts. BER definite lengths; no runtime encoder.",
   "sources": [
     {
       "basis": "implementation",
       "id": "wire",
-      "sections": "iso_mms ASN.1 definitions, iso_acse and iso_presentation; RFC1006 section 6",
-      "url": "https://github.com/mz-automation/libiec61850/tree/master/src/mms"
-    },
-    {
-      "basis": "normative",
-      "id": "official",
-      "sections": "RFC 1006 section 6 TPKT; MMS/ACSE semantics from libIEC61850 implementation",
-      "url": "https://www.rfc-editor.org/rfc/rfc1006"
+      "sections": "iso_cotp, iso_session, iso_presentation, iso_acse, iso_mms client/server and asn1c definitions; complete loopback fixtures constructed with this revision",
+      "url": "https://github.com/mz-automation/libiec61850/tree/6d231326bff8e9b6500aa1e345c076d3a329f211/src/mms"
     },
     {
       "basis": "inferred",
       "id": "iec_scope",
-      "sections": "IEC 61850-8-1 catalogue; paid normative text not consulted",
+      "sections": "IEC61850-8-1 catalogue only; paid normative MMS/IEC texts not consulted",
       "url": "https://webstore.iec.ch/en/publication/6021"
+    },
+    {
+      "basis": "normative",
+      "id": "official",
+      "sections": "RFC 1006 section 6 TPKT/COTP only; MMS/ACSE/session/presentation from libIEC61850",
+      "url": "https://www.rfc-editor.org/rfc/rfc1006"
     }
   ],
   "support": {
     "excluded": [
-      "complete session/presentation codec",
-      "runtime BER service encoding",
-      "all abstract IEC61850 services",
-      "TLS"
+      "full IEC61850 ACSI mapping",
+      "reports/GOOSE/SV",
+      "generalized arrays/alternate access and data-set services",
+      "arbitrary ACSE authentication",
+      "association rejection/abort and MMS confirmed-error/reject fixtures unverified",
+      "TLS",
+      "runtime BER encoding"
     ],
     "level": "static description; runtime encoder unavailable",
     "runtime": false
   },
   "transport": "tcp",
-  "version": "IEC 61850-8-1 / ISO 9506 / RFC 1006"
+  "version": "RFC1006 / libIEC61850 v1.6 profile"
 }

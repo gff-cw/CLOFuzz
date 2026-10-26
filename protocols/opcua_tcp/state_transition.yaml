@@ -5,47 +5,69 @@ states:
 - id: tcp
   meaning: TCP connected
 - id: hello_sent
-  meaning: HEL sent
+  meaning: HEL sent; ACK pending
 - id: acknowledged
-  meaning: ACK received
+  meaning: ACK buffers negotiated
+- id: channel_pending
+  meaning: OpenSecureChannel Issue sent
 - id: channel
-  meaning: Successful OpenSecureChannel response received
+  meaning: Successful OpenSecureChannel response; unexpired token bound, no Session
 - id: closed
-  meaning: CLO sent
+  meaning: Transport/channel closed
 transitions:
 - from: tcp
   to: hello_sent
   message: hello
-  response: ''
+  response: ack
   guard: ''
   actions: []
 - from: hello_sent
   to: acknowledged
   message: ack
   response: ''
-  guard: negotiated buffers
+  guard: negotiation accepted
   actions: []
 - from: acknowledged
-  to: channel
+  to: channel_pending
   message: open_channel
+  response: open_channel_response
+  guard: SecurityPolicy None; request type Issue
+  actions: []
+- from: channel_pending
+  to: channel
+  message: open_channel_response
   response: ''
-  guard: successful OPN response
+  guard: service_result Good; channel/token assigned
   actions:
-  - cache channel/token
+  - bind channel and token; track expiry
 - from: channel
   to: channel
   message: message
-  response: ''
-  guard: UA session activation required for session services
+  response: message_response
+  guard: token valid; GetEndpoints requires no Session
   actions:
-  - increment sequence and correlate request ID
+  - advance per-direction sequence; cache request ID/handle
+- from: channel
+  to: channel
+  message: message_response
+  response: ''
+  guard: matching request ID/handle
+  actions:
+  - clear request context
+- from: channel
+  to: channel
+  message: service_fault
+  response: ''
+  guard: matching request ID/handle; Bad status
+  actions:
+  - clear request context
 - from: channel
   to: closed
   message: close_channel
   response: ''
-  guard: ''
+  guard: no response expected
   actions:
-  - clear channel/token
+  - clear token/channel
 - from: tcp
   to: tcp
   message: reverse_hello
@@ -53,10 +75,34 @@ transitions:
   guard: reverse-connect role only
   actions: []
 - from: tcp
-  to: tcp
+  to: closed
   message: error
   response: ''
-  guard: transport error
+  guard: transport error closes connection
+  actions: []
+- from: hello_sent
+  to: closed
+  message: error
+  response: ''
+  guard: transport error closes connection
+  actions: []
+- from: acknowledged
+  to: closed
+  message: error
+  response: ''
+  guard: transport error closes connection
+  actions: []
+- from: channel_pending
+  to: closed
+  message: error
+  response: ''
+  guard: transport error closes connection
+  actions: []
+- from: channel
+  to: closed
+  message: error
+  response: ''
+  guard: transport error closes connection
   actions: []
 limits:
   max_messages: 32

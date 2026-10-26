@@ -22,8 +22,11 @@ messages:
   - id: "{{message_id}}"          # 每种请求/响应单独建模，标识符不能重复
     direction: request             # request / response
     weight: 1
+    fixture_status: complete       # complete / fragment；后者不能用于runtime=true
+    runtime_encode: false          # 能力声明非开关；runtime=true的request必须true，其余false
     match: "{{message_id}}"        # 解释性标签；实际匹配使用 codec 和 fixed 字段
     example: "{{wire_hex}}"        # 完整协议消息的十六进制，不含 LE32 replay 长度
+    # blocks/path/structure_model是元数据；role与locator才决定当前C执行器的字段行为。
     blocks:
       - id: HEAD
         fields: [command, total_length]
@@ -41,11 +44,11 @@ messages:
         endian: big
         role: head                 # head / content / fixed / derived
         mutability: fuzzable       # fixed / fuzzable / derived / conditional / runtime_bound
-        default: 0
+        default: 0                 # 描述性默认值；执行器从example取模板，不按default重写
         min: 0
         max: 255
         values: []                 # 枚举策略可选择的合法标量值
-        strategies: [enum, boundary, bitflip, arithmetic]
+        strategies: [enum, boundary, bitflip, arithmetic] # HEAD标量策略；空列表使用这四种默认值
         evidence: wire
         confidence: implementation
       - id: total_length
@@ -73,11 +76,11 @@ messages:
         endian: big
         role: content
         mutability: fuzzable
-        default: ""
+        default: ""                # bytes/tags/BER等为连续十六进制；string为UTF-8文本
         min: 0
         max: 4096
         values: []
-        strategies: [afl, resize]
+        strategies: [afl, resize]   # CONTENT策略仅作注释；当前实现用AFL字节投影/专用codec
         evidence: wire
         confidence: implementation
     dependencies:
@@ -87,9 +90,15 @@ messages:
         unit: 1                    # 除以单位（要求整除），再加 add
         add: 0                     # 例如 MBAP 长度不含前6字节，应为 -6
     notes: "{{message_notes}}"
-# 固定字段：role=fixed、mutability=fixed、min=max=实际固定值。
+# role=fixed与mutability=fixed必须同时设置；整数min=max=default=实际固定值。
+# 静态固定bytes/string则min=max=default的字节长度；runtime不支持固定blob匹配。
+# role=derived与mutability=derived必须同时设置，且恰有一条dependencies写入它。
+# runtime_bound必须有copy/bind/correlation/sequence依赖；条件字段不等于执行when表达式。
+# example是运行时真正的消息模板；执行器检查其字段范围，default不要求等于example。
 # 跨消息依赖：{op: copy_from_message, target: 当前字段ID,
 #              message: 前置消息ID, source: 前置字段ID}
 # 响应绑定：bind_from_response；响应尚未到达时不能凭空生成绑定值。
 # 条件/嵌套/重复结构的静态描述见现有六种具体模型及语言文档；
 # 描述结构并不代表运行时已经实现对应编码器。
+# dependencies.scope和dependencies.when仅记录说明；不会创建独立缓存或执行条件。
+# 静态协议完整性由fixture_status声明；编译通过不代表已通过真实服务器交换。

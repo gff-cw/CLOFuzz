@@ -25,7 +25,7 @@
       "from": "ready",
       "guard": "valid Who-Is",
       "message": "who_is",
-      "response": "",
+      "response": "i_am",
       "to": "ready"
     },
     {
@@ -55,6 +55,44 @@
       "message": "read_property",
       "response": "read_property_ack",
       "to": "pending"
+    },
+    {
+      "actions": [],
+      "from": "ready",
+      "guard": "unsolicited or matching Who-Is device range",
+      "message": "i_am",
+      "response": "",
+      "to": "ready"
+    },
+    {
+      "actions": [
+        "clear selected invoke context"
+      ],
+      "from": "pending",
+      "guard": "matching outstanding invoke ID",
+      "message": "read_property_error",
+      "response": "",
+      "to": "ready"
+    },
+    {
+      "actions": [
+        "clear selected invoke context"
+      ],
+      "from": "pending",
+      "guard": "matching outstanding invoke ID",
+      "message": "reject",
+      "response": "",
+      "to": "ready"
+    },
+    {
+      "actions": [
+        "clear selected invoke context"
+      ],
+      "from": "pending",
+      "guard": "matching outstanding invoke ID",
+      "message": "abort",
+      "response": "",
+      "to": "ready"
     }
   ]
 }

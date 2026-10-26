@@ -2,8 +2,10 @@ format_version: 1
 protocol_id: iec60870_5_104
 name: IEC 60870-5-104
 version: IEC 60870-5-104; lib60870 profile
-scope: I/S/U APCI; STARTDT, STOPDT, TESTFR and single-object C_IC_NA_1 ASDU; 2-byte
-  COT/CA and 3-byte IOA.
+scope: IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group
+  interrogation request, positive/negative activation confirmation and termination;
+  COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no
+  runtime encoder.
 transport: tcp
 framing: protocol length inside replayable records
 codec: iec104
@@ -22,8 +24,8 @@ sources:
     handlers
 - id: official
   url: https://webstore.iec.ch/en/publication/25035
-  basis: implementation
-  sections: IEC 60870-5-104:2006+AMD1:2016 catalogue; full paid text not consulted
+  basis: inferred
+  sections: IEC 60870-5-104:2006+AMD1:2016 catalogue only; paid text not consulted
 messages:
 - id: start_act
   example: '680407000000'
@@ -111,6 +113,8 @@ messages:
     source: $message
     add: -2
   notes: ''
+  fixture_status: complete
+  runtime_encode: false
 - id: start_con
   example: 68040b000000
   direction: response
@@ -197,6 +201,8 @@ messages:
     source: $message
     add: -2
   notes: ''
+  fixture_status: complete
+  runtime_encode: false
 - id: stop_act
   example: '680413000000'
   direction: request
@@ -283,6 +289,8 @@ messages:
     source: $message
     add: -2
   notes: ''
+  fixture_status: complete
+  runtime_encode: false
 - id: stop_con
   example: '680423000000'
   direction: response
@@ -369,6 +377,8 @@ messages:
     source: $message
     add: -2
   notes: ''
+  fixture_status: complete
+  runtime_encode: false
 - id: test_act
   example: '680443000000'
   direction: request
@@ -455,6 +465,8 @@ messages:
     source: $message
     add: -2
   notes: ''
+  fixture_status: complete
+  runtime_encode: false
 - id: test_con
   example: '680483000000'
   direction: response
@@ -541,6 +553,8 @@ messages:
     source: $message
     add: -2
   notes: ''
+  fixture_status: complete
+  runtime_encode: false
 - id: s_ack
   example: '680401000000'
   direction: request
@@ -633,7 +647,7 @@ messages:
     mutability: fuzzable
     default: 0
     min: 0
-    max: 65535
+    max: 65534
     values: []
     strategies:
     - enum
@@ -642,14 +656,17 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: 15-bit sequence number shifted left one; acknowledge next expected
-      I frame.
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
   dependencies:
   - op: length_of
     target: length
     source: $message
     add: -2
   notes: ''
+  fixture_status: complete
+  runtime_encode: false
 - id: interrogation
   example: 680e0000000064010600010000000014
   direction: request
@@ -736,9 +753,9 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Wire UInt16 = logical sequence number 0..32767 shifted left one; low
-      bit zero. Increment logical N(S) modulo 32768 only on I frames. N(R) acknowledges
-      next expected peer I frame.
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
   - id: receive_seq
     block: HEAD
     path: abs:4
@@ -759,9 +776,9 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Wire UInt16 = logical sequence number 0..32767 shifted left one; low
-      bit zero. Increment logical N(S) modulo 32768 only on I frames. N(R) acknowledges
-      next expected peer I frame.
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
   - id: type_id
     block: HEAD
     path: abs:6
@@ -804,7 +821,7 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: C_IC_NA_1 contains exactly one information object; SQ=0 in this profile.
+    structure: Exactly one information object; SQ=0 in this profile.
   - id: cot
     block: HEAD
     path: abs:8
@@ -817,7 +834,8 @@ messages:
     default: 6
     min: 0
     max: 65535
-    values: []
+    values:
+    - 6
     strategies:
     - enum
     - boundary
@@ -825,6 +843,8 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
+    structure: Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator
+      address.
   - id: common_address
     block: CONTENT
     path: abs:10
@@ -876,11 +896,25 @@ messages:
     role: content
     mutability: fuzzable
     default: 20
-    min: 0
-    max: 255
+    min: 20
+    max: 36
     values:
     - 20
     - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
     - 36
     strategies:
     - enum
@@ -889,21 +923,6 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure_model:
-      id: information_object
-      kind: sequence
-      children:
-      - id: ioa
-        kind: field
-        type: uint24-little
-        min: 0
-        max: 0
-      - id: qoi
-        kind: field
-        type: uint8
-        min: 20
-        max: 36
-      encoding: single-C_IC_NA_1
   dependencies:
   - op: length_of
     target: length
@@ -914,5 +933,848 @@ messages:
     source: $message
     unit: 2
     scope: connection
-  notes: 'ASDU C_IC_NA_1: count exactly one, IOA zero; sequence increments modulo
-    32768 before shift.'
+  notes: 'C_IC_NA_1 request: SQ=0/count=1, IOA=0, QOI 20 global or 21..36 group. Data
+    ASDUs between confirmation/termination are excluded, so completion does not mean
+    an empty remote database.'
+  fixture_status: complete
+  runtime_encode: false
+- id: interrogation_confirmation
+  example: 680e0000020064010700010000000014
+  direction: response
+  weight: 2
+  match: interrogation_confirmation
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - send_seq
+    - receive_seq
+    - type_id
+    - vsq
+    - cot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - common_address
+    - ioa
+    - qoi
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: send_seq
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
+  - id: receive_seq
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
+  - id: type_id
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 100
+    min: 100
+    max: 100
+    values:
+    - 100
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: vsq
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Exactly one information object; SQ=0 in this profile.
+  - id: cot
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 7
+    min: 0
+    max: 65535
+    values:
+    - 7
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator
+      address.
+  - id: common_address
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: ioa
+    block: CONTENT
+    path: abs:12
+    locator: abs:12
+    type: uint24
+    width: 3
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: qoi
+    block: CONTENT
+    path: abs:15
+    locator: abs:15
+    type: uint8
+    width: 1
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 20
+    min: 20
+    max: 36
+    values:
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    - 36
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  - op: sequence_number
+    target: send_seq
+    source: $message
+    unit: 2
+    scope: connection
+  - op: copy_from_message
+    target: common_address
+    source: common_address
+    message: interrogation
+    scope: transaction
+  - op: copy_from_message
+    target: qoi
+    source: qoi
+    message: interrogation
+    scope: transaction
+  notes: C_IC_NA_1 activation confirmation or activation termination. Negative confirmation
+    sets P/N bit6; fixture cause 7+64.
+  fixture_status: complete
+  runtime_encode: false
+- id: interrogation_termination
+  example: 680e0200020064010a00010000000014
+  direction: response
+  weight: 2
+  match: interrogation_termination
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - send_seq
+    - receive_seq
+    - type_id
+    - vsq
+    - cot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - common_address
+    - ioa
+    - qoi
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: send_seq
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
+  - id: receive_seq
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
+  - id: type_id
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 100
+    min: 100
+    max: 100
+    values:
+    - 100
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: vsq
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Exactly one information object; SQ=0 in this profile.
+  - id: cot
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 10
+    min: 0
+    max: 65535
+    values:
+    - 10
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator
+      address.
+  - id: common_address
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: ioa
+    block: CONTENT
+    path: abs:12
+    locator: abs:12
+    type: uint24
+    width: 3
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: qoi
+    block: CONTENT
+    path: abs:15
+    locator: abs:15
+    type: uint8
+    width: 1
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 20
+    min: 20
+    max: 36
+    values:
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    - 36
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  - op: sequence_number
+    target: send_seq
+    source: $message
+    unit: 2
+    scope: connection
+  - op: copy_from_message
+    target: common_address
+    source: common_address
+    message: interrogation
+    scope: transaction
+  - op: copy_from_message
+    target: qoi
+    source: qoi
+    message: interrogation
+    scope: transaction
+  notes: C_IC_NA_1 activation confirmation or activation termination. Negative confirmation
+    sets P/N bit6; fixture cause 7+64.
+  fixture_status: complete
+  runtime_encode: false
+- id: interrogation_negative
+  example: 680e0000020064014700010000000014
+  direction: response
+  weight: 2
+  match: interrogation_negative
+  blocks:
+  - id: HEAD
+    fields:
+    - start
+    - length
+    - send_seq
+    - receive_seq
+    - type_id
+    - vsq
+    - cot
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - common_address
+    - ioa
+    - qoi
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: start
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 104
+    min: 104
+    max: 104
+    values:
+    - 104
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:1
+    locator: abs:1
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: send_seq
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
+  - id: receive_seq
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 65534
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
+      Each direction has independent N(S); N(R) acknowledges next expected peer I
+      frame. Advance modulo 32768 only for I frames.
+  - id: type_id
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 100
+    min: 100
+    max: 100
+    values:
+    - 100
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: vsq
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Exactly one information object; SQ=0 in this profile.
+  - id: cot
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 71
+    min: 0
+    max: 65535
+    values:
+    - 71
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator
+      address.
+  - id: common_address
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: ioa
+    block: CONTENT
+    path: abs:12
+    locator: abs:12
+    type: uint24
+    width: 3
+    endian: little
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: qoi
+    block: CONTENT
+    path: abs:15
+    locator: abs:15
+    type: uint8
+    width: 1
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 20
+    min: 20
+    max: 36
+    values:
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+    - 35
+    - 36
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -2
+  - op: sequence_number
+    target: send_seq
+    source: $message
+    unit: 2
+    scope: connection
+  - op: copy_from_message
+    target: common_address
+    source: common_address
+    message: interrogation
+    scope: transaction
+  - op: copy_from_message
+    target: qoi
+    source: qoi
+    message: interrogation
+    scope: transaction
+  notes: C_IC_NA_1 activation confirmation or activation termination. Negative confirmation
+    sets P/N bit6; fixture cause 7+64.
+  fixture_status: complete
+  runtime_encode: false

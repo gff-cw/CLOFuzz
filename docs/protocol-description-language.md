@@ -154,11 +154,11 @@ transitions:
 
 | 模型 | 消息 / 字段 / 语义状态 | 支持范围 |
 | --- | --- | --- |
-| [BACnet/IP](../protocols/bacnet_ip/README.md) | 3 / 29 / 2 | 唯一 runtime codec；Who-Is、ReadProperty、关联响应描述；不含分段、BACnet/SC、BBMD 生命周期 |
-| [Modbus TCP](../protocols/modbus_tcp/README.md) | 17 / 122 / 1 | 静态：MBAP、01–06/0F/10 请求及相关响应/异常；不含串行 RTU CRC |
-| [IEC 60870-5-104](../protocols/iec60870_5_104/README.md) | 8 / 32 / 4 | 静态：I/S/U APCI、STARTDT/STOPDT/TESTFR、单对象总召唤 ASDU；限定 COT/CA/IOA 宽度 |
-| [IEC 61850 MMS/TCP](../protocols/iec61850_mms_tcp/README.md) | 8 / 59 / 5 | 静态：TPKT/COTP、ACSE/Initiate、GetNameList/Read/Write 和 BER 描述；缺完整 session/presentation codec |
-| [EtherNet/IP CIP/TCP](../protocols/ethernet_ip_cip_tcp/README.md) | 5 / 40 / 3 | 静态：Encapsulation、CPF、EPATH；不生成 ForwardOpen 前置条件或隐式 UDP I/O |
-| [OPC UA TCP](../protocols/opcua_tcp/README.md) | 7 / 53 / 5 | 静态：HEL/ACK/ERR/RHE、OPN/MSG/CLO 和 NodeId；仅 SecurityPolicy None，不生成完整服务体/会话激活 |
+| [BACnet/IP](../protocols/bacnet_ip/README.md) | 7 / 66 / 2 | Who-Is/I-Am、ReadProperty ACK/Error、Reject/Abort，动态 NPDU 和 BACnet 标签；请求子集在线实测 |
+| [Modbus TCP](../protocols/modbus_tcp/README.md) | 19 / 138 / 1 | FC01–06/0F/10 请求响应、异常、packed coils、9-coil padding；静态完整 profile |
+| [IEC 60870-5-104](../protocols/iec60870_5_104/README.md) | 11 / 62 / 6 | I/S/U、STARTDT/STOPDT/TESTFR、单对象总召唤确认和终止；静态完整 profile |
+| [IEC 61850 MMS/TCP](../protocols/iec61850_mms_tcp/README.md) | 14 / 136 / 9 | 完整 COTP/session/presentation/ACSE association、GetNameList/Read/Write、conclude/release；静态完整 profile |
+| [EtherNet/IP + CIP/TCP](../protocols/ethernet_ip_cip_tcp/README.md) | 10 / 132 / 4 | Register/Unregister、SendRRData、SendUnitData、CPF/EPATH；连接型消息有显式外部前提；静态完整 profile |
+| [OPC UA TCP](../protocols/opcua_tcp/README.md) | 10 / 107 / 6 | HEL/ACK/ERR/RHE、完整 None OPN、GetEndpoints/ServiceFault、实现 profile CLO；静态完整 profile |
 
-合计 48 个消息模型、335 个字段描述。其他五种协议的 IR 在 `proto_load` 中会明确被拒绝，不能据此启动相应协议的结构化 campaign。编译器示例校验只验证协议封装和长度一致；特别是 MMS 与 OPC UA 模板不能当作完整可交互服务请求。
+合计71条完整fixture、641字段，明确范围见[协议审查](protocol-model-audit.md)。MMS已补完整session/presentation/ACSE及服务体；OPC UA已补完整None模式服务体及独立解码检查。其余五种协议仍无C编码器，不能启动其结构化campaign；“报文完整”“静态验证”“参考实现互通”“StateAFL集成”分别记录。CLO的规范措辞与实现profile差异、SendUnitData的外部ForwardOpen前提均在协议审查中明确列出。

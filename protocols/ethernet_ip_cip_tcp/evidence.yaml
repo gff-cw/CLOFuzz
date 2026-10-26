@@ -1,16 +1,23 @@
 sources:
 - id: wire
-  url: https://github.com/EIPStackGroup/OpENer/blob/master/source/src/enet_encap/encap.c
+  url: https://github.com/EIPStackGroup/OpENer/tree/d8820ef41ce30dda06d213438ba81c81de33ffe2/source/src
   basis: implementation
-  sections: encap.c encapsulation command definitions; cpf.c item lengths; CIP message
-    router EPATH parser
+  sections: encap.c; cpf.c NotifyConnectedCommonPacketFormat/AssembleLinearMessage;
+    cipconnectionmanager.c GetConnectedObject/AssembleForwardOpenResponse; cipclass3connection.c
+    EstablishClass3Connection. ForwardOpen request is not a verified fixture in this
+    profile.
 - id: official
   url: https://www.odva.org/subscriptions-services/specifications/
-  basis: implementation
-  sections: ODVA specification catalogue and subscription boundaries; wire details
-    from OpENer
-scope: Encapsulation lifecycle, SendRRData/SendUnitData CPF and CIP path description.
-  No implicit UDP I/O.
+  basis: inferred
+  sections: ODVA catalogue/subscription boundary only; paid volumes not consulted;
+    wire details from OpENer
+scope: EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply),
+  SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData
+  with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response
+  layouts and encapsulation/CIP errors. SendUnitData requires an externally successful
+  ForwardOpen establishing class-3 connection and supplying directional IDs; this
+  model does not establish that prerequisite. Complete static explicit-message profile;
+  no runtime encoder.
 confidence: Each field names its source and confidence; catalogue identity does not
   establish normative wire details.
 accessed: '2026-10-25'
@@ -40,7 +47,11 @@ field_sources:
   source: wire
   confidence: implementation
 - message: register
-  field: payload
+  field: protocol_version
+  source: wire
+  confidence: implementation
+- message: register
+  field: option_flags
   source: wire
   confidence: implementation
 - message: unregister
@@ -67,6 +78,38 @@ field_sources:
   field: options
   source: wire
   confidence: implementation
+- message: register_response
+  field: command
+  source: wire
+  confidence: implementation
+- message: register_response
+  field: length
+  source: wire
+  confidence: implementation
+- message: register_response
+  field: session
+  source: wire
+  confidence: implementation
+- message: register_response
+  field: status
+  source: wire
+  confidence: implementation
+- message: register_response
+  field: context
+  source: wire
+  confidence: implementation
+- message: register_response
+  field: options
+  source: wire
+  confidence: implementation
+- message: register_response
+  field: protocol_version
+  source: wire
+  confidence: implementation
+- message: register_response
+  field: option_flags
+  source: wire
+  confidence: implementation
 - message: send_rr
   field: command
   source: wire
@@ -92,7 +135,35 @@ field_sources:
   source: wire
   confidence: implementation
 - message: send_rr
-  field: payload
+  field: interface_handle
+  source: wire
+  confidence: implementation
+- message: send_rr
+  field: timeout
+  source: wire
+  confidence: implementation
+- message: send_rr
+  field: item_count
+  source: wire
+  confidence: implementation
+- message: send_rr
+  field: address_type
+  source: wire
+  confidence: implementation
+- message: send_rr
+  field: address_length
+  source: wire
+  confidence: implementation
+- message: send_rr
+  field: data_type
+  source: wire
+  confidence: implementation
+- message: send_rr
+  field: data_length
+  source: wire
+  confidence: implementation
+- message: send_rr
+  field: cip
   source: wire
   confidence: implementation
 - message: send_rr
@@ -107,6 +178,166 @@ field_sources:
   field: epath
   source: wire
   confidence: implementation
+- message: send_rr_response
+  field: command
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: length
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: session
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: status
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: context
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: options
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: interface_handle
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: timeout
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: item_count
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: address_type
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: address_length
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: data_type
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: data_length
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: cip
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: cip_service
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: reserved
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: general_status
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: additional_status_words
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: additional_status
+  source: wire
+  confidence: implementation
+- message: send_rr_response
+  field: response_data
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: command
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: length
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: session
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: status
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: context
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: options
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: interface_handle
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: timeout
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: item_count
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: address_type
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: address_length
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: data_type
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: data_length
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: cip
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: cip_service
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: reserved
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: general_status
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: additional_status_words
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: additional_status
+  source: wire
+  confidence: implementation
+- message: send_rr_error
+  field: response_data
+  source: wire
+  confidence: implementation
 - message: send_unit
   field: command
   source: wire
@@ -132,7 +363,35 @@ field_sources:
   source: wire
   confidence: implementation
 - message: send_unit
-  field: payload
+  field: interface_handle
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: timeout
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: item_count
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: address_type
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: address_length
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: data_type
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: data_length
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: cip
   source: wire
   confidence: implementation
 - message: send_unit
@@ -147,45 +406,212 @@ field_sources:
   field: epath
   source: wire
   confidence: implementation
-- message: register_response
+- message: send_unit
+  field: connection_id
+  source: wire
+  confidence: implementation
+- message: send_unit
+  field: connected_sequence
+  source: wire
+  confidence: implementation
+- message: send_unit_response
   field: command
   source: wire
   confidence: implementation
-- message: register_response
+- message: send_unit_response
   field: length
   source: wire
   confidence: implementation
-- message: register_response
+- message: send_unit_response
   field: session
   source: wire
   confidence: implementation
-- message: register_response
+- message: send_unit_response
   field: status
   source: wire
   confidence: implementation
-- message: register_response
+- message: send_unit_response
   field: context
   source: wire
   confidence: implementation
-- message: register_response
+- message: send_unit_response
   field: options
   source: wire
   confidence: implementation
-- message: register_response
-  field: payload
+- message: send_unit_response
+  field: interface_handle
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: timeout
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: item_count
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: address_type
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: address_length
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: data_type
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: data_length
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: cip
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: cip_service
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: reserved
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: general_status
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: additional_status_words
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: additional_status
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: response_data
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: connection_id
+  source: wire
+  confidence: implementation
+- message: send_unit_response
+  field: connected_sequence
+  source: wire
+  confidence: implementation
+- message: register_error
+  field: command
+  source: wire
+  confidence: implementation
+- message: register_error
+  field: length
+  source: wire
+  confidence: implementation
+- message: register_error
+  field: session
+  source: wire
+  confidence: implementation
+- message: register_error
+  field: status
+  source: wire
+  confidence: implementation
+- message: register_error
+  field: context
+  source: wire
+  confidence: implementation
+- message: register_error
+  field: options
+  source: wire
+  confidence: implementation
+- message: invalid_session
+  field: command
+  source: wire
+  confidence: implementation
+- message: invalid_session
+  field: length
+  source: wire
+  confidence: implementation
+- message: invalid_session
+  field: session
+  source: wire
+  confidence: implementation
+- message: invalid_session
+  field: status
+  source: wire
+  confidence: implementation
+- message: invalid_session
+  field: context
+  source: wire
+  confidence: implementation
+- message: invalid_session
+  field: options
   source: wire
   confidence: implementation
 availability: Public OPC Foundation, RFC1006, Modbus current official PDF and open-source
   implementations were consulted. Full ASHRAE, IEC and ODVA subscription texts were
   not accessed.
 distinctions: semantic state IDs are unrelated to StateAFL memory-derived IDs
+fixture_counts:
+  complete: 10
+  fragment: 0
+fixture_verification: 'Independent bounded structural readers: tests/protocol/test_model_completeness.py.
+  Compiler validation covers the documented envelope/runtime subset, not complete
+  service conformance.'
+fixture_provenance: Constructed from the named public specification/implementation
+  and checked by independent bounded structural readers; see audit for live-test limits.
 validation:
   protocol: ethernet_ip_cip_tcp
-  messages: 5
-  fields: 40
-  semantic_states: 3
+  messages: 10
+  fields: 132
+  semantic_states: 4
   validated: true
   runtime: false
-  scope: Encapsulation lifecycle, SendRRData/SendUnitData CPF and CIP path description.
-    No implicit UDP I/O.
-  example_validation: protocol envelope and length consistency; not live service conformance
+  scope: EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply),
+    SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData
+    with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID
+    request/response layouts and encapsulation/CIP errors. SendUnitData requires an
+    externally successful ForwardOpen establishing class-3 connection and supplying
+    directional IDs; this model does not establish that prerequisite. Complete static
+    explicit-message profile; no runtime encoder.
+  example_validation: protocol envelope and length consistency; scoped BACnet decoder
+    checks for runtime fixtures; not live service conformance
+  execution_contract:
+    static_only: true
+    static_metadata:
+      protocol:
+      - name
+      - version
+      - scope
+      - framing
+      - sources
+      message:
+      - match
+      - blocks
+      - notes
+      - fixture_status
+      - runtime_encode
+      field:
+      - block
+      - path
+      - default
+      - evidence
+      - confidence
+      - structure
+      - structure_model
+      dependency:
+      - scope
+      - when
+      state:
+      - states[].meaning
+      - transitions[].guard
+      - transitions[].actions
+      - invalid_strategy
+    field_when_repeat: static-only; rejected by runtime-enabled profiles
+    dependencies: whitelisted operations only; scope and when are annotations
+    content_scalar_strategies: runtime uses AFL field projection; values/strategies
+      are annotations for CONTENT scalars
+    runtime_encode: capability assertion derived from runtime support and message
+      direction; never an execution switch

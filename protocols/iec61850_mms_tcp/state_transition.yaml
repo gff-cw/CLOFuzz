@@ -1,70 +1,117 @@
 format_version: 1
 protocol_id: iec61850_mms_tcp
-initial: transport
+initial: tcp
 states:
-- id: transport
+- id: tcp
   meaning: TCP connected
+- id: cotp_pending
+  meaning: CR sent; CC required
 - id: cotp
-  meaning: COTP established
-- id: associating
-  meaning: ACSE AARQ/AARE and MMS initiate negotiation
+  meaning: COTP TP0 established
+- id: association_pending
+  meaning: AARQ/embedded-initiate sent
 - id: associated
-  meaning: Successful AARE and initiate response required
-- id: released
-  meaning: ACSE association released
+  meaning: AARE accepted and initiate response negotiated
+- id: concluding
+  meaning: MMS conclude response pending
+- id: concluded
+  meaning: MMS conclude accepted; association release remains
+- id: releasing
+  meaning: ACSE/session release response pending
+- id: closed
+  meaning: Association and transport released
 transitions:
-- from: transport
-  to: cotp
+- from: tcp
+  to: cotp_pending
   message: cotp_cr
+  response: cotp_cc
+  guard: ''
+  actions: []
+- from: cotp_pending
+  to: cotp
+  message: cotp_cc
   response: ''
-  guard: COTP CC received
+  guard: matching transport reference
   actions: []
 - from: cotp
-  to: associating
+  to: association_pending
   message: associate
-  response: ''
-  guard: presentation/session wrappers required
+  response: associate_response
+  guard: ''
   actions: []
-- from: associating
+- from: association_pending
   to: associated
-  message: initiate
+  message: associate_response
   response: ''
-  guard: successful AARE/initiate response
-  actions: []
+  guard: AARE result accepted and valid initiate response
+  actions:
+  - cache negotiated limits
 - from: associated
   to: associated
   message: get_name_list
-  response: ''
-  guard: confirmed invoke must match response
+  response: get_name_list_response
+  guard: unique invoke ID within negotiated outstanding limit
   actions:
-  - cache invoke ID
+  - cache invoke context
 - from: associated
   to: associated
   message: read
-  response: ''
-  guard: confirmed invoke must match response
+  response: read_response
+  guard: unique invoke ID within negotiated outstanding limit
   actions:
-  - cache invoke ID
+  - cache invoke context
 - from: associated
   to: associated
   message: write
-  response: ''
-  guard: confirmed invoke must match response
+  response: write_response
+  guard: unique invoke ID within negotiated outstanding limit
   actions:
-  - cache invoke ID
-- from: associated
-  to: released
-  message: release
-  response: ''
-  guard: ACSE release handshake
-  actions: []
+  - cache invoke context
 - from: associated
   to: associated
-  message: confirmed_response
+  message: get_name_list_response
   response: ''
-  guard: pending invoke ID must match
+  guard: matching pending invoke ID
   actions:
   - clear invoke context
+- from: associated
+  to: associated
+  message: read_response
+  response: ''
+  guard: matching pending invoke ID
+  actions:
+  - clear invoke context
+- from: associated
+  to: associated
+  message: write_response
+  response: ''
+  guard: matching pending invoke ID
+  actions:
+  - clear invoke context
+- from: associated
+  to: concluding
+  message: conclude
+  response: conclude_response
+  guard: no pending confirmed services
+  actions: []
+- from: concluding
+  to: concluded
+  message: conclude_response
+  response: ''
+  guard: conclude accepted
+  actions: []
+- from: concluded
+  to: releasing
+  message: release
+  response: release_response
+  guard: ''
+  actions: []
+- from: releasing
+  to: closed
+  message: release_response
+  response: ''
+  guard: session disconnect and ACSE release complete
+  actions: []
 limits:
   max_messages: 32
   max_repeat: 4

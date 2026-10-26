@@ -10,7 +10,7 @@ transitions:
 - from: ready
   to: ready
   message: who_is
-  response: ''
+  response: i_am
   guard: valid Who-Is
   actions: []
 - from: ready
@@ -33,6 +33,33 @@ transitions:
   response: read_property_ack
   guard: additional independent invoke
   actions: []
+- from: ready
+  to: ready
+  message: i_am
+  response: ''
+  guard: unsolicited or matching Who-Is device range
+  actions: []
+- from: pending
+  to: ready
+  message: read_property_error
+  response: ''
+  guard: matching outstanding invoke ID
+  actions:
+  - clear selected invoke context
+- from: pending
+  to: ready
+  message: reject
+  response: ''
+  guard: matching outstanding invoke ID
+  actions:
+  - clear selected invoke context
+- from: pending
+  to: ready
+  message: abort
+  response: ''
+  guard: matching outstanding invoke ID
+  actions:
+  - clear selected invoke context
 limits:
   max_messages: 32
   max_repeat: 4

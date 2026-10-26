@@ -17,137 +17,191 @@
   ],
   "transitions": [
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_coils",
-      "response": "",
+      "response": "read_coils_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_discrete",
-      "response": "",
+      "response": "read_discrete_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_holding",
-      "response": "",
+      "response": "read_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_input",
-      "response": "",
+      "response": "read_input_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_coil",
-      "response": "",
+      "response": "write_coil_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_register",
-      "response": "",
+      "response": "write_register_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_coils",
-      "response": "",
+      "response": "write_coils_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_registers",
-      "response": "",
+      "response": "write_registers_response",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_response",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "exception",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
+      "message": "write_coils_partial",
+      "response": "write_coils_partial_response",
+      "to": "connected"
+    },
+    {
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
+      "from": "connected",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_coils_response",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_discrete_response",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "read_input_response",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_coil_response",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_register_response",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_coils_response",
       "response": "",
       "to": "connected"
     },
     {
-      "actions": [],
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
       "from": "connected",
-      "guard": "MBAP transaction context",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
+      "message": "write_coils_partial_response",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [
+        "cache or clear selected MBAP transaction"
+      ],
+      "from": "connected",
+      "guard": "transaction ID + unit + function correlation; success or corresponding exception",
       "message": "write_registers_response",
       "response": "",
       "to": "connected"

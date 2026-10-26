@@ -23,6 +23,19 @@ OPS = {"length_of", "count_of", "offset_of", "checksum_of", "copy_from_message",
 TYPES = {"uint8": 1, "uint16": 2, "uint24": 3, "uint32": 4, "uint64": 8,
          "bytes": 0, "string": 0, "bacnet_tags": 0, "ber_tlv": 0,
          "epath": 0, "nodeid": 0}
+RUNTIME_TYPES = {"uint8", "uint16", "uint24", "uint32", "uint64",
+                 "bytes", "string", "bacnet_tags"}
+BACNET_OCTET_LOCATORS = {"bvlc.type", "bvlc.function", "npdu.version", "npdu.control",
+                         "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu"}
+SCALAR_STRATEGIES = {"enum", "boundary", "bitflip", "arithmetic"}
+# These properties document a model; no expression in them is evaluated.
+STATIC_METADATA = {
+    "protocol": ["name", "version", "scope", "framing", "sources"],
+    "message": ["match", "blocks", "notes", "fixture_status", "runtime_encode"],
+    "field": ["block", "path", "default", "evidence", "confidence", "structure", "structure_model"],
+    "dependency": ["scope", "when"],
+    "state": ["states[].meaning", "transitions[].guard", "transitions[].actions", "invalid_strategy"],
+}
 
 
 class SpecError(ValueError):
@@ -143,6 +156,98 @@ def validate_example(codec, mid, seed):
         size(4, 4, "little")
 
 
+def bacnet_example_fields(seed, where):
+    """Resolve runtime locators and validate the actual scoped BACnet fixture.
+
+    Static structure_model strings are deliberately not interpreted here. These
+    rules mirror the dedicated BVLC/NPDU/APDU/tag decoder in protocol_runtime.c.
+    """
+    n = len(seed)
+    require(seed[1] in {10, 11}, where + ": unsupported BACnet BVLC function")
+    control = seed[5]
+    require(not control & 0xd0, where + ": reserved/network-layer NPDU outside runtime scope")
+    p = 6
+    for bit in (32, 8):
+        if control & bit:
+            require(p + 3 <= n, where + ": truncated NPDU address")
+            length = seed[p + 2]
+            require((bit == 32 or length > 0) and p + 3 + length <= n,
+                    where + ": invalid NPDU address length")
+            p += 3 + length
+    if control & 32:
+        require(p < n, where + ": missing NPDU hop count")
+        p += 1
+    require(p < n, where + ": missing APDU")
+    kind = seed[p] >> 4
+    result = {"bvlc.type": (0, 1), "bvlc.function": (1, 1), "bvlc.length": (2, 2),
+              "npdu.version": (4, 1), "npdu.control": (5, 1), "apdu.type": (p, 1)}
+    if kind == 0:
+        require(n - p >= 4 and not seed[p] & 13, where + ": truncated/segmented confirmed APDU")
+        result.update({"apdu.max_apdu": (p + 1, 1), "apdu.invoke": (p + 2, 1), "apdu.service": (p + 3, 1)})
+        p += 4
+    elif kind == 1:
+        require(n - p >= 2 and not seed[p] & 15, where + ": truncated/invalid unconfirmed APDU")
+        result["apdu.service"] = (p + 1, 1)
+        p += 2
+    elif kind in {2, 3, 5, 6, 7}:
+        require(n - p >= 3 and (seed[p] & 15) <= (1 if kind == 7 else 0),
+                where + ": truncated/segmented response APDU")
+        result.update({"apdu.invoke": (p + 1, 1), "apdu.service": (p + 2, 1)})
+        p += 3
+    else:
+        raise SpecError(where + ": unsupported runtime APDU type")
+    result["apdu.content"] = (p, n - p)
+    tags, stack = [], []
+    while p < n:
+        header = seed[p]; p += 1
+        number, context, lvt = header >> 4, bool(header & 8), header & 7
+        if number == 15:
+            require(p < n, where + ": truncated extended tag")
+            number = seed[p]; p += 1
+        opening = context and lvt == 6
+        closing = context and lvt == 7
+        length = lvt
+        if opening or closing:
+            length = 0
+        elif not context and number == 1:
+            require(lvt <= 1, where + ": invalid BOOLEAN tag")
+            length = 0
+        elif lvt == 5:
+            require(p < n, where + ": truncated extended tag length")
+            length = seed[p]; p += 1
+            if length in {254, 255}:
+                width = 2 if length == 254 else 4
+                require(p + width <= n, where + ": truncated extended tag length")
+                length = int.from_bytes(seed[p:p + width], "big"); p += width
+        else:
+            require(lvt <= 5, where + ": invalid primitive tag length")
+        require(p + length <= n, where + ": truncated tag value")
+        if opening:
+            require(len(stack) < 24, where + ": tag nesting exceeds 24")
+            stack.append(number)
+        if closing:
+            require(stack and stack.pop() == number, where + ": mismatched closing tag")
+        tags.append((number, context, opening or closing, p, length))
+        if context and not opening and not closing and number in {0, 1, 2}:
+            result.setdefault(("bacnet.object", "bacnet.property", "bacnet.array")[number], (p, length))
+        p += length
+    require(not stack, where + ": missing closing tag")
+    service = seed[result["apdu.service"][0]]
+    if (kind, service) in {(1, 8), (0, 12)}:
+        expected = 0 if kind == 1 and not tags else 2
+        require(len(tags) in ({0, 2} if kind == 1 else {2, 3}), where + ": invalid service tag count")
+        for wanted, entry in enumerate(tags):
+            number, context, container, offset, length = entry
+            require(context and not container and number == wanted and 1 <= length <= 4,
+                    where + ": invalid service context tag")
+            if kind == 0 and wanted == 0:
+                require(length == 4, where + ": object identifier must have four octets")
+        if kind == 1 and expected:
+            values = [int.from_bytes(seed[o:o + w], "big") for _, _, _, o, w in tags]
+            require(0 <= values[0] <= values[1] <= 4194303, where + ": invalid Who-Is limits")
+    return result, kind, service
+
+
 def validate(protocol, state):
     for obj, filename in ((protocol, "protocol_spec.schema.json"),
                           (state, "state_transition.schema.json")):
@@ -165,10 +270,14 @@ def validate(protocol, state):
     for source in sources.values():
         url = urlparse(source["url"])
         require(url.scheme in {"http", "https"} and url.netloc, "source must have an HTTP(S) URL")
-    fields = {}
+    fields, examples, runtime_locations = {}, {}, {}
     for mid, msg in messages.items():
         require(0 < len(msg["fields"]) <= 64, f"{mid}: expected 1..64 fields")
         integer(msg["weight"], 1, 1000, f"{mid}.weight")
+        # C's hex reader accepts pairs only, whereas bytes.fromhex also
+        # accepts whitespace. Keep every accepted runtime IR loadable.
+        require(re.fullmatch(r"(?:[0-9A-Fa-f]{2})*", msg["example"]),
+                f"{mid}: invalid hexadecimal example (use contiguous octet pairs)")
         try:
             seed = bytes.fromhex(msg["example"])
         except ValueError as exc:
@@ -176,6 +285,24 @@ def validate(protocol, state):
         require(0 < len(seed) <= 65507, f"{mid}: invalid example size")
         require(len(seed) + 4 <= state["limits"]["max_bytes"], f"{mid}: example exceeds sequence byte limit")
         validate_example(protocol["codec"], mid, seed)
+        examples[mid] = seed
+        if runtime:
+            require(msg["direction"] != "both", f"{mid}: runtime direction must be request or response")
+            require(msg.get("fixture_status", "complete") == "complete",
+                    f"{mid}: runtime requires a complete fixture")
+            locations, kind, service = bacnet_example_fields(seed, f"{mid}.example")
+            runtime_locations[mid] = locations
+            # I-Am is an unconfirmed service request on the wire, but models
+            # the reply to Who-Is in this request/response campaign vocabulary.
+            require((kind in {0, 1} if msg["direction"] == "request"
+                     else kind in {2, 3, 5, 6, 7} or (kind, service) == (1, 0)),
+                    f"{mid}: example APDU/direction mismatch")
+            if msg["direction"] == "request":
+                require((kind, service) in {(1, 8), (0, 12)},
+                        f"{mid}: runtime request encoder unavailable for APDU/service")
+        if "runtime_encode" in msg:
+            require(msg["runtime_encode"] == (runtime and msg["direction"] == "request"),
+                    f"{mid}: runtime_encode is a capability assertion, not an execution switch")
         fields[mid] = indexed(msg["fields"], f"{mid}.fields")
         blocks = indexed(msg["blocks"], f"{mid}.blocks")
         for block in blocks.values():
@@ -205,11 +332,23 @@ def validate(protocol, state):
             require(membership.get(fid) == f["block"], where + ": block membership mismatch")
             require(f["locator"] and len(f["locator"]) < 64, where + ": invalid locator")
             if runtime:
+                require(f["type"] in RUNTIME_TYPES, where + ": unsupported runtime field type")
                 require(f["locator"] in {"bvlc.type", "bvlc.function", "bvlc.length", "npdu.version", "npdu.control",
                         "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu", "apdu.content",
                         "bacnet.object", "bacnet.property", "bacnet.array"} or f["locator"].startswith("abs:"),
                         where + ": unsupported runtime locator")
                 require("when" not in f and "repeat" not in f, where + ": generic when/repeat is static-only; BACnet codec handles conditional tags")
+                if f["locator"] in BACNET_OCTET_LOCATORS:
+                    require(f["type"] == "uint8", where + ": BACnet octet locator requires uint8")
+                if f["locator"] == "bvlc.length":
+                    require(f["type"] == "uint16", where + ": BVLC length locator requires uint16")
+                if f["locator"] == "bacnet.object":
+                    require(f["type"] == "uint32", where + ": BACnet object locator requires uint32")
+                if f["locator"] in {"bacnet.property", "bacnet.array"}:
+                    require(f["type"] in {"uint8", "uint16", "uint24", "uint32"},
+                            where + ": BACnet unsigned context locator requires uint8..uint32")
+                if f["locator"] == "apdu.content":
+                    require(f["width"] == 0, where + ": APDU content locator requires a variable field")
             if f["locator"].startswith("abs:"):
                 try: offset = int(f["locator"][4:])
                 except ValueError as exc: raise SpecError(where + ": invalid offset") from exc
@@ -228,11 +367,44 @@ def validate(protocol, state):
                 integer(f["max"], f["min"], 65507, where + ".max")
                 require(f["width"] == 0, where + ": variable field requires width zero")
                 require(not f["values"], where + ": variable fields do not support scalar enum values")
+                if f["type"] == "string":
+                    default_size = len(f["default"].encode("utf-8"))
+                else:
+                    require(re.fullmatch(r"(?:[0-9A-Fa-f]{2})*", f["default"]),
+                            where + ": byte-oriented default must be hexadecimal octet pairs")
+                    default_size = len(f["default"]) // 2
+                integer(default_size, f["min"], f["max"], where + ".default byte length")
+            require((f["role"] == "fixed") == (f["mutability"] == "fixed"),
+                    where + ": fixed role and mutability must agree")
+            require((f["role"] == "derived") == (f["mutability"] == "derived"),
+                    where + ": derived role and mutability must agree")
             if f["mutability"] == "fixed":
-                require(f["role"] == "fixed" and f["min"] == f["max"] == f["default"], where + ": fixed field must have one value and fixed role")
-            if f["role"] == "derived":
-                require(f["mutability"] == "derived", where + ": derived role requires derived mutability")
+                if TYPES[f["type"]]:
+                    require(f["min"] == f["max"] == f["default"], where + ": fixed field must have one value and fixed role")
+                else:
+                    require(not runtime, where + ": fixed variable bytes are static-only; runtime matching requires scalar fixed fields")
+                    require(f["min"] == f["max"] == default_size,
+                            where + ": fixed variable field bounds must equal default byte length")
             require(set(f["strategies"]) <= {"enum", "boundary", "bitflip", "arithmetic", "afl", "resize"}, where + ": unknown strategy")
+            if runtime:
+                if f["locator"].startswith("abs:"):
+                    location = (int(f["locator"][4:]), f["width"] or len(seed) - int(f["locator"][4:]))
+                else:
+                    location = locations.get(f["locator"])
+                require(location is not None or f["mutability"] == "conditional",
+                        where + ": runtime field absent from example; declare conditional mutability")
+                if location is not None:
+                    offset, width = location
+                    require(not f["width"] or 1 <= width <= 8, where + ": runtime scalar locator has invalid width")
+                    actual = int.from_bytes(seed[offset:offset + width], f["endian"]) if f["width"] else width
+                    integer(actual, f["min"], f["max"], where + ".example value")
+                if f["role"] == "head" and f["mutability"] in {"fuzzable", "conditional"}:
+                    require(f["width"] > 0, where + ": runtime HEAD mutation requires an integer field")
+                    require(not f["strategies"] or set(f["strategies"]) & SCALAR_STRATEGIES,
+                            where + ": runtime HEAD mutation requires a scalar strategy")
+                if msg["direction"] == "request" and f["role"] == "content" and not f["width"] and f["mutability"] in {"fuzzable", "conditional"}:
+                    require((kind, service, f["locator"]) == (1, 8, "apdu.content"),
+                            where + ": runtime variable CONTENT encoder unavailable")
             if "when" in f:
                 require(f["when"]["field"] in fields[mid], where + ": missing conditional field")
                 guard = fields[mid][f["when"]["field"]]
@@ -248,6 +420,30 @@ def validate(protocol, state):
                 require(TYPES[fields[mid][f["repeat"]["count"]]["type"]] > 0, where + ": repetition count must be integer")
             if "structure_model" in f:
                 structure_tree(f["structure_model"], where + ".structure_model")
+    if runtime:
+        # model_for() selects the first model whose fixed scalar fields match.
+        # Validate all examples against every model so annotations or an overly
+        # broad fixed signature cannot silently shadow a more specific message.
+        for mid, seed in examples.items():
+            matches = []
+            for candidate, candidate_fields in fields.items():
+                matched = True
+                for field in candidate_fields.values():
+                    if field["mutability"] != "fixed":
+                        continue
+                    locator = field["locator"]
+                    if locator.startswith("abs:"):
+                        offset, width = int(locator[4:]), field["width"]
+                        location = (offset, width) if offset + width <= len(seed) else None
+                    else:
+                        location = runtime_locations[mid].get(locator)
+                    if location is None or int.from_bytes(seed[location[0]:sum(location)], field["endian"]) != field["min"]:
+                        matched = False
+                        break
+                if matched:
+                    matches.append(candidate)
+            require(matches == [mid],
+                    f"{mid}: ambiguous runtime message matching: {matches}; match is static metadata")
     # Typed references and cycles apply equally to local and cross-message edges.
     graph = {}
     for mid, msg in messages.items():
@@ -259,6 +455,9 @@ def validate(protocol, state):
             require(dep["target"] in fields[mid], f"{mid}: missing dependency target {dep['target']}")
             require(dep["target"] not in derived_targets, f"{mid}: multiple dependency writers for {dep['target']}")
             derived_targets.add(dep["target"])
+            require(dep["op"] in {"conditional_presence", "correlate_request_response"}
+                    or fields[mid][dep["target"]]["mutability"] != "fixed",
+                    f"{mid}: dependency cannot write a fixed field")
             sm = dep.get("message", mid)
             require(sm in messages, f"{mid}: missing source message {sm}")
             sf = dep.get("source", "$message")
@@ -280,26 +479,62 @@ def validate(protocol, state):
                 require(sm == mid, f"{mid}: structural dependencies require local source")
             if dep["op"] == "checksum_of":
                 require(dep.get("algorithm") in {"sum8", "crc32"}, f"{mid}: unsupported checksum algorithm")
+            else:
+                require("algorithm" not in dep, f"{mid}: algorithm applies only to checksum_of")
             integer(dep.get("unit", 1), 1, 65507, f"{mid}.dependency.unit")
             integer(dep.get("multiply", 1), 1, 65507, f"{mid}.dependency.multiply")
             integer(dep.get("add", 0), -65507, 65507, f"{mid}.dependency.add")
+            if runtime:
+                require(dep["op"] in {"length_of", "count_of", "sequence_number"} or dep.get("unit", 1) == 1,
+                        f"{mid}: dependency unit is not executed for {dep['op']}")
+                require(dep["op"] in {"length_of", "count_of", "offset_of"} or dep.get("add", 0) == 0,
+                        f"{mid}: dependency add is not executed for {dep['op']}")
+                if dep["op"] == "sequence_number":
+                    require(sm == mid and sf in {"$message", dep["target"]},
+                            f"{mid}: sequence_number uses its target's own previous value")
             # Message size and codec-managed tag lengths are structural leaves.
             if sf != "$message" and dep["op"] not in {"correlate_request_response", "sequence_number"}:
                 graph.setdefault((mid, dep["target"]), []).append((sm, sf))
+        for fid, field in fields[mid].items():
+            if field["mutability"] in {"derived", "runtime_bound"}:
+                require(fid in derived_targets,
+                        f"{mid}.{fid}: {field['mutability']} field requires a dependency writer")
+                if field["mutability"] == "runtime_bound":
+                    writer = next(d for d in msg["dependencies"] if d["target"] == fid)
+                    require(writer["op"] in {"copy_from_message", "bind_from_response", "correlate_request_response", "sequence_number"},
+                            f"{mid}.{fid}: runtime_bound requires a binding/correlation/sequence dependency")
+                else:
+                    writer = next(d for d in msg["dependencies"] if d["target"] == fid)
+                    require(writer["op"] not in {"conditional_presence", "correlate_request_response"},
+                            f"{mid}.{fid}: derived field requires a value-producing dependency")
     visiting, visited = set(), set()
-    def walk(node):
-        require(node not in visiting, f"dependency cycle at {node}")
-        if node in visited: return
-        visiting.add(node)
-        for other in graph.get(node, []): walk(other)
-        visiting.remove(node); visited.add(node)
-    for node in graph: walk(node)
+    for root in graph:
+        stack = [(root, False)]
+        while stack:
+            node, exiting = stack.pop()
+            if exiting:
+                visiting.remove(node)
+                visited.add(node)
+            elif node not in visited:
+                require(node not in visiting, f"dependency cycle at {node}")
+                visiting.add(node)
+                stack.append((node, True))
+                stack.extend((other, False) for other in reversed(graph.get(node, [])))
+    transition_keys = set()
     for tr in state["transitions"]:
         require(tr["from"] in states and tr["to"] in states, "transition references missing state")
         require(tr["message"] in messages, "transition references missing message")
         if tr.get("response"):
             require(tr["response"] in messages, "transition references missing response")
             require(messages[tr["response"]]["direction"] in {"response", "both"}, "transition response has request direction")
+            if runtime:
+                require(any(edge["from"] == tr["to"] and edge["message"] == tr["response"]
+                            for edge in state["transitions"]),
+                        "runtime transition response requires an outgoing response edge")
+        key = tr["from"], tr["message"]
+        require(not runtime or key not in transition_keys,
+                "ambiguous runtime state transition; guard is static metadata")
+        transition_keys.add(key)
     reached = {state["initial"]}
     for _ in states:
         reached |= {tr["to"] for tr in state["transitions"] if tr["from"] in reached}
@@ -307,18 +542,44 @@ def validate(protocol, state):
     return protocol, state
 
 
+def serialize_ir(document):
+    """Enforce the C tokenizer's limits on the exact JSON we will publish."""
+    def tokens(value, depth=0):
+        require(depth <= 24, "serialized IR nesting exceeds runtime depth 24")
+        if isinstance(value, dict):
+            return 1 + sum(1 + tokens(child, depth + 1) for child in value.values())
+        if isinstance(value, list):
+            return 1 + sum(tokens(child, depth + 1) for child in value)
+        return 1
+    require(tokens(document) < 65536, "serialized IR exceeds runtime JSON token budget")
+    serialized = json.dumps(document, sort_keys=True, indent=2, ensure_ascii=True) + "\n"
+    require(len(serialized.encode("utf-8")) <= 2**20,
+            "serialized IR exceeds runtime 1 MiB limit")
+    return serialized
+
+
 def compile_spec(protocol, state, output):
     validate(protocol, state)
-    output = Path(output); output.mkdir(parents=True, exist_ok=True)
+    output = Path(output)
     p, s = copy.deepcopy(protocol), copy.deepcopy(state)
     p["ir_version"] = s["ir_version"] = 1
-    for filename, obj in (("protocol_ir.json", p), ("state_ir.json", s)):
-        (output / filename).write_text(json.dumps(obj, sort_keys=True, indent=2, ensure_ascii=True) + "\n")
+    documents = {"protocol_ir.json": serialize_ir(p), "state_ir.json": serialize_ir(s)}
+    output.mkdir(parents=True, exist_ok=True)
+    for filename, serialized in documents.items():
+        (output / filename).write_text(serialized, encoding="utf-8")
     result = {"protocol": p["protocol_id"], "messages": len(p["messages"]),
               "fields": sum(len(m["fields"]) for m in p["messages"]),
               "semantic_states": len(s["states"]), "validated": True,
               "runtime": p["support"]["runtime"], "scope": p["scope"],
-              "example_validation": "protocol envelope and length consistency; not live service conformance"}
+              "example_validation": ("protocol envelope and length consistency; scoped BACnet decoder checks for runtime fixtures; not live service conformance"),
+              "execution_contract": {
+                  "static_only": not p["support"]["runtime"],
+                  "static_metadata": STATIC_METADATA,
+                  "field_when_repeat": "static-only; rejected by runtime-enabled profiles",
+                  "dependencies": "whitelisted operations only; scope and when are annotations",
+                  "content_scalar_strategies": "runtime uses AFL field projection; values/strategies are annotations for CONTENT scalars",
+                  "runtime_encode": "capability assertion derived from runtime support and message direction; never an execution switch",
+              }}
     (output / "validation.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
 

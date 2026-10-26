@@ -10,6 +10,10 @@ states:
   meaning: STARTDT confirmed
 - id: stopping
   meaning: STOPDT confirmation pending
+- id: interrogating
+  meaning: Activation sent; confirmation pending
+- id: interrogation_data
+  meaning: Positive activation confirmation; data/termination pending
 transitions:
 - from: stopped
   to: starting
@@ -37,13 +41,6 @@ transitions:
   actions: []
 - from: active
   to: active
-  message: interrogation
-  response: ''
-  guard: increment N(S) modulo 32768
-  actions:
-  - cache send sequence
-- from: active
-  to: active
   message: s_ack
   response: ''
   guard: acknowledge received I frames
@@ -51,7 +48,7 @@ transitions:
 - from: active
   to: active
   message: test_act
-  response: ''
+  response: test_con
   guard: TESTFR keepalive
   actions: []
 - from: active
@@ -60,17 +57,66 @@ transitions:
   response: ''
   guard: TESTFR keepalive
   actions: []
+- from: active
+  to: interrogating
+  message: interrogation
+  response: interrogation_confirmation
+  guard: send window available
+  actions:
+  - increment local N(S)
+- from: interrogating
+  to: interrogation_data
+  message: interrogation_confirmation
+  response: ''
+  guard: positive activation confirmation; matching CA/QOI
+  actions: []
+- from: interrogating
+  to: active
+  message: interrogation_negative
+  response: ''
+  guard: negative activation confirmation
+  actions: []
+- from: interrogation_data
+  to: active
+  message: interrogation_termination
+  response: ''
+  guard: matching CA/QOI; all preceding I frames acknowledged
+  actions: []
 - from: stopped
   to: stopped
   message: test_act
   response: test_con
-  guard: TESTFR is independent of data-transfer activation
+  guard: TESTFR does not depend on transfer phase
   actions: []
 - from: stopped
   to: stopped
   message: test_con
   response: ''
-  guard: TESTFR is independent of data-transfer activation
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogating
+  to: interrogating
+  message: test_act
+  response: test_con
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogating
+  to: interrogating
+  message: test_con
+  response: ''
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogation_data
+  to: interrogation_data
+  message: test_act
+  response: test_con
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogation_data
+  to: interrogation_data
+  message: test_con
+  response: ''
+  guard: TESTFR does not depend on transfer phase
   actions: []
 limits:
   max_messages: 32

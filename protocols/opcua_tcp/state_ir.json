@@ -16,19 +16,23 @@
     },
     {
       "id": "hello_sent",
-      "meaning": "HEL sent"
+      "meaning": "HEL sent; ACK pending"
     },
     {
       "id": "acknowledged",
-      "meaning": "ACK received"
+      "meaning": "ACK buffers negotiated"
+    },
+    {
+      "id": "channel_pending",
+      "meaning": "OpenSecureChannel Issue sent"
     },
     {
       "id": "channel",
-      "meaning": "Successful OpenSecureChannel response received"
+      "meaning": "Successful OpenSecureChannel response; unexpired token bound, no Session"
     },
     {
       "id": "closed",
-      "meaning": "CLO sent"
+      "meaning": "Transport/channel closed"
     }
   ],
   "transitions": [
@@ -37,43 +41,71 @@
       "from": "tcp",
       "guard": "",
       "message": "hello",
-      "response": "",
+      "response": "ack",
       "to": "hello_sent"
     },
     {
       "actions": [],
       "from": "hello_sent",
-      "guard": "negotiated buffers",
+      "guard": "negotiation accepted",
       "message": "ack",
       "response": "",
       "to": "acknowledged"
     },
     {
-      "actions": [
-        "cache channel/token"
-      ],
+      "actions": [],
       "from": "acknowledged",
-      "guard": "successful OPN response",
+      "guard": "SecurityPolicy None; request type Issue",
       "message": "open_channel",
+      "response": "open_channel_response",
+      "to": "channel_pending"
+    },
+    {
+      "actions": [
+        "bind channel and token; track expiry"
+      ],
+      "from": "channel_pending",
+      "guard": "service_result Good; channel/token assigned",
+      "message": "open_channel_response",
       "response": "",
       "to": "channel"
     },
     {
       "actions": [
-        "increment sequence and correlate request ID"
+        "advance per-direction sequence; cache request ID/handle"
       ],
       "from": "channel",
-      "guard": "UA session activation required for session services",
+      "guard": "token valid; GetEndpoints requires no Session",
       "message": "message",
+      "response": "message_response",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "clear request context"
+      ],
+      "from": "channel",
+      "guard": "matching request ID/handle",
+      "message": "message_response",
       "response": "",
       "to": "channel"
     },
     {
       "actions": [
-        "clear channel/token"
+        "clear request context"
       ],
       "from": "channel",
-      "guard": "",
+      "guard": "matching request ID/handle; Bad status",
+      "message": "service_fault",
+      "response": "",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "clear token/channel"
+      ],
+      "from": "channel",
+      "guard": "no response expected",
       "message": "close_channel",
       "response": "",
       "to": "closed"
@@ -89,10 +121,42 @@
     {
       "actions": [],
       "from": "tcp",
-      "guard": "transport error",
+      "guard": "transport error closes connection",
       "message": "error",
       "response": "",
-      "to": "tcp"
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "hello_sent",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "acknowledged",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "channel_pending",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "channel",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
     }
   ]
 }

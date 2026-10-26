@@ -12,65 +12,111 @@
   "states": [
     {
       "id": "connected",
-      "meaning": "TCP connected"
+      "meaning": "TCP connected; session unregistered"
+    },
+    {
+      "id": "registering",
+      "meaning": "RegisterSession response pending"
     },
     {
       "id": "registered",
-      "meaning": "Successful RegisterSession response; handle cached"
+      "meaning": "Successful response assigned nonzero session handle; class-3 connection availability is a separate external prerequisite, never implied by this state"
     },
     {
       "id": "closed",
-      "meaning": "Unregistered session"
+      "meaning": "Session unregistered/transport closed"
     }
   ],
   "transitions": [
     {
-      "actions": [
-        "bind session handle"
-      ],
+      "actions": [],
       "from": "connected",
-      "guard": "successful register response",
+      "guard": "",
       "message": "register",
       "response": "register_response",
-      "to": "registered"
+      "to": "registering"
     },
     {
       "actions": [
-        "echo sender context"
+        "cache peer session handle"
       ],
+      "from": "registering",
+      "guard": "status=0; version=1; nonzero assigned handle",
+      "message": "register_response",
+      "response": "",
+      "to": "registered"
+    },
+    {
+      "actions": [],
+      "from": "registering",
+      "guard": "nonzero encapsulation status",
+      "message": "register_error",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [],
       "from": "registered",
-      "guard": "valid session and CPF",
+      "guard": "valid session; cache Sender Context",
       "message": "send_rr",
+      "response": "send_rr_response",
+      "to": "registered"
+    },
+    {
+      "actions": [],
+      "from": "registered",
+      "guard": "echoed context, service bit7, general status=0",
+      "message": "send_rr_response",
       "response": "",
       "to": "registered"
     },
     {
       "actions": [],
       "from": "registered",
-      "guard": "ForwardOpen connection prerequisite; not generated",
-      "message": "send_unit",
+      "guard": "echoed context and nonzero CIP general status",
+      "message": "send_rr_error",
       "response": "",
       "to": "registered"
     },
     {
       "actions": [
-        "clear handle"
+        "advance externally initialized class-3 UInt16 sequence modulo 65536; cache Sender Context"
       ],
       "from": "registered",
-      "guard": "matching handle",
+      "guard": "EXTERNAL PRECONDITION: successful ForwardOpen already established an unexpired class-3 explicit connection on this session; use external O->T consumed ID and T->O produced ID",
+      "message": "send_unit",
+      "response": "send_unit_response",
+      "to": "registered"
+    },
+    {
+      "actions": [
+        "clear selected connected request context"
+      ],
+      "from": "registered",
+      "guard": "external class-3 connection remains established; produced T->O ID; echoed connected sequence and Sender Context",
+      "message": "send_unit_response",
+      "response": "",
+      "to": "registered"
+    },
+    {
+      "actions": [
+        "clear session handle"
+      ],
+      "from": "registered",
+      "guard": "encapsulation status invalid session",
+      "message": "invalid_session",
+      "response": "",
+      "to": "connected"
+    },
+    {
+      "actions": [
+        "clear session and connection contexts"
+      ],
+      "from": "registered",
+      "guard": "matching session handle; no reply",
       "message": "unregister",
       "response": "",
       "to": "closed"
-    },
-    {
-      "actions": [
-        "cache assigned session handle"
-      ],
-      "from": "registered",
-      "guard": "register success",
-      "message": "register_response",
-      "response": "",
-      "to": "registered"
     }
   ]
 }

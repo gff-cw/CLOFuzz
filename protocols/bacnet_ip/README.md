@@ -2,12 +2,14 @@
 
 Version: BACnet Stack 1.5.0 / ASHRAE 135.
 
-Scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is with optional limits and ReadProperty with optional array index; application/context tag walking and invoke correlation.
+Scope: BVLC Original-Unicast-NPDU, optional routed NPDU addresses; unsegmented Who-Is/I-Am; ReadProperty request/ACK/Error and Reject/server-Abort. Runtime generates only Who-Is and ReadProperty requests; response layouts are complete static descriptions.
 
-Support: runtime scoped codec. BACnet is the live integration target; see `docs/bacnet-integration-test.md` for actual results.
+Support: runtime scoped codec. Complete fixtures: 7/7; runtime request encoders: 2. BACnet is the sole StateAFL live integration target; see `docs/bacnet-integration-test.md`.
 
 Excluded: segmented APDUs; BACnet/SC; other services runtime encoding; BBMD/foreign-device lifecycle.
 
-Each field names a source ID and confidence; see `evidence.yaml` for the source mapping and access limits. Static nested `structure_model` trees and state guard/action strings document semantics and are not executable code. Only the C runtime's documented operations execute. Static-only fixtures pass header/length checks, but are not exchanges validated with a target. In particular MMS fixtures omit complete session/presentation wrappers, and OPC UA secure-conversation fixtures omit complete service bodies.
+Complete means all bytes for the declared message/profile are present and checked by `tests/protocol/test_model_completeness.py`; it does not assert whole-standard conformance or successful exchanges with arbitrary products. A message marked `fragment` must never be presented as a valid service. `runtime_encode` records existing C runtime capability and is not an encoder selection switch. Nested `structure_model` trees and state guard/action strings are static descriptions.
 
-Regenerate all files with `python3 tools/generate_protocol_models.py`; validate independently with `python3 tools/proto_spec_compiler.py --protocol protocols/bacnet_ip/protocol_spec.yaml --state protocols/bacnet_ip/state_transition.yaml --output-dir /tmp/bacnet_ip`.
+Each field names a source ID and confidence; `evidence.yaml` records sources and access limits. The six-protocol completeness matrix, corrections and verification limits are in `docs/protocol-model-audit.md`.
+
+Regenerate with `python3 tools/generate_protocol_models.py`; check complete fixtures with `python3 tests/protocol/test_model_completeness.py`; compile independently with `python3 tools/proto_spec_compiler.py --protocol protocols/bacnet_ip/protocol_spec.yaml --state protocols/bacnet_ip/state_transition.yaml --output-dir /tmp/bacnet_ip`.

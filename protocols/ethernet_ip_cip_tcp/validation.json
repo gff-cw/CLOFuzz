@@ -1,10 +1,52 @@
 {
   "protocol": "ethernet_ip_cip_tcp",
-  "messages": 5,
-  "fields": 40,
-  "semantic_states": 3,
+  "messages": 10,
+  "fields": 132,
+  "semantic_states": 4,
   "validated": true,
   "runtime": false,
-  "scope": "Encapsulation lifecycle, SendRRData/SendUnitData CPF and CIP path description. No implicit UDP I/O.",
-  "example_validation": "protocol envelope and length consistency; not live service conformance"
+  "scope": "EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply), SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response layouts and encapsulation/CIP errors. SendUnitData requires an externally successful ForwardOpen establishing class-3 connection and supplying directional IDs; this model does not establish that prerequisite. Complete static explicit-message profile; no runtime encoder.",
+  "example_validation": "protocol envelope and length consistency; scoped BACnet decoder checks for runtime fixtures; not live service conformance",
+  "execution_contract": {
+    "static_only": true,
+    "static_metadata": {
+      "protocol": [
+        "name",
+        "version",
+        "scope",
+        "framing",
+        "sources"
+      ],
+      "message": [
+        "match",
+        "blocks",
+        "notes",
+        "fixture_status",
+        "runtime_encode"
+      ],
+      "field": [
+        "block",
+        "path",
+        "default",
+        "evidence",
+        "confidence",
+        "structure",
+        "structure_model"
+      ],
+      "dependency": [
+        "scope",
+        "when"
+      ],
+      "state": [
+        "states[].meaning",
+        "transitions[].guard",
+        "transitions[].actions",
+        "invalid_strategy"
+      ]
+    },
+    "field_when_repeat": "static-only; rejected by runtime-enabled profiles",
+    "dependencies": "whitelisted operations only; scope and when are annotations",
+    "content_scalar_strategies": "runtime uses AFL field projection; values/strategies are annotations for CONTENT scalars",
+    "runtime_encode": "capability assertion derived from runtime support and message direction; never an execution switch"
+  }
 }

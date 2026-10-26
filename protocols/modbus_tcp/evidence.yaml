@@ -7,10 +7,11 @@ sources:
 - id: official
   url: https://www.modbus.org/file/secure/modbusprotocolspecification.pdf
   basis: normative
-  sections: Application Protocol V1.1b3 sections 4 and 6; current PDF linked by official
-    specifications index
-scope: Functions 01-06, 0F, 10, their field layouts, read-register response and exception
-  response; no serial RTU CRC.
+  sections: Application Protocol V1.1b3 sections 4, 6.1-6.6, 6.11-6.12 and 7
+scope: Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10 multiple
+  writes; all normal response layouts and generic exception layout; FC0F arbitrary
+  1..1968 coils including final-byte padding. Complete static profile; no runtime
+  encoder.
 confidence: Each field names its source and confidence; catalogue identity does not
   establish normative wire details.
 accessed: '2026-10-25'
@@ -307,6 +308,42 @@ field_sources:
   field: exception
   source: official
   confidence: normative
+- message: write_coils_partial
+  field: transaction
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: protocol
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: length
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: unit
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: function
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: address
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: quantity
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: byte_count
+  source: official
+  confidence: normative
+- message: write_coils_partial
+  field: data
+  source: official
+  confidence: normative
 - message: read_coils_response
   field: transaction
   source: official
@@ -325,16 +362,16 @@ field_sources:
   confidence: normative
 - message: read_coils_response
   field: function
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_coils_response
   field: byte_count
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_coils_response
   field: data
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_discrete_response
   field: transaction
   source: official
@@ -353,16 +390,16 @@ field_sources:
   confidence: normative
 - message: read_discrete_response
   field: function
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_discrete_response
   field: byte_count
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_discrete_response
   field: data
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_input_response
   field: transaction
   source: official
@@ -381,16 +418,16 @@ field_sources:
   confidence: normative
 - message: read_input_response
   field: function
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_input_response
   field: byte_count
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: read_input_response
   field: data
-  source: wire
-  confidence: implementation
+  source: official
+  confidence: normative
 - message: write_coil_response
   field: transaction
   source: official
@@ -472,6 +509,34 @@ field_sources:
   source: official
   confidence: normative
 - message: write_coils_response
+  field: quantity
+  source: official
+  confidence: normative
+- message: write_coils_partial_response
+  field: transaction
+  source: official
+  confidence: normative
+- message: write_coils_partial_response
+  field: protocol
+  source: official
+  confidence: normative
+- message: write_coils_partial_response
+  field: length
+  source: official
+  confidence: normative
+- message: write_coils_partial_response
+  field: unit
+  source: official
+  confidence: normative
+- message: write_coils_partial_response
+  field: function
+  source: official
+  confidence: normative
+- message: write_coils_partial_response
+  field: address
+  source: official
+  confidence: normative
+- message: write_coils_partial_response
   field: quantity
   source: official
   confidence: normative
@@ -507,13 +572,61 @@ availability: Public OPC Foundation, RFC1006, Modbus current official PDF and op
   implementations were consulted. Full ASHRAE, IEC and ODVA subscription texts were
   not accessed.
 distinctions: semantic state IDs are unrelated to StateAFL memory-derived IDs
+fixture_counts:
+  complete: 19
+  fragment: 0
+fixture_verification: 'Independent bounded structural readers: tests/protocol/test_model_completeness.py.
+  Compiler validation covers the documented envelope/runtime subset, not complete
+  service conformance.'
+fixture_provenance: Constructed from the named public specification/implementation
+  and checked by independent bounded structural readers; see audit for live-test limits.
 validation:
   protocol: modbus_tcp
-  messages: 17
-  fields: 122
+  messages: 19
+  fields: 138
   semantic_states: 1
   validated: true
   runtime: false
-  scope: Functions 01-06, 0F, 10, their field layouts, read-register response and
-    exception response; no serial RTU CRC.
-  example_validation: protocol envelope and length consistency; not live service conformance
+  scope: Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10
+    multiple writes; all normal response layouts and generic exception layout; FC0F
+    arbitrary 1..1968 coils including final-byte padding. Complete static profile;
+    no runtime encoder.
+  example_validation: protocol envelope and length consistency; scoped BACnet decoder
+    checks for runtime fixtures; not live service conformance
+  execution_contract:
+    static_only: true
+    static_metadata:
+      protocol:
+      - name
+      - version
+      - scope
+      - framing
+      - sources
+      message:
+      - match
+      - blocks
+      - notes
+      - fixture_status
+      - runtime_encode
+      field:
+      - block
+      - path
+      - default
+      - evidence
+      - confidence
+      - structure
+      - structure_model
+      dependency:
+      - scope
+      - when
+      state:
+      - states[].meaning
+      - transitions[].guard
+      - transitions[].actions
+      - invalid_strategy
+    field_when_repeat: static-only; rejected by runtime-enabled profiles
+    dependencies: whitelisted operations only; scope and when are annotations
+    content_scalar_strategies: runtime uses AFL field projection; values/strategies
+      are annotations for CONTENT scalars
+    runtime_encode: capability assertion derived from runtime support and message
+      direction; never an execution switch

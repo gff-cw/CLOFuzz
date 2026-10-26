@@ -27,7 +27,7 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
     if base not in PROFILES:
         raise SpecError(f"unknown protocol profile: {base}")
     output = Path(output)
-    if output.exists():
+    if output.exists() or output.is_symlink():
         raise SpecError(f"refusing to overwrite existing path: {output}")
     source = ROOT / "protocols" / base
     protocol = load(source / "protocol_spec.yaml")
@@ -60,8 +60,12 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
                 + yaml.dump(document, Dumper=EditableDumper, sort_keys=False), encoding="utf-8")
         seed_directory = draft / "seeds"
         seed_directory.mkdir()
+        skipped_fragments = []
         for message in protocol["messages"]:
             if message["direction"] == "request":
+                if message.get("fixture_status", "complete") == "fragment":
+                    skipped_fragments.append(message["id"])
+                    continue
                 wire = bytes.fromhex(message["example"])
                 (seed_directory / (message["id"] + ".replay")).write_bytes(
                     len(wire).to_bytes(4, "little") + wire)
@@ -69,7 +73,8 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
                         source_files={name: hashlib.sha256((source / name).read_bytes()).hexdigest()
                                       for name in ("protocol_spec.yaml", "state_transition.yaml")},
                         sources=protocol["sources"], scope=protocol["scope"],
-                        support=protocol["support"], validation=result)
+                        support=protocol["support"], validation=result,
+                        skipped_fragment_seeds=skipped_fragments)
         (draft / "evidence.yaml").write_text(yaml.safe_dump(evidence, sort_keys=False), encoding="utf-8")
         (draft / "README.md").write_text(
             f"# {protocol['name']} description package\n\n"
@@ -77,6 +82,10 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
             f"Scope: {protocol['scope']}\n\n"
             f"Runtime encoder available: {str(result['runtime']).lower()}. "
             "This flag does not claim this copied package has passed a live target test.\n\n"
+            "Examples marked fragment are retained as static descriptions and are not written as replay seeds. "
+            "Generated seeds are scoped fixtures, not evidence of service conformance.\n\n"
+            "Field default, structure_model, state guard/actions and dependency scope/when are annotations; "
+            "read validation.json execution_contract for the fields actually interpreted by the runtime.\n\n"
             "Edit protocol_spec.yaml and state_transition.yaml, then run:\n\n"
             "```bash\npython3 /path/to/stateafl/tools/proto_spec_compiler.py "
             "--protocol protocol_spec.yaml --state state_transition.yaml --output-dir .\n```\n\n"
@@ -84,7 +93,7 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
             "using afl-fuzz --protocol-spec and --state-spec.\n", encoding="utf-8")
         # Same-parent move publishes a complete package; validation failures
         # never leave half-written YAML or IR at the requested destination.
-        if output.exists():
+        if output.exists() or output.is_symlink():
             raise SpecError(f"refusing to overwrite existing path: {output}")
         draft.rename(output)
     return dict(output=str(output), base_profile=base, protocol_id=protocol_id,

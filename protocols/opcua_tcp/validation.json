@@ -1,10 +1,52 @@
 {
   "protocol": "opcua_tcp",
-  "messages": 7,
-  "fields": 53,
-  "semantic_states": 5,
+  "messages": 10,
+  "fields": 107,
+  "semantic_states": 6,
   "validated": true,
   "runtime": false,
-  "scope": "HEL/ACK/ERR/RHE transport and UASC OPN/MSG/CLO header structures, UA Binary/NodeId and lifecycle descriptions. Only SecurityPolicy None is described.",
-  "example_validation": "protocol envelope and length consistency; not live service conformance"
+  "scope": "Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers and nested endpoint/token arrays; no Session services or runtime encoder.",
+  "example_validation": "protocol envelope and length consistency; scoped BACnet decoder checks for runtime fixtures; not live service conformance",
+  "execution_contract": {
+    "static_only": true,
+    "static_metadata": {
+      "protocol": [
+        "name",
+        "version",
+        "scope",
+        "framing",
+        "sources"
+      ],
+      "message": [
+        "match",
+        "blocks",
+        "notes",
+        "fixture_status",
+        "runtime_encode"
+      ],
+      "field": [
+        "block",
+        "path",
+        "default",
+        "evidence",
+        "confidence",
+        "structure",
+        "structure_model"
+      ],
+      "dependency": [
+        "scope",
+        "when"
+      ],
+      "state": [
+        "states[].meaning",
+        "transitions[].guard",
+        "transitions[].actions",
+        "invalid_strategy"
+      ]
+    },
+    "field_when_repeat": "static-only; rejected by runtime-enabled profiles",
+    "dependencies": "whitelisted operations only; scope and when are annotations",
+    "content_scalar_strategies": "runtime uses AFL field projection; values/strategies are annotations for CONTENT scalars",
+    "runtime_encode": "capability assertion derived from runtime support and message direction; never an execution switch"
+  }
 }

@@ -24,4 +24,12 @@ class CLITests(unittest.TestCase):
         self.rejected(['--protocol-spec','/missing-protocol','--state-spec','/missing-state','--protocol-fallback'],'cannot open IR')
     def test_transport(self):
         self.rejected(['--protocol-spec','protocols/bacnet_ip/protocol_ir.json','--state-spec','protocols/bacnet_ip/state_ir.json'],'requires UDP transport', transport='tcp')
+    def test_invalid_experiment_seed(self):
+        for value in ('-1','4294967296','1.5','bad',''):
+            with self.subTest(value=value):self.rejected(['--random-seed',value],'uint32 integer')
+    def test_duplicate_experiment_seed(self):
+        self.rejected(['--random-seed','0','--random-seed','1'],'uint32 integer')
+    def test_invalid_candidate_budget(self):
+        for value in ('-1','1000001','1.5','bad',''):
+            with self.subTest(value=value):self.rejected(['--protocol-save-candidates',value],'integer in 0..1000000')
 if __name__=='__main__':unittest.main()

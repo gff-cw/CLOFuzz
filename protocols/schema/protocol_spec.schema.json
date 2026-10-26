@@ -35,7 +35,15 @@
     },
     "codec": {
       "type": "string",
-      "maxLength": 4096
+      "maxLength": 4096,
+      "enum": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ]
     },
     "support": {
       "type": "object",
@@ -45,7 +53,8 @@
         },
         "level": {
           "type": "string",
-          "maxLength": 4096
+          "maxLength": 4096,
+          "minLength": 1
         },
         "excluded": {
           "type": "array",
@@ -62,7 +71,8 @@
         "level",
         "excluded"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "runtime declares C codec availability, not whole-standard conformance."
     },
     "sources": {
       "type": "array",
@@ -127,7 +137,8 @@
           },
           "match": {
             "type": "string",
-            "maxLength": 4096
+            "maxLength": 4096,
+            "description": "Static annotation. Runtime identifies messages using the codec and fixed scalar fields."
           },
           "blocks": {
             "type": "array",
@@ -159,7 +170,8 @@
               "additionalProperties": false
             },
             "minItems": 1,
-            "maxItems": 16
+            "maxItems": 16,
+            "description": "Static grouping metadata. Runtime field roles, not block labels or hierarchy, select mutation layers."
           },
           "fields": {
             "type": "array",
@@ -176,7 +188,8 @@
                 },
                 "path": {
                   "type": "string",
-                  "maxLength": 4096
+                  "maxLength": 4096,
+                  "description": "Static display path; locator determines executable byte lookup."
                 },
                 "type": {
                   "enum": [
@@ -229,7 +242,8 @@
                   "type": [
                     "string",
                     "integer"
-                  ]
+                  ],
+                  "description": "Static description default. Runtime templates come from example bytes; default does not rewrite them."
                 },
                 "min": {
                   "type": "integer"
@@ -248,11 +262,19 @@
                 "strategies": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "maxLength": 4096
+                    "enum": [
+                      "enum",
+                      "boundary",
+                      "bitflip",
+                      "arithmetic",
+                      "afl",
+                      "resize"
+                    ]
                   },
                   "minItems": 0,
-                  "maxItems": 6
+                  "maxItems": 6,
+                  "uniqueItems": true,
+                  "description": "Runtime HEAD scalar selection uses enum/boundary/bitflip/arithmetic; empty means those four defaults. Runtime CONTENT uses AFL field projection or the dedicated codec, not this list."
                 },
                 "evidence": {
                   "type": "string",
@@ -284,7 +306,8 @@
                     "mask",
                     "equals"
                   ],
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "description": "Static conditional field declaration; runtime-enabled profiles reject generic when."
                 },
                 "repeat": {
                   "type": "object",
@@ -311,14 +334,17 @@
                     "count",
                     "max"
                   ],
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "description": "Static bounded repetition declaration; runtime-enabled profiles reject generic repeat."
                 },
                 "structure": {
                   "type": "string",
-                  "maxLength": 4096
+                  "maxLength": 4096,
+                  "description": "Static structure annotation; never parsed as code."
                 },
                 "structure_model": {
-                  "$ref": "#/$defs/structure"
+                  "$ref": "#/$defs/structure",
+                  "description": "Validated static structure tree; never interpreted as an encoder or executable condition."
                 }
               },
               "required": [
@@ -351,7 +377,19 @@
               "properties": {
                 "op": {
                   "type": "string",
-                  "maxLength": 4096
+                  "maxLength": 4096,
+                  "enum": [
+                    "length_of",
+                    "count_of",
+                    "offset_of",
+                    "checksum_of",
+                    "copy_from_message",
+                    "bind_from_response",
+                    "correlate_request_response",
+                    "sequence_number",
+                    "conditional_presence",
+                    "tagged_length"
+                  ]
                 },
                 "target": {
                   "type": "string",
@@ -380,11 +418,13 @@
                     "testcase",
                     "connection",
                     "transaction"
-                  ]
+                  ],
+                  "description": "Static scope annotation. Current C runtime caches one latest value per engine/message/field; it does not create scope-specific caches."
                 },
                 "when": {
                   "type": "string",
-                  "maxLength": 4096
+                  "maxLength": 4096,
+                  "description": "Static condition annotation; operation execution is unconditional. No expression is evaluated."
                 },
                 "multiply": {
                   "type": "integer",
@@ -405,6 +445,17 @@
           "notes": {
             "type": "string",
             "maxLength": 4096
+          },
+          "fixture_status": {
+            "enum": [
+              "complete",
+              "fragment"
+            ],
+            "description": "Static fixture completeness declaration. complete is one full scoped message; fragment is only an envelope/header/service fragment. Runtime-enabled messages require complete."
+          },
+          "runtime_encode": {
+            "type": "boolean",
+            "description": "Capability assertion, not an execution switch: true exactly for request messages in a runtime-enabled profile; response/static-only messages must use false."
           }
         },
         "required": [

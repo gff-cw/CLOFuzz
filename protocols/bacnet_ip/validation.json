@@ -1,10 +1,52 @@
 {
   "protocol": "bacnet_ip",
-  "messages": 3,
-  "fields": 29,
+  "messages": 7,
+  "fields": 66,
   "semantic_states": 2,
   "validated": true,
   "runtime": true,
-  "scope": "BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is with optional limits and ReadProperty with optional array index; application/context tag walking and invoke correlation.",
-  "example_validation": "protocol envelope and length consistency; not live service conformance"
+  "scope": "BVLC Original-Unicast-NPDU, optional routed NPDU addresses; unsegmented Who-Is/I-Am; ReadProperty request/ACK/Error and Reject/server-Abort. Runtime generates only Who-Is and ReadProperty requests; response layouts are complete static descriptions.",
+  "example_validation": "protocol envelope and length consistency; scoped BACnet decoder checks for runtime fixtures; not live service conformance",
+  "execution_contract": {
+    "static_only": false,
+    "static_metadata": {
+      "protocol": [
+        "name",
+        "version",
+        "scope",
+        "framing",
+        "sources"
+      ],
+      "message": [
+        "match",
+        "blocks",
+        "notes",
+        "fixture_status",
+        "runtime_encode"
+      ],
+      "field": [
+        "block",
+        "path",
+        "default",
+        "evidence",
+        "confidence",
+        "structure",
+        "structure_model"
+      ],
+      "dependency": [
+        "scope",
+        "when"
+      ],
+      "state": [
+        "states[].meaning",
+        "transitions[].guard",
+        "transitions[].actions",
+        "invalid_strategy"
+      ]
+    },
+    "field_when_repeat": "static-only; rejected by runtime-enabled profiles",
+    "dependencies": "whitelisted operations only; scope and when are annotations",
+    "content_scalar_strategies": "runtime uses AFL field projection; values/strategies are annotations for CONTENT scalars",
+    "runtime_encode": "capability assertion derived from runtime support and message direction; never an execution switch"
+  }
 }
