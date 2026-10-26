@@ -1,0 +1,22 @@
+test_all_six_profiles_instantiate_and_compile (test_templates.TemplateTests.test_all_six_profiles_instantiate_and_compile) ... ok
+test_bad_id_rejected_without_outputs (test_templates.TemplateTests.test_bad_id_rejected_without_outputs) ... ok
+test_blank_template_requires_filling (test_templates.TemplateTests.test_blank_template_requires_filling) ... ok
+test_broken_symlink_destination_is_preserved (test_templates.TemplateTests.test_broken_symlink_destination_is_preserved) ... ok
+test_cli_lists_support (test_templates.TemplateTests.test_cli_lists_support) ... ok
+test_description_changes_real_runtime_mutation (test_templates.TemplateTests.test_description_changes_real_runtime_mutation) ... ok
+test_existing_destination_is_preserved (test_templates.TemplateTests.test_existing_destination_is_preserved) ... ok
+test_fragment_examples_are_not_packaged_as_replay_seeds (test_templates.TemplateTests.test_fragment_examples_are_not_packaged_as_replay_seeds) ... ok
+test_message_id_rename_does_not_change_content_codec (test_templates.TemplateTests.test_message_id_rename_does_not_change_content_codec) ... ok
+test_runner_invalid_edit_is_not_run_or_written_to_ir (test_templates.TemplateTests.test_runner_invalid_edit_is_not_run_or_written_to_ir) ... ok
+test_runner_recompiles_edited_yaml_and_selects_both_models (test_templates.TemplateTests.test_runner_recompiles_edited_yaml_and_selects_both_models) ... ok
+test_runner_rejects_conflicting_model_options (test_templates.TemplateTests.test_runner_rejects_conflicting_model_options) ... ok
+test_runner_rejects_static_runtime_and_allows_validation (test_templates.TemplateTests.test_runner_rejects_static_runtime_and_allows_validation) ... ok
+test_static_profile_cannot_become_runtime_by_copying (test_templates.TemplateTests.test_static_profile_cannot_become_runtime_by_copying) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 56.306s
+
+OK
+PASS: description selects invoke_id=33; all other wire and framing bytes preserved
+PASS: description selects invoke_id=77; all other wire and framing bytes preserved
+PASS: renamed Who-Is request uses parsed service codec and CONTENT limits

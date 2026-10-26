@@ -1,0 +1,72 @@
+{
+  "hello": {
+    "hex": "48454c46380000000000000000000100000001000000000000000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+    "length": 56,
+    "body_hex": "0000000000000100000001000000000000000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+    "body_offset": 8,
+    "decoded": "Hello(ProtocolVersion=0, ReceiveBufferSize=65536, SendBufferSize=65536, MaxMessageSize=0, MaxChunkCount=0, EndpointUrl='opc.tcp://127.0.0.1:4840')"
+  },
+  "ack": {
+    "hex": "41434b461c0000000000000000000100000001000000000000000000",
+    "length": 28,
+    "body_hex": "0000000000000100000001000000000000000000",
+    "body_offset": 8,
+    "decoded": "Acknowledge(ProtocolVersion=0, ReceiveBufferSize=65536, SendBufferSize=65536, MaxMessageSize=0, MaxChunkCount=0)"
+  },
+  "error": {
+    "hex": "45525246200000000000838010000000556e6b6e6f776e20656e64706f696e74",
+    "length": 32,
+    "body_hex": "0000838010000000556e6b6e6f776e20656e64706f696e74",
+    "body_offset": 8,
+    "decoded": "ErrorMessage(Error=StatusCode(value=2156068864), Reason='Unknown endpoint')"
+  },
+  "reverse_hello": {
+    "hex": "52484546400000001800000075726e3a6578616d706c653a6c6f63616c3a736572766572180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+    "length": 64,
+    "body_hex": "1800000075726e3a6578616d706c653a6c6f63616c3a736572766572180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+    "body_offset": 8,
+    "decoded": "ServerUri urn:example:local:server; EndpointUrl opc.tcp://127.0.0.1:4840"
+  },
+  "open_channel": {
+    "hex": "4f504e4684000000000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100be01000000c030c71364dd0101000000000000000000000010270000000000000000000000000001000000ffffffffc0270900",
+    "length": 132,
+    "body_hex": "0100be01000000c030c71364dd0101000000000000000000000010270000000000000000000000000001000000ffffffffc0270900",
+    "body_offset": 79,
+    "decoded": "OpenSecureChannelRequest(TypeId=NodeId(Identifier=446, NamespaceIndex=0, NodeIdType=<NodeIdType.FourByte: 1>), RequestHeader=RequestHeader(AuthenticationToken=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Timestamp=datetime.datetime(2026, 10, 25, 0, 0, tzinfo=datetime.timezone.utc), RequestHandle=1, ReturnDiagnostics=0, AuditEntryId='', TimeoutHint=10000, AdditionalHeader=ExtensionObject(TypeId=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Body=None)), Parameters=OpenSecureChannelParameters(ClientProtocolVersion=0, RequestType=<SecurityTokenRequestType.Issue: 0>, SecurityMode=<MessageSecurityMode.None_: 1>, ClientNonce=None, RequestedLifetime=600000))"
+  },
+  "open_channel_response": {
+    "hex": "4f504e4687000000010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100c10100c030c71364dd010100000000000000000000000000000000000000010000000100000000c030c71364dd01c0270900ffffffff",
+    "length": 135,
+    "body_hex": "0100c10100c030c71364dd010100000000000000000000000000000000000000010000000100000000c030c71364dd01c0270900ffffffff",
+    "body_offset": 79,
+    "decoded": "OpenSecureChannelResponse(TypeId=NodeId(Identifier=449, NamespaceIndex=0, NodeIdType=<NodeIdType.FourByte: 1>), ResponseHeader=ResponseHeader(Timestamp=datetime.datetime(2026, 10, 25, 0, 0, tzinfo=datetime.timezone.utc), RequestHandle=1, ServiceResult=StatusCode(value=0), ServiceDiagnostics=DiagnosticInfo(SymbolicId=None, NamespaceURI=None, Locale=None, LocalizedText=None, AdditionalInfo=None, InnerStatusCode=None, InnerDiagnosticInfo=None), StringTable=[], AdditionalHeader=ExtensionObject(TypeId=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Body=None)), Parameters=OpenSecureChannelResult(ServerProtocolVersion=0, SecurityToken=ChannelSecurityToken(ChannelId=1, TokenId=1, CreatedAt=datetime.datetime(2026, 10, 25, 0, 0, tzinfo=datetime.timezone.utc), RevisedLifetime=600000), ServerNonce=None))"
+  },
+  "message": {
+    "hex": "4d5347465d000000010000000100000002000000020000000100ac01000000c030c71364dd0102000000000000000000000010270000000000180000006f70632e7463703a2f2f3132372e302e302e313a343834300000000000000000",
+    "length": 93,
+    "body_hex": "0100ac01000000c030c71364dd0102000000000000000000000010270000000000180000006f70632e7463703a2f2f3132372e302e302e313a343834300000000000000000",
+    "body_offset": 24,
+    "decoded": "GetEndpointsRequest(TypeId=NodeId(Identifier=428, NamespaceIndex=0, NodeIdType=<NodeIdType.FourByte: 1>), RequestHeader=RequestHeader(AuthenticationToken=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Timestamp=datetime.datetime(2026, 10, 25, 0, 0, tzinfo=datetime.timezone.utc), RequestHandle=2, ReturnDiagnostics=0, AuditEntryId='', TimeoutHint=10000, AdditionalHeader=ExtensionObject(TypeId=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Body=None)), Parameters=GetEndpointsParameters(EndpointUrl='opc.tcp://127.0.0.1:4840', LocaleIds=[], ProfileUris=[]))"
+  },
+  "message_response": {
+    "hex": "4d5347466e010000010000000100000002000000020000000100af0100c030c71364dd010200000000000000000000000000000001000000180000006f70632e7463703a2f2f3132372e302e302e313a343834301800000075726e3a6578616d706c653a6c6f63616c3a7365727665721300000075726e3a6578616d706c653a70726f66696c6502140000004c6f63616c206578616d706c652073657276657200000000ffffffffffffffff01000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430ffffffff010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e650100000009000000616e6f6e796d6f757300000000ffffffffffffffffffffffff41000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412d50726f66696c652f5472616e73706f72742f75617463702d756173632d756162696e61727900",
+    "length": 366,
+    "body_hex": "0100af0100c030c71364dd010200000000000000000000000000000001000000180000006f70632e7463703a2f2f3132372e302e302e313a343834301800000075726e3a6578616d706c653a6c6f63616c3a7365727665721300000075726e3a6578616d706c653a70726f66696c6502140000004c6f63616c206578616d706c652073657276657200000000ffffffffffffffff01000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430ffffffff010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e650100000009000000616e6f6e796d6f757300000000ffffffffffffffffffffffff41000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412d50726f66696c652f5472616e73706f72742f75617463702d756173632d756162696e61727900",
+    "body_offset": 24,
+    "decoded": "GetEndpointsResponse(TypeId=NodeId(Identifier=431, NamespaceIndex=0, NodeIdType=<NodeIdType.FourByte: 1>), ResponseHeader=ResponseHeader(Timestamp=datetime.datetime(2026, 10, 25, 0, 0, tzinfo=datetime.timezone.utc), RequestHandle=2, ServiceResult=StatusCode(value=0), ServiceDiagnostics=DiagnosticInfo(SymbolicId=None, NamespaceURI=None, Locale=None, LocalizedText=None, AdditionalInfo=None, InnerStatusCode=None, InnerDiagnosticInfo=None), StringTable=[], AdditionalHeader=ExtensionObject(TypeId=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Body=None)), Endpoints=[EndpointDescription(EndpointUrl='opc.tcp://127.0.0.1:4840', Server=ApplicationDescription(ApplicationUri='urn:example:local:server', ProductUri='urn:example:profile', ApplicationName=LocalizedText(Locale=None, Text='Local example server'), ApplicationType=<ApplicationType.Server: 0>, GatewayServerUri=None, DiscoveryProfileUri=None, DiscoveryUrls=['opc.tcp://127.0.0.1:4840']), ServerCertificate=None, SecurityMode=<MessageSecurityMode.None_: 1>, SecurityPolicyUri='http://opcfoundation.org/UA/SecurityPolicy#None', UserIdentityTokens=[UserTokenPolicy(PolicyId='anonymous', TokenType=<UserTokenType.Anonymous: 0>, IssuedTokenType=None, IssuerEndpointUrl=None, SecurityPolicyUri=None)], TransportProfileUri='http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary', SecurityLevel=0)])"
+  },
+  "service_fault": {
+    "hex": "4d534746340000000100000001000000020000000200000001008d0100c030c71364dd010200000000000b800000000000000000",
+    "length": 52,
+    "body_hex": "01008d0100c030c71364dd010200000000000b800000000000000000",
+    "body_offset": 24,
+    "decoded": "ServiceFault(TypeId=NodeId(Identifier=397, NamespaceIndex=0, NodeIdType=<NodeIdType.FourByte: 1>), ResponseHeader=ResponseHeader(Timestamp=datetime.datetime(2026, 10, 25, 0, 0, tzinfo=datetime.timezone.utc), RequestHandle=2, ServiceResult=StatusCode(value=2148204544), ServiceDiagnostics=DiagnosticInfo(SymbolicId=None, NamespaceURI=None, Locale=None, LocalizedText=None, AdditionalInfo=None, InnerStatusCode=None, InnerDiagnosticInfo=None), StringTable=[], AdditionalHeader=ExtensionObject(TypeId=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Body=None)))"
+  },
+  "close_channel": {
+    "hex": "434c4f4639000000010000000100000003000000030000000100c401000000c030c71364dd0103000000000000000000000010270000000000",
+    "length": 57,
+    "body_hex": "0100c401000000c030c71364dd0103000000000000000000000010270000000000",
+    "body_offset": 24,
+    "decoded": "CloseSecureChannelRequest(TypeId=NodeId(Identifier=452, NamespaceIndex=0, NodeIdType=<NodeIdType.FourByte: 1>), RequestHeader=RequestHeader(AuthenticationToken=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Timestamp=datetime.datetime(2026, 10, 25, 0, 0, tzinfo=datetime.timezone.utc), RequestHandle=3, ReturnDiagnostics=0, AuditEntryId='', TimeoutHint=10000, AdditionalHeader=ExtensionObject(TypeId=NodeId(Identifier=0, NamespaceIndex=0, NodeIdType=<NodeIdType.TwoByte: 0>), Body=None)))"
+  }
+}

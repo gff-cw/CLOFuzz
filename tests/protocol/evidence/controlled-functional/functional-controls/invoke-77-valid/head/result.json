@@ -1,0 +1,329 @@
+{
+  "mode": "head",
+  "passed": false,
+  "checks": {
+    "ready_reached": true,
+    "clean_sigint_stop": true,
+    "fuzzer_aslr_disabled": true,
+    "executions_continue": true,
+    "coverage_nonzero": true,
+    "queue_matches_stats": true,
+    "replays_present_and_framed": false,
+    "memory_states_present": true,
+    "memory_graph_matches_paths": true,
+    "calibration_present": true,
+    "no_crashes": true,
+    "no_hangs": true,
+    "protocol_stats_present": true,
+    "structured_mutations_run": true,
+    "mutation_log_valid": true,
+    "attempts_accounted": true,
+    "enabled_layers_only": true,
+    "calibration_baseline_recorded": true,
+    "actual_fuzz_bitmap_recorded": true,
+    "post_calibration_executions_present": true
+  },
+  "command": [
+    "setarch",
+    "x86_64",
+    "-R",
+    "/usr/bin/python3",
+    "/home/weicresec/Desktop/workspace/stateafl/tools/run_protocol_campaign.py",
+    "--spec-dir",
+    "/tmp/stateafl-controlled-functional-20261025-b/functional-controls/model-invoke-77",
+    "--",
+    "-d",
+    "-i",
+    "/tmp/stateafl-controlled-functional-20261025-b/functional-controls/in-read-property",
+    "-o",
+    "/tmp/stateafl-controlled-functional-20261025-b/functional-controls/invoke-77-valid/head/out",
+    "-N",
+    "udp://127.0.0.1/33803",
+    "-D",
+    "200000",
+    "-W",
+    "10",
+    "-w",
+    "1000",
+    "-r",
+    "10",
+    "-E",
+    "-K",
+    "-q",
+    "3",
+    "-s",
+    "3",
+    "-m",
+    "none",
+    "-t",
+    "1000",
+    "--random-seed",
+    "20261025",
+    "--mutation-mode",
+    "valid",
+    "--mutation-layers",
+    "head",
+    "--protocol-save-candidates",
+    "24",
+    "--",
+    "/home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server",
+    "123"
+  ],
+  "exit_code": 0,
+  "timing": {
+    "ready_elapsed_seconds": 11.80918094899971,
+    "sigint_sent": true,
+    "baseline_delay_after_ready_seconds": 0.0,
+    "total_elapsed_seconds": 19.860671799004194,
+    "seconds_after_ready": 8.03404237900395,
+    "measured_fuzz_seconds": 8.0731029456947,
+    "requested_seconds_after_ready": 8.0,
+    "execution_baseline": "synchronous experiment_baseline.json before ready"
+  },
+  "stats": {
+    "start_time": "1792938614",
+    "last_update": "1792938633",
+    "fuzzer_pid": "50593",
+    "cycles_done": "0",
+    "execs_done": "77",
+    "execs_per_sec": "4.14",
+    "paths_total": "1",
+    "paths_favored": "1",
+    "paths_found": "0",
+    "paths_imported": "0",
+    "max_depth": "1",
+    "cur_path": "0",
+    "pending_favs": "0",
+    "pending_total": "0",
+    "variable_paths": "1",
+    "stability": "97.92%",
+    "bitmap_cvg": "2.94%",
+    "unique_crashes": "0",
+    "unique_hangs": "0",
+    "last_path": "0",
+    "last_crash": "0",
+    "last_hang": "0",
+    "execs_since_crash": "77",
+    "exec_timeout": "1000",
+    "afl_banner": "server",
+    "afl_version": "2.56b",
+    "target_mode": "default",
+    "command_line": "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz --protocol-spec /tmp/stateafl-controlled-functional-20261025-b/functional-controls/model-invoke-77/protocol_ir.json --state-spec /tmp/stateafl-controlled-functional-20261025-b/functional-controls/model-invoke-77/state_ir.json -d -i /tmp/stateafl-controlled-functional-20261025-b/functional-controls/in-read-property -o /tmp/stateafl-controlled-functional-20261025-b/functional-controls/invoke-77-valid/head/out -N udp://127.0.0.1/33803 -D 200000 -W 10 -w 1000 -r 10 -E -K -q 3 -s 3 -m none -t 1000 --random-seed 20261025 --mutation-mode valid --mutation-layers head --protocol-save-candidates 24 -- /home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server 123",
+    "slowest_exec_ms": "271",
+    "random_seed": "20261025",
+    "saved_candidates": "24",
+    "protocol_mode": "valid",
+    "protocol_structured": "33",
+    "protocol_raw": "0",
+    "protocol_rejected": "0",
+    "peak_rss_mb": "14"
+  },
+  "queue_count": 1,
+  "replayable_queue": {
+    "files": 1,
+    "framing_valid": 1,
+    "all_messages_structural": 1,
+    "messages": 1,
+    "structural_messages": 1,
+    "examples": [
+      {
+        "file": "id:000000,orig:seed03_read_objectname.replay",
+        "bytes": 21,
+        "framing": "LE32-length-prefixed",
+        "message_count": 1,
+        "lengths": [
+          17
+        ],
+        "structural_messages": 1
+      }
+    ],
+    "errors": [],
+    "structural_file_ratio": 1.0,
+    "structural_message_ratio": 1.0
+  },
+  "protocol_stats": {
+    "attempts": 33,
+    "structured_success": 33,
+    "rejected": 0,
+    "HEAD": 33,
+    "CONTENT": 0,
+    "SEQUENCE": 0,
+    "responses": 78,
+    "correlated_responses": 33,
+    "protocol_semantic_state": "ready"
+  },
+  "protocol_log": {
+    "path": "/tmp/stateafl-controlled-functional-20261025-b/functional-controls/invoke-77-valid/head/out/protocol_mutations.jsonl",
+    "events": {
+      "mutation": 33
+    },
+    "layers": {
+      "HEAD": 33
+    },
+    "intentional_violations": {
+      "False": 33
+    },
+    "invalid_json_lines": []
+  },
+  "ratios": {
+    "structured_run_share": 1.0,
+    "rejection_share_of_attempts": 0.0,
+    "mutation_share_of_log_candidates": 1.0
+  },
+  "memory_state_feedback": {
+    "inferred_state_ids": [
+      0,
+      1
+    ],
+    "state_sequences": [
+      [
+        0,
+        1
+      ]
+    ],
+    "state_paths": [
+      "id:0-1:id:000000,orig:seed03_read_objectname.replay"
+    ],
+    "graph_edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "calibrated_radii": [
+      "5"
+    ]
+  },
+  "metrics": {
+    "fuzz_executions": 32,
+    "fuzz_executions_per_second": 3.9637795052601503,
+    "total_executions_including_calibration": 77,
+    "calibration_baseline_executions": 45,
+    "bitmap_nonvirgin_bytes": 1924,
+    "bitmap_cleared_bits": 1981,
+    "bitmap_nonvirgin_byte_gain": 0,
+    "memory_state_count": 2,
+    "memory_edge_count": 1,
+    "queue_count": 1,
+    "queue_growth": 0,
+    "structured_runs": 33,
+    "raw_runs": 0,
+    "structured_run_share": 1.0,
+    "raw_run_share": 0.0,
+    "structured_attempts": 33,
+    "rejected_attempts": 0,
+    "rejection_share_of_attempts": 0.0,
+    "responses": 33,
+    "correlated_responses": 33,
+    "unique_crashes": 0,
+    "unique_hangs": 0,
+    "candidate_sample_size": 24,
+    "candidate_sample_structural_share": 1.0,
+    "candidate_sample_structured_share": 1.0
+  },
+  "candidate_sample": {
+    "sequences": 24,
+    "messages": 24,
+    "structural_sequences": 24,
+    "structured_sequences": 24,
+    "errors": [],
+    "structural_sequence_share": 1.0,
+    "structured_sequence_share": 1.0,
+    "structural_message_share": 1.0,
+    "sampling": "First bounded actual network sends after ready; descriptive sample, not an unbiased full-run estimate."
+  },
+  "baseline": {
+    "stats": {
+      "start_time": "1792938614",
+      "last_update": "1792938625",
+      "fuzzer_pid": "50593",
+      "cycles_done": "0",
+      "execs_done": "45",
+      "execs_per_sec": "0.00",
+      "paths_total": "1",
+      "paths_favored": "1",
+      "paths_found": "0",
+      "paths_imported": "0",
+      "max_depth": "1",
+      "cur_path": "0",
+      "pending_favs": "1",
+      "pending_total": "1",
+      "variable_paths": "1",
+      "stability": "0.00%",
+      "bitmap_cvg": "0.00%",
+      "unique_crashes": "0",
+      "unique_hangs": "0",
+      "last_path": "0",
+      "last_crash": "0",
+      "last_hang": "0",
+      "execs_since_crash": "45",
+      "exec_timeout": "1000",
+      "afl_banner": "server",
+      "afl_version": "2.56b",
+      "target_mode": "default",
+      "command_line": "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz --protocol-spec /tmp/stateafl-controlled-functional-20261025-b/functional-controls/model-invoke-77/protocol_ir.json --state-spec /tmp/stateafl-controlled-functional-20261025-b/functional-controls/model-invoke-77/state_ir.json -d -i /tmp/stateafl-controlled-functional-20261025-b/functional-controls/in-read-property -o /tmp/stateafl-controlled-functional-20261025-b/functional-controls/invoke-77-valid/head/out -N udp://127.0.0.1/33803 -D 200000 -W 10 -w 1000 -r 10 -E -K -q 3 -s 3 -m none -t 1000 --random-seed 20261025 --mutation-mode valid --mutation-layers head --protocol-save-candidates 24 -- /home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server 123",
+      "slowest_exec_ms": "249",
+      "random_seed": "20261025",
+      "saved_candidates": "0",
+      "protocol_mode": "valid",
+      "protocol_structured": "0",
+      "protocol_raw": "0",
+      "protocol_rejected": "0",
+      "peak_rss_mb": "not available while afl is running"
+    },
+    "protocol_stats": {
+      "attempts": 0,
+      "structured_success": 0,
+      "rejected": 0,
+      "HEAD": 0,
+      "CONTENT": 0,
+      "SEQUENCE": 0,
+      "responses": 45,
+      "correlated_responses": 0,
+      "protocol_semantic_state": "ready"
+    },
+    "bitmap": {
+      "bytes": null,
+      "nonvirgin_bytes": 1924,
+      "cleared_bits": null,
+      "sha256": null,
+      "count_source": "synchronous experiment_baseline.json (virgin_bits byte != 255)"
+    },
+    "synchronous_baseline": {
+      "execs_done": 45,
+      "paths_total": 1,
+      "coverage_edges": 1924,
+      "memory_states": 2,
+      "protocol_structured": 0,
+      "protocol_raw": 0,
+      "protocol_rejected": 0,
+      "timestamp_ms": 1792938625502
+    },
+    "synchronous_protocol_baseline": {
+      "attempts": 0,
+      "structured_success": 0,
+      "rejected": 0,
+      "HEAD": 0,
+      "CONTENT": 0,
+      "SEQUENCE": 0,
+      "responses": 45,
+      "correlated_responses": 0,
+      "protocol_semantic_state": "ready"
+    }
+  },
+  "random_seed": 20261025,
+  "model_after_wrapper": {
+    "sha256": "3429e24a9a3c341d3d3fe8ae37f4f86e0bdd66f5540fd808d856f52c771828ed",
+    "files": {
+      "README.md": "9408fe46d2d5132d09dfa3a5623f16ee953616e6e76b6a13a6f2a9d590993036",
+      "evidence.yaml": "4ca5f1f9939fd51cf81635558c7a6ea94e684d75e698061fa313cb424d9c400c",
+      "protocol_ir.json": "1dbde37ba460b795be56d250acdf2f06a8d27edaa663a3145ed370ad8f50e4a9",
+      "protocol_spec.yaml": "b4e3706d165963e0d5f5bc515b51513c0d28622a53fefcc13ba6603e6a09b82e",
+      "seeds/read_property.replay": "b16e6e5983912791d5e43f047cca2ba16ca7bec1a640f1bda5ec831da42d221a",
+      "seeds/who_is.replay": "79fd027e616c9c8ebab68e32708619133e598f0d235fe11127e04bc18cd646b6",
+      "state_ir.json": "0dab07ac642ff3f6e711e46ecf0df953028d8775efabb157cc3e79c9541da9e8",
+      "state_transition.yaml": "5282254ddd8ab20a1c40f62b171dc053d187b6adbddd6e926b251dbc6167f3cd",
+      "validation.json": "b17c1a1a0b85a0483e86e05f46dcaad982c9f12c3e3a2ac7c82e218acb205218"
+    }
+  }
+}

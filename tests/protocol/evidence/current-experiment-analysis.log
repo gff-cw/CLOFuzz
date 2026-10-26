@@ -1,0 +1,15 @@
+test_absent_samples_cannot_pass_yaml_functional_control (test_experiment_analysis.ExperimentAnalysisTests.test_absent_samples_cannot_pass_yaml_functional_control) ... ok
+test_calibration_executions_and_responses_are_subtracted (test_experiment_analysis.ExperimentAnalysisTests.test_calibration_executions_and_responses_are_subtracted) ... ok
+test_descriptive_quantiles_keep_zero_and_exclude_missing (test_experiment_analysis.ExperimentAnalysisTests.test_descriptive_quantiles_keep_zero_and_exclude_missing) ... ok
+test_fuzz_bitmap_counts_nonvirgin_bytes_and_hit_class_bits (test_experiment_analysis.ExperimentAnalysisTests.test_fuzz_bitmap_counts_nonvirgin_bytes_and_hit_class_bits) ... ok
+test_missing_calibration_baseline_does_not_become_zero (test_experiment_analysis.ExperimentAnalysisTests.test_missing_calibration_baseline_does_not_become_zero) ... ok
+test_near_valid_control_requires_exactly_bvlc_length_plus_one (test_experiment_analysis.ExperimentAnalysisTests.test_near_valid_control_requires_exactly_bvlc_length_plus_one) ... ok
+test_paired_comparison_matches_repeats_not_list_order (test_experiment_analysis.ExperimentAnalysisTests.test_paired_comparison_matches_repeats_not_list_order) ... ok
+test_rotation_avoids_always_starting_with_legacy (test_experiment_analysis.ExperimentAnalysisTests.test_rotation_avoids_always_starting_with_legacy) ... ok
+test_synchronous_baseline_takes_precedence_over_late_stats_sample (test_experiment_analysis.ExperimentAnalysisTests.test_synchronous_baseline_takes_precedence_over_late_stats_sample) ... ok
+test_wire_controls_read_actual_candidates_and_ignore_raw_sends (test_experiment_analysis.ExperimentAnalysisTests.test_wire_controls_read_actual_candidates_and_ignore_raw_sends) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.101s
+
+OK

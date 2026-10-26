@@ -1,0 +1,113 @@
+test_bad_hex (test_compiler.CompilerTests.test_bad_hex) ... ok
+test_block_membership (test_compiler.CompilerTests.test_block_membership) ... ok
+test_block_missing (test_compiler.CompilerTests.test_block_missing) ... ok
+test_bound_field_requires_writer (test_compiler.CompilerTests.test_bound_field_requires_writer) ... ok
+test_dependency_cycle (test_compiler.CompilerTests.test_dependency_cycle) ... ok
+test_derived_field_requires_writer (test_compiler.CompilerTests.test_derived_field_requires_writer) ... ok
+test_derived_mutability_requires_derived_role (test_compiler.CompilerTests.test_derived_mutability_requires_derived_role) ... ok
+test_duplicate_field (test_compiler.CompilerTests.test_duplicate_field) ... ok
+test_duplicate_message (test_compiler.CompilerTests.test_duplicate_message) ... ok
+test_empty_example (test_compiler.CompilerTests.test_empty_example) ... ok
+test_exact_serialized_ir_budget_is_checked_before_existing_outputs_change (test_compiler.CompilerTests.test_exact_serialized_ir_budget_is_checked_before_existing_outputs_change) ... ok
+test_example_odd_hex_rejected (test_compiler.CompilerTests.test_example_odd_hex_rejected) ... ok
+test_example_whitespace_is_not_loadable_by_c (test_compiler.CompilerTests.test_example_whitespace_is_not_loadable_by_c) ... ok
+test_field_type (test_compiler.CompilerTests.test_field_type) ... ok
+test_fixed_field_cannot_be_dependency_target (test_compiler.CompilerTests.test_fixed_field_cannot_be_dependency_target) ... ok
+test_fixed_range (test_compiler.CompilerTests.test_fixed_range) ... ok
+test_fixed_role_requires_fixed_mutability (test_compiler.CompilerTests.test_fixed_role_requires_fixed_mutability) ... ok
+test_illegal_enum (test_compiler.CompilerTests.test_illegal_enum) ... ok
+test_incompatible_copy (test_compiler.CompilerTests.test_incompatible_copy) ... ok
+test_invalid_checksum (test_compiler.CompilerTests.test_invalid_checksum) ... ok
+test_invalid_offset (test_compiler.CompilerTests.test_invalid_offset) ... ok
+test_locator (test_compiler.CompilerTests.test_locator) ... ok
+test_long_cross_message_dependency_chain_and_cycle_are_bounded_without_python_recursion (test_compiler.CompilerTests.test_long_cross_message_dependency_chain_and_cycle_are_bounded_without_python_recursion) ... ok
+test_metadata_is_explicit_and_defaults_do_not_rewrite_examples (test_compiler.CompilerTests.test_metadata_is_explicit_and_defaults_do_not_rewrite_examples) ... ok
+test_missing_dependency_message (test_compiler.CompilerTests.test_missing_dependency_message) ... ok
+test_missing_dependency_source (test_compiler.CompilerTests.test_missing_dependency_source) ... ok
+test_missing_dependency_target (test_compiler.CompilerTests.test_missing_dependency_target) ... ok
+test_missing_parent (test_compiler.CompilerTests.test_missing_parent) ... ok
+test_missing_state (test_compiler.CompilerTests.test_missing_state) ... ok
+test_missing_transition_message (test_compiler.CompilerTests.test_missing_transition_message) ... ok
+test_missing_transition_response (test_compiler.CompilerTests.test_missing_transition_response) ... ok
+test_multiple_writers (test_compiler.CompilerTests.test_multiple_writers) ... ok
+test_negative_minimum (test_compiler.CompilerTests.test_negative_minimum) ... ok
+test_overflow (test_compiler.CompilerTests.test_overflow) ... ok
+test_oversized_offset (test_compiler.CompilerTests.test_oversized_offset) ... ok
+test_parent_cycle (test_compiler.CompilerTests.test_parent_cycle) ... ok
+test_request_as_response (test_compiler.CompilerTests.test_request_as_response) ... ok
+test_runtime_ambiguous_edges_ignore_guard (test_compiler.CompilerTests.test_runtime_ambiguous_edges_ignore_guard) ... ok
+test_runtime_direction_both_is_rejected (test_compiler.CompilerTests.test_runtime_direction_both_is_rejected) ... ok
+test_runtime_encode_cannot_enable_a_static_profile (test_compiler.CompilerTests.test_runtime_encode_cannot_enable_a_static_profile) ... ok
+test_runtime_encode_is_not_an_opt_out (test_compiler.CompilerTests.test_runtime_encode_is_not_an_opt_out) ... ok
+test_runtime_example_range_is_checked (test_compiler.CompilerTests.test_runtime_example_range_is_checked) ... ok
+test_runtime_fixed_bytes_cannot_be_used_as_a_matcher (test_compiler.CompilerTests.test_runtime_fixed_bytes_cannot_be_used_as_a_matcher) ... ok
+test_runtime_fixed_value_must_match_example (test_compiler.CompilerTests.test_runtime_fixed_value_must_match_example) ... ok
+test_runtime_fragment_is_rejected (test_compiler.CompilerTests.test_runtime_fragment_is_rejected) ... ok
+test_runtime_head_cannot_use_variable_bytes (test_compiler.CompilerTests.test_runtime_head_cannot_use_variable_bytes) ... ok
+test_runtime_head_requires_scalar_strategy (test_compiler.CompilerTests.test_runtime_head_requires_scalar_strategy) ... ok
+test_runtime_ignored_dependency_add_rejected (test_compiler.CompilerTests.test_runtime_ignored_dependency_add_rejected) ... ok
+test_runtime_locator_type_must_match (test_compiler.CompilerTests.test_runtime_locator_type_must_match) ... ok
+test_runtime_message_annotations_cannot_disambiguate_fixed_signatures (test_compiler.CompilerTests.test_runtime_message_annotations_cannot_disambiguate_fixed_signatures) ... ok
+test_runtime_reserved_npdu_rejected (test_compiler.CompilerTests.test_runtime_reserved_npdu_rejected) ... ok
+test_runtime_response_requires_an_actual_edge (test_compiler.CompilerTests.test_runtime_response_requires_an_actual_edge) ... ok
+test_runtime_sequence_uses_own_previous_value (test_compiler.CompilerTests.test_runtime_sequence_uses_own_previous_value) ... ok
+test_runtime_truncated_tags_rejected (test_compiler.CompilerTests.test_runtime_truncated_tags_rejected) ... ok
+test_runtime_unavailable_codec (test_compiler.CompilerTests.test_runtime_unavailable_codec) ... ok
+test_runtime_unavailable_type_is_rejected (test_compiler.CompilerTests.test_runtime_unavailable_type_is_rejected) ... ok
+test_runtime_unmatched_closing_tag_rejected (test_compiler.CompilerTests.test_runtime_unmatched_closing_tag_rejected) ... ok
+test_runtime_wrong_who_is_limits_rejected (test_compiler.CompilerTests.test_runtime_wrong_who_is_limits_rejected) ... ok
+test_serialized_ir_counts_json_keys_and_container_tokens (test_compiler.CompilerTests.test_serialized_ir_counts_json_keys_and_container_tokens) ... ok
+test_six_models_validate_and_ir_is_reproducible (test_compiler.CompilerTests.test_six_models_validate_and_ir_is_reproducible) ... ok
+test_source_protocol (test_compiler.CompilerTests.test_source_protocol) ... ok
+test_stale_wire_length (test_compiler.CompilerTests.test_stale_wire_length) ... ok
+test_state_namespace (test_compiler.CompilerTests.test_state_namespace) ... ok
+test_static_fixed_bytes_use_byte_length_bounds (test_compiler.CompilerTests.test_static_fixed_bytes_use_byte_length_bounds) ... ok
+test_static_repeat_missing_count (test_compiler.CompilerTests.test_static_repeat_missing_count) ... ok
+test_static_when_missing_field (test_compiler.CompilerTests.test_static_when_missing_field) ... ok
+test_strategy (test_compiler.CompilerTests.test_strategy) ... ok
+test_string_default_uses_utf8_byte_bounds (test_compiler.CompilerTests.test_string_default_uses_utf8_byte_bounds) ... ok
+test_structure_bounded_repeat (test_compiler.CompilerTests.test_structure_bounded_repeat) ... ok
+test_structure_requires_children (test_compiler.CompilerTests.test_structure_requires_children) ... ok
+test_tiny_byte_limit (test_compiler.CompilerTests.test_tiny_byte_limit) ... ok
+test_type_width (test_compiler.CompilerTests.test_type_width) ... ok
+test_unknown_dependency (test_compiler.CompilerTests.test_unknown_dependency) ... ok
+test_unknown_encoder (test_compiler.CompilerTests.test_unknown_encoder) ... ok
+test_unknown_source (test_compiler.CompilerTests.test_unknown_source) ... ok
+test_unreachable_state (test_compiler.CompilerTests.test_unreachable_state) ... ok
+test_unsupported_runtime_op (test_compiler.CompilerTests.test_unsupported_runtime_op) ... ok
+test_unsupported_runtime_repeat (test_compiler.CompilerTests.test_unsupported_runtime_repeat) ... ok
+test_unsupported_runtime_when (test_compiler.CompilerTests.test_unsupported_runtime_when) ... ok
+test_variable_default_byte_bounds (test_compiler.CompilerTests.test_variable_default_byte_bounds) ... ok
+test_variable_default_requires_hex (test_compiler.CompilerTests.test_variable_default_requires_hex) ... ok
+test_variable_default_type (test_compiler.CompilerTests.test_variable_default_type) ... ok
+test_variable_width (test_compiler.CompilerTests.test_variable_width) ... ok
+test_yaml_rejections_and_cli (test_compiler.CompilerTests.test_yaml_rejections_and_cli) ... ok
+test_zero_limit (test_compiler.CompilerTests.test_zero_limit) ... ok
+test_zero_unit (test_compiler.CompilerTests.test_zero_unit) ... ok
+
+----------------------------------------------------------------------
+Ran 86 tests in 30.987s
+
+OK
+test_all_six_profiles_instantiate_and_compile (test_templates.TemplateTests.test_all_six_profiles_instantiate_and_compile) ... ok
+test_bad_id_rejected_without_outputs (test_templates.TemplateTests.test_bad_id_rejected_without_outputs) ... ok
+test_blank_template_requires_filling (test_templates.TemplateTests.test_blank_template_requires_filling) ... ok
+test_broken_symlink_destination_is_preserved (test_templates.TemplateTests.test_broken_symlink_destination_is_preserved) ... ok
+test_cli_lists_support (test_templates.TemplateTests.test_cli_lists_support) ... ok
+test_description_changes_real_runtime_mutation (test_templates.TemplateTests.test_description_changes_real_runtime_mutation) ... ok
+test_existing_destination_is_preserved (test_templates.TemplateTests.test_existing_destination_is_preserved) ... ok
+test_fragment_examples_are_not_packaged_as_replay_seeds (test_templates.TemplateTests.test_fragment_examples_are_not_packaged_as_replay_seeds) ... ok
+test_message_id_rename_does_not_change_content_codec (test_templates.TemplateTests.test_message_id_rename_does_not_change_content_codec) ... ok
+test_runner_invalid_edit_is_not_run_or_written_to_ir (test_templates.TemplateTests.test_runner_invalid_edit_is_not_run_or_written_to_ir) ... ok
+test_runner_recompiles_edited_yaml_and_selects_both_models (test_templates.TemplateTests.test_runner_recompiles_edited_yaml_and_selects_both_models) ... ok
+test_runner_rejects_conflicting_model_options (test_templates.TemplateTests.test_runner_rejects_conflicting_model_options) ... ok
+test_runner_rejects_static_runtime_and_allows_validation (test_templates.TemplateTests.test_runner_rejects_static_runtime_and_allows_validation) ... ok
+test_static_profile_cannot_become_runtime_by_copying (test_templates.TemplateTests.test_static_profile_cannot_become_runtime_by_copying) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 30.516s
+
+OK
+PASS: description selects invoke_id=33; all other wire and framing bytes preserved
+PASS: description selects invoke_id=77; all other wire and framing bytes preserved
+PASS: renamed Who-Is request uses parsed service codec and CONTENT limits

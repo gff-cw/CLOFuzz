@@ -1,0 +1,16 @@
+test_bad_layers (test_cli.CLITests.test_bad_layers) ... ok
+test_bad_ratio (test_cli.CLITests.test_bad_ratio) ... ok
+test_duplicate_experiment_seed (test_cli.CLITests.test_duplicate_experiment_seed) ... ok
+test_explicit_static_only (test_cli.CLITests.test_explicit_static_only) ... ok
+test_invalid_candidate_budget (test_cli.CLITests.test_invalid_candidate_budget) ... ok
+test_invalid_experiment_seed (test_cli.CLITests.test_invalid_experiment_seed) ... ok
+test_missing_models (test_cli.CLITests.test_missing_models) ... ok
+test_no_silent_fallback_of_bad_models (test_cli.CLITests.test_no_silent_fallback_of_bad_models) ... ok
+test_pair (test_cli.CLITests.test_pair) ... ok
+test_transport (test_cli.CLITests.test_transport) ... ok
+test_unknown_mode (test_cli.CLITests.test_unknown_mode) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 1.339s
+
+OK

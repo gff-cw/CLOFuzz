@@ -1,0 +1,123 @@
+{
+  "passed": true,
+  "runs": [],
+  "analysis": {
+    "by_mode": {},
+    "paired_differences_from_legacy": {
+      "head": {},
+      "head_content": {},
+      "all": {},
+      "hybrid": {}
+    },
+    "interpretation": "Descriptive short-run results only; no statistical-significance or bug-finding benefit claim. Zero crashes/hangs means zero observed in this budget, not proof of absence."
+  },
+  "functional_controls": {
+    "passed": true,
+    "controls": {
+      "invoke-33-valid": {
+        "passed": true,
+        "wire": {
+          "passed": true,
+          "saved_candidates": 24,
+          "invalid_replay_files": [],
+          "wire_mismatches": [],
+          "invoke_values": {
+            "33": 24
+          },
+          "bvlc_length_deltas": {
+            "0": 24
+          },
+          "expected_wire_hex": "810a001101000005210c0c0200007b194d",
+          "claim": "Every saved actual structured candidate equals the input request except configured Invoke ID and expected BVLC length delta."
+        },
+        "lifecycle": {
+          "ready_reached": true,
+          "clean_sigint_stop": true,
+          "post_calibration_executions_present": true
+        },
+        "campaign_result": "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/controlled-functional-stable/functional-controls/invoke-33-valid/head/result.json"
+      },
+      "invoke-77-valid": {
+        "passed": true,
+        "wire": {
+          "passed": true,
+          "saved_candidates": 24,
+          "invalid_replay_files": [],
+          "wire_mismatches": [],
+          "invoke_values": {
+            "77": 24
+          },
+          "bvlc_length_deltas": {
+            "0": 24
+          },
+          "expected_wire_hex": "810a0011010000054d0c0c0200007b194d",
+          "claim": "Every saved actual structured candidate equals the input request except configured Invoke ID and expected BVLC length delta."
+        },
+        "lifecycle": {
+          "ready_reached": true,
+          "clean_sigint_stop": true,
+          "post_calibration_executions_present": true
+        },
+        "campaign_result": "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/controlled-functional-stable/functional-controls/invoke-77-valid/head/result.json"
+      },
+      "invoke-33-near-valid": {
+        "passed": true,
+        "wire": {
+          "passed": true,
+          "saved_candidates": 24,
+          "invalid_replay_files": [],
+          "wire_mismatches": [],
+          "invoke_values": {
+            "33": 24
+          },
+          "bvlc_length_deltas": {
+            "1": 24
+          },
+          "expected_wire_hex": "810a001201000005210c0c0200007b194d",
+          "claim": "Every saved actual structured candidate equals the input request except configured Invoke ID and expected BVLC length delta."
+        },
+        "lifecycle": {
+          "ready_reached": true,
+          "clean_sigint_stop": true,
+          "post_calibration_executions_present": true
+        },
+        "campaign_result": "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/controlled-functional-stable/functional-controls/invoke-33-near-valid/head/result.json"
+      },
+      "negative-dependency": {
+        "passed": true,
+        "exit_code": 1,
+        "target_started": false,
+        "command": [
+          "/usr/bin/python3",
+          "/home/weicresec/Desktop/workspace/stateafl/tools/run_protocol_campaign.py",
+          "--spec-dir",
+          "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/controlled-functional-stable/functional-controls/negative-dependency/model",
+          "--",
+          "--random-seed",
+          "20261025",
+          "--",
+          "/usr/bin/python3",
+          "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/controlled-functional-stable/functional-controls/negative-dependency/target_probe.py",
+          "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/controlled-functional-stable/functional-controls/negative-dependency/target-started",
+          "/home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server"
+        ],
+        "model": {
+          "sha256": "df0a3c15e9884f6402fb5bf2e2ab8b9e732fc6bc413ad9ae7bdb603fa78eb12f",
+          "files": {
+            "README.md": "9408fe46d2d5132d09dfa3a5623f16ee953616e6e76b6a13a6f2a9d590993036",
+            "evidence.yaml": "4ca5f1f9939fd51cf81635558c7a6ea94e684d75e698061fa313cb424d9c400c",
+            "protocol_ir.json": "bec3b59655047f1d314b92bdd990e595e5dd0e67856f2efa6e17f78a81088a50",
+            "protocol_spec.yaml": "0a300b1da6cf1075ba2ebdca12137f56ffd3272292aea78c3b4c3aa39628bccd",
+            "seeds/read_property.replay": "b16e6e5983912791d5e43f047cca2ba16ca7bec1a640f1bda5ec831da42d221a",
+            "seeds/who_is.replay": "79fd027e616c9c8ebab68e32708619133e598f0d235fe11127e04bc18cd646b6",
+            "state_ir.json": "0dab07ac642ff3f6e711e46ecf0df953028d8775efabb157cc3e79c9541da9e8",
+            "state_transition.yaml": "5282254ddd8ab20a1c40f62b171dc053d187b6adbddd6e926b251dbc6167f3cd",
+            "validation.json": "b17c1a1a0b85a0483e86e05f46dcaad982c9f12c3e3a2ac7c82e218acb205218"
+          }
+        },
+        "log": "protocol campaign error: read_property: missing dependency source read_property.missing_dependency_source\n"
+      }
+    },
+    "scope": "Functional YAML-to-wire and dependency/repair assertions; excluded from performance comparison."
+  }
+}
