@@ -330,9 +330,10 @@ This entry validates and recompiles the selected YAML before launching StateAFL,
 
 The existing LLVM 18 instrumentation, coverage feedback, inferred memory states,
 queue selection and AFL operators remain in use. With no new options, the legacy
-mutation path remains active. The new runtime currently supports a bounded
-BACnet/IP Who-Is / ReadProperty scope; the other five protocol directories are
-validated static models, not implemented runtime codecs.
+mutation path remains active. All six protocol profiles have scoped C runtime
+codecs with validated fixtures. The five TCP profiles also
+have local instrumented fixture tests; BACnet Stack remains the actual
+industrial protocol implementation used for the integration experiments.
 
 ```bash
 python3 -m pip install -r tools/requirements-protocol.txt

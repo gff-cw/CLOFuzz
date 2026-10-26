@@ -15,6 +15,11 @@ void proto_free(proto_engine *engine);
 int proto_mode_parse(const char *name);
 int proto_layers_parse(const char *name);
 void proto_set_log(proto_engine *engine, FILE *stream);
+const char *proto_transport(const proto_engine *engine);
+/* Select the semantic context of the existing StateAFL M1 prefix. This only
+ * simulates declared transitions; response values are bound from live I/O. */
+int proto_set_prefix(proto_engine *engine, const uint8_t *records, size_t length,
+                     char *error, size_t cap);
 /* Input/output are LE32 length + datagram records, <= MAX_FILE. Output belongs
  * to engine until next mutation. afl_candidate is the original AFL engine's
  * wire-byte candidate (no record prefixes), used only by CONTENT. Scalar

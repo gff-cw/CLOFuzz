@@ -5,13 +5,14 @@ version: RFC1006 / libIEC61850 v1.6 profile
 scope: Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE
   AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific
   named-variable Read/Write, MMS conclude and ACSE/session release, all successful
-  request/response layouts. BER definite lengths; no runtime encoder.
+  request/response layouts. Bounded runtime codec with BER definite lengths and structural
+  repair.
 transport: tcp
 framing: protocol length inside replayable records
 codec: mms
 support:
-  runtime: false
-  level: static description; runtime encoder unavailable
+  runtime: true
+  level: runtime scoped codec
   excluded:
   - full IEC61850 ACSI mapping
   - reports/GOOSE/SV
@@ -19,7 +20,7 @@ support:
   - arbitrary ACSE authentication
   - association rejection/abort and MMS confirmed-error/reject fixtures unverified
   - TLS
-  - runtime BER encoding
+  - arbitrary BER container generation
 sources:
 - id: wire
   url: https://github.com/mz-automation/libiec61850/tree/6d231326bff8e9b6500aa1e345c076d3a329f211/src/mms
@@ -52,13 +53,9 @@ messages:
     - destination_reference
     - source_reference
     - class_options
-    parent: REQUEST
   - id: CONTENT
     fields:
     - cotp_parameters
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -269,7 +266,7 @@ messages:
   notes: Complete RFC1006 TP0 connection request/confirm. LI counts bytes after LI,
     excluding TPKT; negotiated max TPDU is 2**13 in these reference fixtures.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: cotp_cc
   example: 0300001611d00001000100c0010dc2020001c1020001
   direction: response
@@ -286,13 +283,9 @@ messages:
     - destination_reference
     - source_reference
     - class_options
-    parent: REQUEST
   - id: CONTENT
     fields:
     - cotp_parameters
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -528,14 +521,10 @@ messages:
     - max_outstanding_called
     - nesting_level
     - mms_version
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -931,7 +920,7 @@ messages:
     AARQ/AARE; MMS initiate request/response is nested in user-information, never
     an independent TCP message.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: associate_response
   example: 0300008f02f0800e8605061301001601021402000234020001c1743172a003800101a26b830400000001a512300780010081025101300780010081025101614f304d020101a0486146a107060528ca220203a203020100a305a103020100be2f282d020103a028a926800300fde881010582010583010aa416800101810305f100820c03ee1c000000000000000118
   direction: response
@@ -952,14 +941,10 @@ messages:
     - nesting_level
     - mms_version
     - association_result
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -1384,14 +1369,10 @@ messages:
     - cotp_type
     - eot
     - invoke_id
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -1631,7 +1612,7 @@ messages:
   notes: Complete reference profile message, including session DATA and presentation
     context 3.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: get_name_list_response
   example: 0300003302f0800100010061263024020103a01fa11d020101a118a0131a1173696d706c65494f47656e65726963494f810100
   direction: response
@@ -1647,14 +1628,10 @@ messages:
     - cotp_type
     - eot
     - invoke_id
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -1914,16 +1891,12 @@ messages:
     - cotp_type
     - eot
     - invoke_id
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
     - domain_id
     - item_id
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -2215,7 +2188,7 @@ messages:
   notes: Complete reference profile message, including session DATA and presentation
     context 3.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: read_response
   example: 0300001f02f0800100010061123010020103a00ba109020102a404a1028a00
   direction: response
@@ -2231,14 +2204,10 @@ messages:
     - cotp_type
     - eot
     - invoke_id
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -2500,7 +2469,6 @@ messages:
     - cotp_type
     - eot
     - invoke_id
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
@@ -2508,9 +2476,6 @@ messages:
     - domain_id
     - item_id
     - value
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -2823,7 +2788,7 @@ messages:
   notes: Complete reference profile message, including session DATA and presentation
     context 3.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: write_response
   example: 0300001d02f080010001006110300e020103a009a107020103a5028100
   direction: response
@@ -2839,14 +2804,10 @@ messages:
     - cotp_type
     - eot
     - invoke_id
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -3107,14 +3068,10 @@ messages:
     - cotp_li
     - cotp_type
     - eot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -3313,7 +3270,7 @@ messages:
   notes: Complete reference profile message, including session DATA and presentation
     context 3.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: conclude_response
   example: 0300001602f0800100010061093007020103a0028c00
   direction: response
@@ -3328,14 +3285,10 @@ messages:
     - cotp_li
     - cotp_type
     - eot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -3549,14 +3502,10 @@ messages:
     - cotp_li
     - cotp_type
     - eot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD
@@ -3760,7 +3709,7 @@ messages:
   notes: Complete session FINISH/DISCONNECT carrying presentation context 1 and ACSE
     RLRQ/RLRE; distinct from MMS conclude handshake.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: release_response
   example: 0300001602f0800a0dc10b61093007020101a0026300
   direction: response
@@ -3775,14 +3724,10 @@ messages:
     - cotp_li
     - cotp_type
     - eot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - session
     - pdu
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: version
     block: HEAD

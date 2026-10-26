@@ -7,7 +7,7 @@ flowchart TD
     P[protocol_spec.yaml<br/>消息 / HEAD / CONTENT / 字段 / 依赖] --> C[Python schema 与语义校验]
     S[state_transition.yaml<br/>独立语义状态与边] --> C
     C --> IR[protocol_ir.json + state_ir.json]
-    IR --> R[可选 C proto_engine<br/>当前仅 BACnet/IP]
+    IR --> R[可选 C proto_engine<br/>BACnet/IP + 五种限定 TCP codec]
     Q[原 StateAFL 队列与内存状态选择] --> M[选择 M1 / M2 / M3]
     M --> A[原 AFL 内容候选]
     M --> B[保存 M2 的显式消息边界]
@@ -20,7 +20,7 @@ flowchart TD
     A --> RAW[raw 或 hybrid 的 raw 分支]
     RAW --> N
     N --> T[本机目标服务]
-    T --> RESP[响应与 invoke 关联 / 会话缓存]
+    T --> RESP[完整响应帧 / 字段关联 / 会话缓存]
     RESP --> R
     T --> F[原覆盖率与内存状态反馈]
     F --> Q
@@ -30,23 +30,31 @@ flowchart TD
 
 [proto_spec_compiler.py](../tools/proto_spec_compiler.py) 安全加载两份描述，执行 JSON Schema 及跨对象检查，生成确定性 JSON 和验证摘要。字段来源和支持级别随 IR 保留；描述中的 source URL 是证据引用，不会触发网络请求。可执行依赖类型由白名单限制，普通文本不能调用代码。语法及能力边界见 [protocol-description-language.md](protocol-description-language.md)。
 
-每个协议目录保存源 YAML、编译 JSON、字段证据和请求 fixture。六种协议的共同中间表示便于离线比较和后续增加 codec；当前共同表示没有为其余五种协议提供在线编解码能力。
+每个协议目录保存源 YAML、编译 JSON、字段证据和请求 fixture。BACnet/IP、Modbus TCP、IEC104、MMS/TCP、EtherNet/IP/CIP 和 OPC UA TCP 的声明 profile 均有有界 C codec；完整标准和安全/会话功能的排除项仍由各描述包明确列出。
+
+非 BACnet 描述编译通过 [native_protocol_codecs.py](../tools/native_protocol_codecs.py) 调用同一组 C validator/locator，检查完整 fixture、实际字段范围和服务类别。该 helper 每个编译器进程在临时目录构建一次共享库，需要 C11 编译器（`CC` 或 `cc`）、`protocol_codecs.h` 和五个 `protocol_codec_*.c` 源文件。StateAFL 直接链接 C codec，候选变异、发包和收包期间不运行 Python。独立 fixture checker 仍用于交叉检查，不能以共用 validator 代替独立证据。
 
 ## 在线候选路径
 
-`--protocol-spec` 和 `--state-spec` 必须成对出现。只有显式启用时才创建 `proto_engine`、协议日志和协议统计。启用后的模型必须具有 BACnet runtime 支持，并使用 UDP；当前禁止与 legacy `-P` 或 `AFL_POST_LIBRARY` 共用消息边界。
+`--protocol-spec` 和 `--state-spec` 必须成对出现。只有显式启用时才创建 `proto_engine`、协议日志和协议统计。模型须声明实际可用的 runtime 支持；BACnet 使用 UDP，五种新增 codec 使用 TCP。传输不匹配在目标启动前拒绝；当前禁止与 legacy `-P` 或 `AFL_POST_LIBRARY` 共用消息边界。
 
 原 `fuzz_one` 继续选择队列及待变异的 M2，保留 M1 前缀和 M3 后缀。`protocol_capture` 额外保存 M2 的 LE32-length replay 记录；AFL 的输入和内容变异仍然使用不带长度前缀的线字节。`common_fuzz_stuff` 根据模式选择 raw 或结构化路径。结构化路径在 `proto_mutate` 中选层、按消息权重选记录，生成候选并检查依赖和序列。
 
-runtime 输出是带 LE32 长度的记录；适配层解包为线字节和精确 `region_t`，再进入原 M2 替换逻辑。长度前缀仅用于磁盘/模块间边界，不作为 UDP payload 发送。结构化 SEQUENCE 可以改变 M2 消息数，因此该分支不会按旧 `max_seed_region_count` 合并多条结构化消息；适配层另检查包含 M1/M3 和 replay 前缀的完整序列不超过 MAX_FILE。M1/M3 复用仍由 StateAFL 原逻辑负责；当前不是从语义图自动搜索并重建整个会话前缀的实现。
+runtime 输出是带 LE32 长度的记录；适配层解包为线字节和精确 `region_t`，再进入原 M2 替换逻辑。长度前缀仅用于磁盘/模块间边界，不作为网络 payload 发送。结构化 SEQUENCE 可以改变 M2 消息数，因此该分支不会按旧 `max_seed_region_count` 合并多条结构化消息；适配层另检查包含 M1/M3 和 replay 前缀的完整序列不超过 MAX_FILE。
+
+适配层把已有 M1 请求前缀交给 `proto_set_prefix`，按模型边和声明响应边计算 M2 的语义起点。它只模拟状态，不伪造 M1 响应值；实际 session/channel/token 等绑定来自本次连接的响应。无法识别或无法按图推进的前缀会拒绝结构化候选。M1/M3 的选择、保留及重放仍由 StateAFL 原逻辑负责；当前不搜索或重建任意会话 preamble。
 
 ## 格式、依赖与会话
 
-[protocol_runtime.c](../protocol_runtime.c) 包括受限 JSON IR 读取、BACnet 动态定位、请求序列变异、依赖求值、会话标量缓存和统计。BACnet codec 检查 BVLC、可选 NPDU 地址、未分段 APDU 和 BACnet LVT 标签边界；它不把 BACnet 标签当作 BER。
+[protocol_runtime.c](../protocol_runtime.c) 包括受限 JSON IR 读取、codec 分派、请求序列变异、依赖求值、会话标量缓存和统计。BACnet codec 检查 BVLC、可选 NPDU 地址、未分段 APDU 和 BACnet LVT 标签边界；它不把 BACnet 标签当作 BER。五个独立 TCP codec 负责对应 envelope、内层长度/计数、服务体、精确字段切片及 TCP 帧边界。IR 标量支持完整 `uint64` 范围。
 
-构造候选时先按 codec 重组，再按依赖图修复本地长度/计数/偏移/校验和及可解析的缓存绑定，最后序列化。该过程在临时模拟会话执行，结束时恢复 live cache。每次 `send_over_network` 开始调用 `proto_session_begin` 清除真实会话缓存和 outstanding invoke 集合。
+构造候选时先按 codec 重组，再按依赖图修复本地长度/计数/偏移/校验和及可解析的缓存绑定，最后验证并序列化。CONTENT 只替换 codec 支持的叶字段；不能把 AFL 字节直接复制为任意 CIP、UA 或 BER 容器。未支持的 opaque 容器明确拒绝。MMS 叶替换会重新计算祖先 BER 和 ISO session 长度，允许短/长长度头以及 INTEGER 编码宽度改变。Modbus 的重复元数据仅允许 codec 已实现的 FC0F/10 data/count 布局，不是通用 repeat 执行器。
 
-结构化发包前使用 `proto_before_send` 处理会话绑定，接收新响应字节后用 `proto_after_response` 更新字段缓存和相关响应计数。消息标记区分本次结构化 M2 与继承的 M1/M3；后者可能包含 raw 消息，解析失败时按原样发送。故意破坏的 BVLC 长度不能在发包前重新修复。缓存键包含消息 ID 和字段 ID；当前不是通用事务数据库，不支持任意响应内容编码或执行 guard/action 字符串。
+该过程在临时模拟会话执行，结束时恢复 live cache。每次 `send_over_network` 开始调用 `proto_session_begin` 清除真实会话缓存、pending/outstanding 集合及 TCP 接收缓存。
+
+结构化发包前使用 `proto_before_send` 处理会话绑定，接收新响应字节后用 `proto_after_response` 更新字段缓存和相关响应计数。TCP 接收缓冲按 MBAP/APCI/TPKT/encapsulation/UACP 长度拆帧，等待分片余部并逐条处理合并响应；只在完整帧通过 codec、字段范围和已声明关联约束后缓存值。TCP 字节流拆帧不意味着支持 OPC UA 多 chunk 或其他被排除的协议级分段。
+
+消息标记区分本次结构化 M2 与继承的 M1/M3；后者可能包含 raw 消息，解析失败时按原样发送。故意破坏的各协议长度不能在发包前重新修复。缓存键包含 engine、消息和字段；当前保存最近的标量及 pending 请求，不是通用多事务数据库，也不执行 guard/action 字符串。
 
 ## 两条状态通路
 
@@ -72,4 +80,6 @@ LLVM 18 工具链、New PM 插桩及原内存运行时保持现有移植设计�
 
 `tools/run_protocol_campaign.py --spec-dir <目录> -- <afl-fuzz参数>` 每次读取两份 YAML，校验字段/依赖/状态，重新编译对应 IR，然后使用 `os.execv` 把控制权交给原 afl-fuzz。无效配置或仅静态支持的协议在目标启动前失败，不使用旧 IR 继续执行。手工编译后传入两个原 CLI 参数的方式仍然可用。
 
-当前六种协议的统一描述均可生成与校验；在线codec仍只有BACnet有限范围。Who-Is 内容编码器不再按描述消息ID判断，改按解析得到的APDU服务类型判断，使消息重命名与线编码解耦。模板填写不自动实现尚未存在的协议编码器。
+当前六种协议的统一描述均可生成、校验并选择已有有界 C codec。匹配使用方向、codec 服务类别及字段约束；等价 Modbus 示例别名记录在 validation 中。模板填写不自动实现未支持的服务或容器。
+
+真实工业协议目标的既有集成证据仍来自 BACnet Stack。新增 [multicodec_server.c](../tests/protocol/fixtures/multicodec_server.c) 是仪器化 C 功能夹具，通过 [multicodec_integration.py](../tests/protocol/multicodec_integration.py) 检查五种 TCP 路径、实际字段变化和响应绑定；它不是这五种协议的工业服务器或独立标准符合性实现。最终测试结果以当前运行产物为准，不由架构描述宣告全部通过，也不据此宣称吞吐或覆盖收益。

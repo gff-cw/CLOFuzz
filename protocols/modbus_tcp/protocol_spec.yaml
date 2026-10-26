@@ -4,14 +4,14 @@ name: Modbus TCP
 version: Application Protocol 1.1b3; MBAP
 scope: Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10 multiple
   writes; all normal response layouts and generic exception layout; FC0F arbitrary
-  1..1968 coils including final-byte padding. Complete static profile; no runtime
-  encoder.
+  1..1968 coils including final-byte padding. Bounded runtime codec and structural
+  repair.
 transport: tcp
 framing: protocol length inside replayable records
 codec: modbus
 support:
-  runtime: false
-  level: static description; runtime encoder unavailable
+  runtime: true
+  level: runtime scoped codec
   excluded:
   - serial RTU
   - file-record and diagnostic function families
@@ -39,14 +39,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -197,7 +193,7 @@ messages:
     add: -6
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: read_discrete
   example: '000100000006010200000001'
   direction: request
@@ -211,14 +207,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -369,7 +361,7 @@ messages:
     add: -6
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: read_holding
   example: '000100000006010300000001'
   direction: request
@@ -383,14 +375,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -541,7 +529,7 @@ messages:
     add: -6
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: read_input
   example: '000100000006010400000001'
   direction: request
@@ -555,14 +543,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -713,7 +697,7 @@ messages:
     add: -6
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: write_coil
   example: '000100000006010500000000'
   direction: request
@@ -727,14 +711,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - value
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -889,7 +869,7 @@ messages:
     add: -6
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: write_register
   example: '000100000006010600000000'
   direction: request
@@ -903,14 +883,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - value
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -1064,7 +1040,7 @@ messages:
     add: -6
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: write_coils
   example: 000100000008010f000000080101
   direction: request
@@ -1079,15 +1055,11 @@ messages:
     - unit
     - function
     - byte_count
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
     - data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -1297,7 +1269,7 @@ messages:
   notes: 'Cross-field semantic constraint: byte_count equals ceil(quantity/8) and
     unused high bits zero.'
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: write_registers
   example: 000100000009011000000001020001
   direction: request
@@ -1312,15 +1284,11 @@ messages:
     - unit
     - function
     - byte_count
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
     - data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -1528,7 +1496,7 @@ messages:
     add: -6
   notes: 'Cross-field semantic constraint: byte_count equals quantity*2.'
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: read_response
   example: '0001000000050103020001'
   direction: response
@@ -1543,13 +1511,9 @@ messages:
     - unit
     - function
     - byte_count
-    parent: REQUEST
   - id: CONTENT
     fields:
     - data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -1726,11 +1690,7 @@ messages:
     - unit
     - function
     - exception
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: transaction
@@ -1906,15 +1866,11 @@ messages:
     - unit
     - function
     - byte_count
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
     - data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -2124,7 +2080,7 @@ messages:
   notes: 'Cross-field semantic constraint: byte_count equals ceil(quantity/8) and
     unused high bits zero.'
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: read_coils_response
   example: '00010000000401010101'
   direction: response
@@ -2139,13 +2095,9 @@ messages:
     - unit
     - function
     - byte_count
-    parent: REQUEST
   - id: CONTENT
     fields:
     - data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -2322,13 +2274,9 @@ messages:
     - unit
     - function
     - byte_count
-    parent: REQUEST
   - id: CONTENT
     fields:
     - data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -2505,13 +2453,9 @@ messages:
     - unit
     - function
     - byte_count
-    parent: REQUEST
   - id: CONTENT
     fields:
     - data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -2687,14 +2631,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - value
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -2881,14 +2821,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - value
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -3076,14 +3012,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -3268,14 +3200,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD
@@ -3460,14 +3388,10 @@ messages:
     - length
     - unit
     - function
-    parent: REQUEST
   - id: CONTENT
     fields:
     - address
     - quantity
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: transaction
     block: HEAD

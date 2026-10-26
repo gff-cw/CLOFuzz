@@ -1,7 +1,7 @@
 """Bounded protocol structures and reproducible, complete reference fixtures.
 
-Structure trees and guards describe wire semantics; only the declared BACnet
-request subset has a StateAFL C encoder. No arbitrary expressions execute.
+Structure trees and guards describe wire semantics; bounded C codecs implement
+the declared runtime profiles. No arbitrary expressions execute.
 """
 import copy
 import struct
@@ -164,7 +164,7 @@ def enrich_modbus(p,st,msgs,field,fixed,length,dep,message):
     st['transitions']=[transition('connected','connected',m['id'],
         response=({'read_holding':'read_response'}.get(m['id'],m['id']+'_response') if m['direction']=='request' else ''),
         guard='transaction ID + unit + function correlation; success or corresponding exception',actions=['cache or clear selected MBAP transaction']) for m in p['messages']]
-    p['scope']='Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10 multiple writes; all normal response layouts and generic exception layout; FC0F arbitrary 1..1968 coils including final-byte padding. Complete static profile; no runtime encoder.'
+    p['scope']='Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10 multiple writes; all normal response layouts and generic exception layout; FC0F arbitrary 1..1968 coils including final-byte padding. Bounded runtime codec and structural repair.'
 
 
 def enrich_iec104(p,st,msgs,field,fixed,length,dep,message):
@@ -176,7 +176,11 @@ def enrich_iec104(p,st,msgs,field,fixed,length,dep,message):
         if f['id']=='cot':f.update(default=6,values=[6],structure='Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator address.')
     for mid,cause in [('interrogation_confirmation',7),('interrogation_termination',10),('interrogation_negative',71)]:
         response=copy.deepcopy(req);raw=bytearray.fromhex(req['example']);raw[2:4]=(2 if cause==10 else 0).to_bytes(2,'little');raw[4:6]=(2).to_bytes(2,'little');raw[8:10]=cause.to_bytes(2,'little')
-        response.update(id=mid,match=mid,direction='response',example=raw.hex(),notes='C_IC_NA_1 activation confirmation or activation termination. Negative confirmation sets P/N bit6; fixture cause 7+64.')
+        response_notes={
+            'interrogation_confirmation':'C_IC_NA_1 positive activation confirmation; fixture COT=7, P/N clear.',
+            'interrogation_termination':'C_IC_NA_1 activation termination; fixture COT=10, P/N clear.',
+            'interrogation_negative':'C_IC_NA_1 negative activation confirmation; fixture COT=71 (7+64), P/N set.'}
+        response.update(id=mid,match=mid,direction='response',example=raw.hex(),notes=response_notes[mid])
         next(f for f in response['fields'] if f['id']=='cot')['default']=cause
         next(f for f in response['fields'] if f['id']=='cot')['values']=[cause]
         next(f for f in response['fields'] if f['id']=='receive_seq')['default']=2
@@ -198,7 +202,7 @@ def enrich_iec104(p,st,msgs,field,fixed,length,dep,message):
         if t['message']=='test_act':t['response']='test_con'
     for state in ['stopped','interrogating','interrogation_data']:
         st['transitions'] += [transition(state,state,mid,'test_con' if mid=='test_act' else '',guard='TESTFR does not depend on transfer phase') for mid in ['test_act','test_con']]
-    p['scope']='IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group interrogation request, positive/negative activation confirmation and termination; COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no runtime encoder.'
+    p['scope']='IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group interrogation request, positive/negative activation confirmation and termination; COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Bounded runtime codec and structural repair.'
 
 
 def enrich_enip(p,st,msgs,field,fixed,length,dep,message):
@@ -306,7 +310,7 @@ def enrich_enip(p,st,msgs,field,fixed,length,dep,message):
         transition('registered','registered','send_unit_response',guard='external class-3 connection remains established; produced T->O ID; echoed connected sequence and Sender Context',actions=['clear selected connected request context']),
         transition('registered','connected','invalid_session',guard='encapsulation status invalid session',actions=['clear session handle']),
         transition('registered','closed','unregister',guard='matching session handle; no reply',actions=['clear session and connection contexts'])]
-    p['scope']='EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply), SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response layouts and encapsulation/CIP errors. SendUnitData requires an externally successful ForwardOpen establishing class-3 connection and supplying directional IDs; this model does not establish that prerequisite. Complete static explicit-message profile; no runtime encoder.'
+    p['scope']='EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply), SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response layouts and encapsulation/CIP errors. SendUnitData requires an externally successful ForwardOpen establishing class-3 connection and supplying directional IDs; this model does not establish that prerequisite. Bounded runtime explicit-message codec and structural repair.'
     p['sources'][0].update(url='https://github.com/EIPStackGroup/OpENer/tree/d8820ef41ce30dda06d213438ba81c81de33ffe2/source/src',sections='encap.c; cpf.c NotifyConnectedCommonPacketFormat/AssembleLinearMessage; cipconnectionmanager.c GetConnectedObject/AssembleForwardOpenResponse; cipclass3connection.c EstablishClass3Connection. ForwardOpen request is not a verified fixture in this profile.')
     p['support']['excluded']=['ForwardOpen/ForwardClose fixture generation and automatic class-3 connection establishment (external prerequisite for SendUnitData)' ,'implicit UDP I/O','CIP Security','other CIP objects/services','full subscription-only ODVA normative conformance']
 
@@ -423,11 +427,11 @@ def mms_profile(emit, field, fixed, length, dep, message):
         ('associated','concluding','conclude','conclude_response','no pending confirmed services',[]),('concluding','concluded','conclude_response','','conclude accepted',[]),
         ('concluded','releasing','release','release_response','',[]),('releasing','closed','release_response','','session disconnect and ACSE release complete',[])]
     emit('iec61850_mms_tcp','IEC 61850 MMS over TCP','RFC1006 / libIEC61850 v1.6 profile',
-        'Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific named-variable Read/Write, MMS conclude and ACSE/session release, all successful request/response layouts. BER definite lengths; no runtime encoder.',
+        'Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific named-variable Read/Write, MMS conclude and ACSE/session release, all successful request/response layouts. Bounded runtime codec with BER definite lengths and structural repair.',
         'mms',messages,states,transitions,
         'https://github.com/mz-automation/libiec61850/tree/6d231326bff8e9b6500aa1e345c076d3a329f211/src/mms',
         'iso_cotp, iso_session, iso_presentation, iso_acse, iso_mms client/server and asn1c definitions; complete loopback fixtures constructed with this revision',
-        ['full IEC61850 ACSI mapping','reports/GOOSE/SV','generalized arrays/alternate access and data-set services','arbitrary ACSE authentication','association rejection/abort and MMS confirmed-error/reject fixtures unverified','TLS','runtime BER encoding'],
+        ['full IEC61850 ACSI mapping','reports/GOOSE/SV','generalized arrays/alternate access and data-set services','arbitrary ACSE authentication','association rejection/abort and MMS confirmed-error/reject fixtures unverified','TLS','arbitrary BER container generation'],
         extra_sources=[dict(id='iec_scope',url='https://webstore.iec.ch/en/publication/6021',basis='inferred',sections='IEC61850-8-1 catalogue only; paid normative MMS/IEC texts not consulted')])
 
 
@@ -558,7 +562,7 @@ def opcua_profile(emit,field,fixed,length,dep,message):
         ('channel','closed','close_channel','','no response expected',['clear token/channel']),('tcp','tcp','reverse_hello','','reverse-connect role only',[]),
         *[(state,'closed','error','','transport error closes connection',[]) for state in ['tcp','hello_sent','acknowledged','channel_pending','channel']]]
     emit('opcua_tcp','OPC UA TCP','OPC10000 Part4/6 v1.05 / asyncua interoperability profile',
-        'Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers and nested endpoint/token arrays; no Session services or runtime encoder.',
+        'Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers and nested endpoint/token arrays; bounded runtime codec and structural repair; Session services excluded.',
         'opcua',messages,states,transitions,'https://github.com/FreeOpcUa/opcua-asyncio/tree/c321a240e53d083fd6e167c67f795915d8f236fd/asyncua/ua',
         'ua_binary.py and generated uaprotocol_auto.py: all service fixtures decoded completely and re-encoded byte-for-byte; no network exchange',
         ['signing/encryption and certificates','OpenSecureChannel Renew and token-overlap behavior','CreateSession/ActivateSession and authenticated/session services','intermediate/abort chunks and runtime reassembly','whole-standard conformance; CLO normative wording difference unresolved'],

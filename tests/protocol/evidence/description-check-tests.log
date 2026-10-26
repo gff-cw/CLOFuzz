@@ -1,0 +1,26 @@
+test_boolean_validation_count_is_not_an_integer_count (test_description_checks.DescriptionCheckTests.test_boolean_validation_count_is_not_an_integer_count) ... ok
+test_consistent_but_incorrect_validation_counts_are_rejected (test_description_checks.DescriptionCheckTests.test_consistent_but_incorrect_validation_counts_are_rejected) ... ok
+test_duplicate_field_source_is_rejected (test_description_checks.DescriptionCheckTests.test_duplicate_field_source_is_rejected) ... ok
+test_duplicate_yaml_key_is_rejected (test_description_checks.DescriptionCheckTests.test_duplicate_yaml_key_is_rejected) ... ok
+test_evidence_source_definition_must_match (test_description_checks.DescriptionCheckTests.test_evidence_source_definition_must_match) ... ok
+test_existing_package_passes_static_checks (test_description_checks.DescriptionCheckTests.test_existing_package_passes_static_checks) ... ok
+test_extra_field_source_is_rejected (test_description_checks.DescriptionCheckTests.test_extra_field_source_is_rejected) ... ok
+test_fixture_counts_must_match_messages (test_description_checks.DescriptionCheckTests.test_fixture_counts_must_match_messages) ... ok
+test_incomplete_field_source_coverage_is_rejected (test_description_checks.DescriptionCheckTests.test_incomplete_field_source_coverage_is_rejected) ... ok
+test_missing_field_sources_is_rejected (test_description_checks.DescriptionCheckTests.test_missing_field_sources_is_rejected) ... ok
+test_missing_file_is_a_failed_package (test_description_checks.DescriptionCheckTests.test_missing_file_is_a_failed_package) ... ok
+test_recursive_yaml_alias_is_rejected (test_description_checks.DescriptionCheckTests.test_recursive_yaml_alias_is_rejected) ... ok
+test_scope_mismatch_is_rejected (test_description_checks.DescriptionCheckTests.test_scope_mismatch_is_rejected) ... ok
+test_state_protocol_id_must_match (test_description_checks.DescriptionCheckTests.test_state_protocol_id_must_match) ... ok
+test_unknown_initial_state_is_rejected (test_description_checks.DescriptionCheckTests.test_unknown_initial_state_is_rejected) ... ok
+test_unknown_transition_message_is_rejected (test_description_checks.DescriptionCheckTests.test_unknown_transition_message_is_rejected) ... ok
+test_unknown_transition_response_is_rejected (test_description_checks.DescriptionCheckTests.test_unknown_transition_response_is_rejected) ... ok
+test_unknown_transition_state_is_rejected (test_description_checks.DescriptionCheckTests.test_unknown_transition_state_is_rejected) ... ok
+test_unsafe_yaml_object_tag_is_rejected (test_description_checks.DescriptionCheckTests.test_unsafe_yaml_object_tag_is_rejected) ... ok
+test_validation_snapshot_must_match_saved_record (test_description_checks.DescriptionCheckTests.test_validation_snapshot_must_match_saved_record) ... ok
+test_wrong_field_source_is_rejected (test_description_checks.DescriptionCheckTests.test_wrong_field_source_is_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 29.186s
+
+OK

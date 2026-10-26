@@ -7,14 +7,14 @@ scope: EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no re
   with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response
   layouts and encapsulation/CIP errors. SendUnitData requires an externally successful
   ForwardOpen establishing class-3 connection and supplying directional IDs; this
-  model does not establish that prerequisite. Complete static explicit-message profile;
-  no runtime encoder.
+  model does not establish that prerequisite. Bounded runtime explicit-message codec
+  and structural repair.
 transport: tcp
 framing: protocol length inside replayable records
 codec: enip
 support:
-  runtime: false
-  level: static description; runtime encoder unavailable
+  runtime: true
+  level: runtime scoped codec
   excluded:
   - ForwardOpen/ForwardClose fixture generation and automatic class-3 connection establishment
     (external prerequisite for SendUnitData)
@@ -52,11 +52,7 @@ messages:
     - options
     - protocol_version
     - option_flags
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: command
@@ -234,7 +230,7 @@ messages:
     handle; Sender Context is echoed. Registration request alone does not establish
     a registered session.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: unregister
   example: '660000000100000000000000010000000000000000000000'
   direction: request
@@ -249,11 +245,7 @@ messages:
     - status
     - context
     - options
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: command
@@ -392,7 +384,7 @@ messages:
   notes: UnregisterSession has no command-specific data and no response; closes registered
     encapsulation session and its connections.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: register_response
   example: '65000400010000000000000001000000000000000000000001000000'
   direction: response
@@ -409,11 +401,7 @@ messages:
     - options
     - protocol_version
     - option_flags
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: command
@@ -618,14 +606,10 @@ messages:
     - data_length
     - cip_service
     - path_words
-    parent: REQUEST
   - id: CONTENT
     fields:
     - cip
     - epath
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: command
     block: HEAD
@@ -1042,7 +1026,7 @@ messages:
   notes: CIP GetAttributeSingle Identity class 1/instance 1/attribute 1 (Vendor ID).
     Response bit7 set; additional-status size counts UInt16 words.
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: send_rr_response
   example: 6f0016000100000000000000010000000000000000000000000000000000020000000000b20006008e0000000100
   direction: response
@@ -1068,15 +1052,11 @@ messages:
     - reserved
     - general_status
     - additional_status_words
-    parent: REQUEST
   - id: CONTENT
     fields:
     - cip
     - additional_status
     - response_data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: command
     block: HEAD
@@ -1579,15 +1559,11 @@ messages:
     - reserved
     - general_status
     - additional_status_words
-    parent: REQUEST
   - id: CONTENT
     fields:
     - cip
     - additional_status
     - response_data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: command
     block: HEAD
@@ -2090,14 +2066,10 @@ messages:
     - path_words
     - connection_id
     - connected_sequence
-    parent: REQUEST
   - id: CONTENT
     fields:
     - cip
     - epath
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: command
     block: HEAD
@@ -2573,7 +2545,7 @@ messages:
     placeholders, not an automatically established connection; no ForwardOpen fixture
     or automatic provisioning is claimed.'
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: send_unit_response
   example: 70001c0001000000000000000100000000000000000000000000000000000200a100040001000020b100080001008e0000000100
   direction: response
@@ -2601,15 +2573,11 @@ messages:
     - additional_status_words
     - connection_id
     - connected_sequence
-    parent: REQUEST
   - id: CONTENT
     fields:
     - cip
     - additional_status
     - response_data
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: command
     block: HEAD
@@ -3161,11 +3129,7 @@ messages:
     - status
     - context
     - options
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: command
@@ -3318,11 +3282,7 @@ messages:
     - status
     - context
     - options
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: command

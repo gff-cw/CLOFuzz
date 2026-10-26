@@ -20,7 +20,8 @@ sources:
 scope: Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue
   OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault,
   implementation-profile CloseSecureChannel. Complete UA Binary headers and nested
-  endpoint/token arrays; no Session services or runtime encoder.
+  endpoint/token arrays; bounded runtime codec and structural repair; Session services
+  excluded.
 confidence: Each field names its source and confidence; catalogue identity does not
   establish normative wire details.
 accessed: '2026-10-25'
@@ -471,15 +472,17 @@ validation:
   fields: 107
   semantic_states: 6
   validated: true
-  runtime: false
+  runtime: true
   scope: Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None
     Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response,
     ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers
-    and nested endpoint/token arrays; no Session services or runtime encoder.
-  example_validation: protocol envelope and length consistency; scoped BACnet decoder
-    checks for runtime fixtures; not live service conformance
+    and nested endpoint/token arrays; bounded runtime codec and structural repair;
+    Session services excluded.
+  example_validation: protocol envelope and length consistency; bounded runtime codec
+    validates complete fixtures and exact field ranges; not live service conformance
+  message_aliases: {}
   execution_contract:
-    static_only: true
+    static_only: false
     static_metadata:
       protocol:
       - name
@@ -509,9 +512,13 @@ validation:
       - transitions[].guard
       - transitions[].actions
       - invalid_strategy
-    field_when_repeat: static-only; rejected by runtime-enabled profiles
+    field_when_repeat: generic when/repeat are static-only; exact Modbus multiwrite
+      data/count repeat descriptors are codec-managed
     dependencies: whitelisted operations only; scope and when are annotations
     content_scalar_strategies: runtime uses AFL field projection; values/strategies
       are annotations for CONTENT scalars
     runtime_encode: capability assertion derived from runtime support and message
       direction; never an execution switch
+    validator_build: non-BACnet runtime validation requires a C11 compiler (CC or
+      cc), protocol_codecs.h and all five protocol_codec_*.c sources; no Python in
+      StateAFL mutation loop

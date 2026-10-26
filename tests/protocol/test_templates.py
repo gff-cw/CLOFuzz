@@ -10,6 +10,8 @@ import unittest
 from unittest import mock
 import yaml
 ROOT=Path(__file__).resolve().parents[2]
+CODEC_SOURCES=[str(ROOT/f'protocol_codec_{codec}.c')
+               for codec in ('modbus','iec104','mms','enip','opcua')]
 sys.path.insert(0,str(ROOT/'tools'))
 from init_protocol_spec import PROFILES, instantiate
 from proto_spec_compiler import SpecError, compile_spec, load, validate
@@ -63,7 +65,7 @@ class TemplateTests(unittest.TestCase):
         root=Path(cls.compilation.name)
         source=root/'check.c';source.write_text(HARNESS)
         cls.binary=root/'check'
-        subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I',str(ROOT),str(source),str(ROOT/'protocol_runtime.c'),'-o',str(cls.binary)],check=True,capture_output=True)
+        subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I',str(ROOT),str(source),str(ROOT/'protocol_runtime.c'),*CODEC_SOURCES,'-o',str(cls.binary)],check=True,capture_output=True)
 
     @classmethod
     def tearDownClass(cls):cls.compilation.cleanup()
@@ -72,8 +74,8 @@ class TemplateTests(unittest.TestCase):
         for base in PROFILES:
             with self.subTest(base=base),tempfile.TemporaryDirectory() as folder:
                 output=Path(folder)/'configured'
-                result=instantiate(base,output,'local_'+base)
-                self.assertEqual(result['runtime'],base=='bacnet_ip')
+                result=instantiate(base,output,'local_'+base,runtime_required=True)
+                self.assertTrue(result['runtime'])
                 p=load(output/'protocol_spec.yaml');s=load(output/'state_transition.yaml')
                 self.assertEqual(p['protocol_id'],s['protocol_id'])
                 self.assertEqual(p['protocol_id'],'local_'+base)
@@ -139,6 +141,8 @@ class TemplateTests(unittest.TestCase):
     def test_fragment_examples_are_not_packaged_as_replay_seeds(self):
         profile=load(ROOT/'protocols/modbus_tcp/protocol_spec.yaml')
         state=load(ROOT/'protocols/modbus_tcp/state_transition.yaml')
+        profile['support']['runtime']=False
+        for message in profile['messages']:message['runtime_encode']=False
         request=next(m for m in profile['messages'] if m['direction']=='request')
         request['fixture_status']='fragment'
         original_load=load
@@ -153,7 +157,14 @@ class TemplateTests(unittest.TestCase):
             self.assertEqual(load(path/'evidence.yaml')['skipped_fragment_seeds'],[request['id']])
 
     def test_static_profile_cannot_become_runtime_by_copying(self):
-        with tempfile.TemporaryDirectory() as folder:
+        original_load=load
+        def static_profile(path):
+            document=original_load(path)
+            if Path(path).name=='protocol_spec.yaml':
+                document['support']['runtime']=False
+                for message in document['messages']:message['runtime_encode']=False
+            return document
+        with tempfile.TemporaryDirectory() as folder, mock.patch('init_protocol_spec.load',side_effect=static_profile):
             path=Path(folder)/'not-created'
             with self.assertRaisesRegex(SpecError,'runtime encoder unavailable'):
                 instantiate('modbus_tcp',path,runtime_required=True)
@@ -186,6 +197,9 @@ class TemplateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'configured'
             instantiate('modbus_tcp',path)
+            profile=load(path/'protocol_spec.yaml');profile['support']['runtime']=False
+            for message in profile['messages']:message['runtime_encode']=False
+            (path/'protocol_spec.yaml').write_text(yaml.safe_dump(profile,sort_keys=False))
             with self.assertRaisesRegex(SpecError,'static validation only'):prepare(path,[])
             result,command=prepare(path,[],validate_only=True)
             self.assertFalse(result['runtime']);self.assertIsNone(command)
@@ -208,7 +222,7 @@ class TemplateTests(unittest.TestCase):
 
     def test_cli_lists_support(self):
         result=subprocess.run([sys.executable,str(ROOT/'tools/init_protocol_spec.py'),'--list'],capture_output=True,text=True,check=True)
-        self.assertIn('bacnet_ip: runtime',result.stdout)
-        self.assertEqual(result.stdout.count('static-only'),5)
+        for profile in PROFILES:self.assertIn(profile+': runtime',result.stdout)
+        self.assertNotIn('static-only',result.stdout)
 
 if __name__=='__main__':unittest.main(verbosity=2)

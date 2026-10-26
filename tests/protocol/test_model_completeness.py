@@ -388,21 +388,31 @@ class ModelCompletenessTests(unittest.TestCase):
         raw[-1]=0x81
         with self.assertRaisesRegex(ValueError,'padding'):validate_modbus(m['id'],raw)
 
-    def test_only_supported_bacnet_requests_have_runtime_encoders(self):
+    def test_complete_request_profiles_have_runtime_encoders(self):
         enabled=[]
+        expected={'bacnet_ip':2,'modbus_tcp':9,'iec60870_5_104':5,
+                  'iec61850_mms_tcp':7,'ethernet_ip_cip_tcp':4,'opcua_tcp':4}
         for path in (ROOT/'protocols').glob('*/protocol_spec.yaml'):
-            p=load(path);enabled.extend((p['protocol_id'],m['id']) for m in p['messages'] if m['runtime_encode'])
-        self.assertEqual(sorted(enabled),[('bacnet_ip','read_property'),('bacnet_ip','who_is')])
+            p=load(path)
+            self.assertTrue(p['support']['runtime'])
+            requests=[m for m in p['messages'] if m['direction']=='request']
+            self.assertEqual(len(requests),expected[p['protocol_id']])
+            for message in p['messages']:
+                self.assertEqual(message['runtime_encode'],message['direction']=='request')
+                if message['runtime_encode']:
+                    self.assertEqual(message['fixture_status'],'complete')
+                    enabled.append((p['protocol_id'],message['id']))
+        self.assertEqual(len(enabled),sum(expected.values()))
 
     def test_connected_enip_has_directional_ids_and_external_forward_open_precondition(self):
         p=load(ROOT/'protocols/ethernet_ip_cip_tcp/protocol_spec.yaml');st=load(ROOT/'protocols/ethernet_ip_cip_tcp/state_transition.yaml')
-        self.assertFalse(p['support']['runtime'])
+        self.assertTrue(p['support']['runtime'])
         req=next(m for m in p['messages'] if m['id']=='send_unit');resp=next(m for m in p['messages'] if m['id']=='send_unit_response')
         q=validate_enip(req['id'],bytes.fromhex(req['example']));a=validate_enip(resp['id'],bytes.fromhex(resp['example']))
         self.assertEqual(q['connection_id'],0x10000001);self.assertEqual(a['connection_id'],0x20000001)
         self.assertEqual(q['connected_sequence'],a['connected_sequence'])
         self.assertIn('EXTERNAL PRECONDITION',req['notes']);self.assertIn('ForwardOpen',req['notes'])
-        self.assertFalse(req['runtime_encode']);self.assertFalse(resp['runtime_encode'])
+        self.assertTrue(req['runtime_encode']);self.assertFalse(resp['runtime_encode'])
         self.assertFalse(any(m['id']=='forward_open' for m in p['messages']))
         edge=next(t for t in st['transitions'] if t['message']=='send_unit')
         self.assertEqual((edge['from'],edge['to']),('registered','registered'))

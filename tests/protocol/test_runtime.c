@@ -83,7 +83,9 @@ static void session_tests(const char *p,const char *s){
   memcpy(b,rp,sizeof(rp));CHECK(proto_before_send(e,b,sizeof(rp),err,sizeof(err))<0);
   proto_after_response(e,ack,sizeof(ack));CHECK(proto_before_send(e,b,sizeof(rp),err,sizeof(err))==0 && b[8]==55);
   memcpy(b,rp,sizeof(rp));CHECK(proto_before_send(other,b,sizeof(rp),err,sizeof(err))<0);
-  draws(0,0,0,0);CHECK(proto_mutate(e,records,n,rp,sizeof(rp),PROTO_VALID,PROTO_HEAD,scripted,&out,&outn,err,sizeof(err))<0);
+  /* Offline candidates retain placeholders; only live I/O binds real replies.
+   * Simulating a candidate must preserve the already established live cache. */
+  draws(0,0,0,0);CHECK(proto_mutate(e,records,n,rp,sizeof(rp),PROTO_VALID,PROTO_HEAD,scripted,&out,&outn,err,sizeof(err))==0);
   CHECK(proto_before_send(e,b,sizeof(rp),err,sizeof(err))==0 && b[8]==55);
   proto_session_begin(e);memcpy(b,rp,sizeof(rp));CHECK(proto_before_send(e,b,sizeof(rp),err,sizeof(err))<0);
   proto_free(e);proto_free(other);

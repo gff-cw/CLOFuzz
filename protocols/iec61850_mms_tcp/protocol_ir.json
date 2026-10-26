@@ -17,19 +17,13 @@
             "source_reference",
             "class_options"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "cotp_parameters"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -290,7 +284,7 @@
       "id": "cotp_cr",
       "match": "cotp_cr",
       "notes": "Complete RFC1006 TP0 connection request/confirm. LI counts bytes after LI, excluding TPKT; negotiated max TPDU is 2**13 in these reference fixtures.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -306,19 +300,13 @@
             "source_reference",
             "class_options"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "cotp_parameters"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -605,20 +593,14 @@
             "nesting_level",
             "mms_version"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1141,7 +1123,7 @@
       "id": "associate",
       "match": "associate",
       "notes": "Complete TPKT/COTP + session CONNECT/ACCEPT + presentation CP/CPA + ACSE AARQ/AARE; MMS initiate request/response is nested in user-information, never an independent TCP message.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -1161,20 +1143,14 @@
             "mms_version",
             "association_result"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1725,20 +1701,14 @@
             "eot",
             "invoke_id"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -2048,7 +2018,7 @@
       "id": "get_name_list",
       "match": "get_name_list",
       "notes": "Complete reference profile message, including session DATA and presentation context 3.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -2063,20 +2033,14 @@
             "eot",
             "invoke_id"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -2408,8 +2372,7 @@
             "eot",
             "invoke_id"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -2418,12 +2381,7 @@
             "domain_id",
             "item_id"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -2805,7 +2763,7 @@
       "id": "read",
       "match": "read",
       "notes": "Complete reference profile message, including session DATA and presentation context 3.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -2820,20 +2778,14 @@
             "eot",
             "invoke_id"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3170,8 +3122,7 @@
             "eot",
             "invoke_id"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -3181,12 +3132,7 @@
             "item_id",
             "value"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3595,7 +3541,7 @@
       "id": "write",
       "match": "write",
       "notes": "Complete reference profile message, including session DATA and presentation context 3.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -3610,20 +3556,14 @@
             "eot",
             "invoke_id"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3959,20 +3899,14 @@
             "cotp_type",
             "eot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -4226,7 +4160,7 @@
       "id": "conclude",
       "match": "conclude",
       "notes": "Complete reference profile message, including session DATA and presentation context 3.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -4240,20 +4174,14 @@
             "cotp_type",
             "eot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -4521,20 +4449,14 @@
             "cotp_type",
             "eot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -4796,7 +4718,7 @@
       "id": "release",
       "match": "release",
       "notes": "Complete session FINISH/DISCONNECT carrying presentation context 1 and ACSE RLRQ/RLRE; distinct from MMS conclude handshake.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -4810,20 +4732,14 @@
             "cotp_type",
             "eot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "session",
             "pdu"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -5091,7 +5007,7 @@
   ],
   "name": "IEC 61850 MMS over TCP",
   "protocol_id": "iec61850_mms_tcp",
-  "scope": "Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific named-variable Read/Write, MMS conclude and ACSE/session release, all successful request/response layouts. BER definite lengths; no runtime encoder.",
+  "scope": "Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific named-variable Read/Write, MMS conclude and ACSE/session release, all successful request/response layouts. Bounded runtime codec with BER definite lengths and structural repair.",
   "sources": [
     {
       "basis": "implementation",
@@ -5120,10 +5036,10 @@
       "arbitrary ACSE authentication",
       "association rejection/abort and MMS confirmed-error/reject fixtures unverified",
       "TLS",
-      "runtime BER encoding"
+      "arbitrary BER container generation"
     ],
-    "level": "static description; runtime encoder unavailable",
-    "runtime": false
+    "level": "runtime scoped codec",
+    "runtime": true
   },
   "transport": "tcp",
   "version": "RFC1006 / libIEC61850 v1.6 profile"

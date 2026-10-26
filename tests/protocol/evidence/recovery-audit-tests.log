@@ -1,0 +1,27 @@
+test_changed_source_retains_historical_pass_but_current_unverified (test_evidence_audit.EvidenceAuditTests.test_changed_source_retains_historical_pass_but_current_unverified) ... ok
+test_cli_returns_one_when_any_artifact_records_failure (test_evidence_audit.EvidenceAuditTests.test_cli_returns_one_when_any_artifact_records_failure) ... ok
+test_cli_returns_two_for_missing_evidence (test_evidence_audit.EvidenceAuditTests.test_cli_returns_two_for_missing_evidence) ... ok
+test_duplicate_keys_and_nonfinite_numbers_are_invalid (test_evidence_audit.EvidenceAuditTests.test_duplicate_keys_and_nonfinite_numbers_are_invalid) ... ok
+test_empty_complete_event_log_records_zero (test_evidence_audit.EvidenceAuditTests.test_empty_complete_event_log_records_zero) ... ok
+test_empty_or_nonboolean_checks_are_invalid (test_evidence_audit.EvidenceAuditTests.test_empty_or_nonboolean_checks_are_invalid) ... ok
+test_events_and_zero_snapshot_preserved_without_inventing_cause (test_evidence_audit.EvidenceAuditTests.test_events_and_zero_snapshot_preserved_without_inventing_cause) ... ok
+test_failed_check_overrides_reported_pass (test_evidence_audit.EvidenceAuditTests.test_failed_check_overrides_reported_pass) ... ok
+test_failed_nested_runtime_verdict_overrides_passed_summary (test_evidence_audit.EvidenceAuditTests.test_failed_nested_runtime_verdict_overrides_passed_summary) ... ok
+test_invalid_counters_do_not_hide_known_runner_failure (test_evidence_audit.EvidenceAuditTests.test_invalid_counters_do_not_hide_known_runner_failure) ... ok
+test_malformed_counter_objects_are_invalid (test_evidence_audit.EvidenceAuditTests.test_malformed_counter_objects_are_invalid) ... ok
+test_malformed_nested_runtime_verdict_is_invalid (test_evidence_audit.EvidenceAuditTests.test_malformed_nested_runtime_verdict_is_invalid) ... ok
+test_matching_hash_only_certifies_listed_runtime_sources (test_evidence_audit.EvidenceAuditTests.test_matching_hash_only_certifies_listed_runtime_sources) ... ok
+test_missing_bacnet_modes_cannot_produce_pass (test_evidence_audit.EvidenceAuditTests.test_missing_bacnet_modes_cannot_produce_pass) ... ok
+test_missing_result_is_unverified (test_evidence_audit.EvidenceAuditTests.test_missing_result_is_unverified) ... ok
+test_nul_and_circular_source_paths_are_invalid (test_evidence_audit.EvidenceAuditTests.test_nul_and_circular_source_paths_are_invalid) ... ok
+test_runner_signal_overrides_target_zero_and_reported_pass (test_evidence_audit.EvidenceAuditTests.test_runner_signal_overrides_target_zero_and_reported_pass) ... ok
+test_source_paths_cannot_escape_workspace (test_evidence_audit.EvidenceAuditTests.test_source_paths_cannot_escape_workspace) ... ok
+test_source_symlink_cannot_escape_workspace (test_evidence_audit.EvidenceAuditTests.test_source_symlink_cannot_escape_workspace) ... ok
+test_successful_unhashed_integration_remains_unverified (test_evidence_audit.EvidenceAuditTests.test_successful_unhashed_integration_remains_unverified) ... ok
+test_truncated_event_marks_evidence_invalid_with_line (test_evidence_audit.EvidenceAuditTests.test_truncated_event_marks_evidence_invalid_with_line) ... ok
+test_truncated_or_nonobject_json_is_invalid (test_evidence_audit.EvidenceAuditTests.test_truncated_or_nonobject_json_is_invalid) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 1.640s
+
+OK

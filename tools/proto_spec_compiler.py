@@ -10,21 +10,23 @@ from urllib.parse import urlparse
 
 import yaml
 import jsonschema
+from native_protocol_codecs import inspect as native_inspect, same_kind as native_same_kind
 
 ROOT = Path(__file__).resolve().parents[1]
 CODECS = {"bacnet", "modbus", "iec104", "mms", "enip", "opcua"}
-RUNTIME_CODECS = {"bacnet"}
+RUNTIME_CODECS = CODECS
 RUNTIME_OPS = {"length_of", "count_of", "offset_of", "checksum_of",
                "copy_from_message", "bind_from_response",
-               "correlate_request_response", "sequence_number"}
+               "correlate_request_response", "sequence_number", "tagged_length"}
 OPS = {"length_of", "count_of", "offset_of", "checksum_of", "copy_from_message",
        "bind_from_response", "correlate_request_response", "sequence_number",
        "conditional_presence", "tagged_length"}
 TYPES = {"uint8": 1, "uint16": 2, "uint24": 3, "uint32": 4, "uint64": 8,
          "bytes": 0, "string": 0, "bacnet_tags": 0, "ber_tlv": 0,
          "epath": 0, "nodeid": 0}
-RUNTIME_TYPES = {"uint8", "uint16", "uint24", "uint32", "uint64",
-                 "bytes", "string", "bacnet_tags"}
+BACNET_RUNTIME_TYPES = {"uint8", "uint16", "uint24", "uint32", "uint64",
+                        "bytes", "string", "bacnet_tags"}
+RUNTIME_TYPES = set(TYPES)
 BACNET_OCTET_LOCATORS = {"bvlc.type", "bvlc.function", "npdu.version", "npdu.control",
                          "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu"}
 SCALAR_STRATEGIES = {"enum", "boundary", "bitflip", "arithmetic"}
@@ -248,6 +250,74 @@ def bacnet_example_fields(seed, where):
     return result, kind, service
 
 
+def codec_example_fields(codec, seed, fields, where):
+    try:
+        return native_inspect(codec, seed, fields)
+    except (ValueError, OSError) as exc:
+        raise SpecError(f"{where}: runtime codec: {exc}") from exc
+
+
+def runtime_location(codec, seed, field, locations):
+    if codec != "bacnet":
+        return locations.get((field["locator"], field["type"], field["width"]))
+    if field["locator"].startswith("abs:"):
+        offset = int(field["locator"][4:])
+        width = field["width"] or len(seed) - offset
+        return (offset, width) if offset >= 0 and offset + width <= len(seed) else None
+    return locations.get(field["locator"])
+
+
+def modbus_runtime_repeat(msg, fields, field, where):
+    """Permit only the two data-array descriptors executed by the Modbus codec."""
+    function = next((f for f in fields.values() if f["locator"] == "abs:7" and
+                     f["type"] == "uint8" and f["mutability"] == "fixed"), None)
+    code = function["min"] if function and function["min"] == function["max"] else None
+    coils = code == 15
+    count = next((f for f in fields.values() if f["locator"] == ("abs:12" if coils else "abs:10")
+                  and f["type"] == ("uint8" if coils else "uint16")), None)
+    expected = {"count": count["id"] if count else "", "min": 1,
+                "max": 246 if coils else 123, "element_width": 1 if coils else 2}
+    require(msg["direction"] == "request" and code in {15, 16} and count is not None
+            and field["locator"] == "abs:13" and field["type"] == "bytes"
+            and field["width"] == 0 and field["role"] == "content"
+            and field["min"] == (1 if coils else 2) and field["max"] == 246
+            and field["repeat"] == expected,
+            where + ": generic repeat is static-only; expected exact codec-managed Modbus data/count descriptor")
+
+
+def runtime_profile_signature(mid, codec, messages, fields, examples):
+    """Exclude fixture/default annotations, retain every executed field/dependency.
+
+    Aliases may carry different data examples, but cannot hide different bounds,
+    mutation behavior or dependency sources behind the same wire signature.
+    """
+    msg = messages[mid]
+    def field_key(field):
+        return tuple(field.get(key) for key in
+                     ("locator", "type", "width", "endian", "role", "mutability", "min", "max"))
+    def reference_key(other):
+        return tuple(name for name, reference in messages.items()
+                     if reference["direction"] == messages[other]["direction"]
+                     and native_same_kind(codec, examples[other], examples[name])
+                     and native_same_kind(codec, examples[name], examples[other]))
+    field_signature = []
+    for field in fields[mid].values():
+        repeat = dict(field.get("repeat", {}))
+        if repeat:
+            repeat["count"] = fields[mid][repeat["count"]]["locator"]
+        field_signature.append((field_key(field), tuple(field["values"]), tuple(sorted(field["strategies"])),
+                                tuple(sorted(repeat.items()))))
+    dependencies = []
+    for dep in msg["dependencies"]:
+        source_message = dep.get("message", mid)
+        source = dep.get("source", "$message")
+        dependencies.append((dep["op"], fields[mid][dep["target"]]["locator"],
+                             source if source == "$message" else fields[source_message][source]["locator"],
+                             reference_key(source_message), dep.get("unit", 1),
+                             dep.get("multiply", 1), dep.get("add", 0), dep.get("algorithm")))
+    return msg["direction"], sorted(field_signature), sorted(dependencies)
+
+
 def validate(protocol, state):
     for obj, filename in ((protocol, "protocol_spec.schema.json"),
                           (state, "state_transition.schema.json")):
@@ -259,6 +329,7 @@ def validate(protocol, state):
     require(protocol["protocol_id"] == state["protocol_id"], "protocol/state ID mismatch")
     require(protocol["codec"] in CODECS, f"unsupported encoder: {protocol['codec']}")
     runtime = protocol["support"]["runtime"]
+    codec = protocol["codec"]
     require(not runtime or protocol["codec"] in RUNTIME_CODECS,
             f"runtime encoder unavailable for {protocol['codec']}; declare static-only support")
     require(protocol["transport"] == ("udp" if protocol["codec"] == "bacnet" else "tcp"),
@@ -290,16 +361,19 @@ def validate(protocol, state):
             require(msg["direction"] != "both", f"{mid}: runtime direction must be request or response")
             require(msg.get("fixture_status", "complete") == "complete",
                     f"{mid}: runtime requires a complete fixture")
-            locations, kind, service = bacnet_example_fields(seed, f"{mid}.example")
+            if codec == "bacnet":
+                locations, kind, service = bacnet_example_fields(seed, f"{mid}.example")
+                # I-Am is an unconfirmed service request on the wire, but models
+                # the reply to Who-Is in this request/response campaign vocabulary.
+                require((kind in {0, 1} if msg["direction"] == "request"
+                         else kind in {2, 3, 5, 6, 7} or (kind, service) == (1, 0)),
+                        f"{mid}: example APDU/direction mismatch")
+                if msg["direction"] == "request":
+                    require((kind, service) in {(1, 8), (0, 12)},
+                            f"{mid}: runtime request encoder unavailable for APDU/service")
+            else:
+                locations = codec_example_fields(codec, seed, msg["fields"], f"{mid}.example")
             runtime_locations[mid] = locations
-            # I-Am is an unconfirmed service request on the wire, but models
-            # the reply to Who-Is in this request/response campaign vocabulary.
-            require((kind in {0, 1} if msg["direction"] == "request"
-                     else kind in {2, 3, 5, 6, 7} or (kind, service) == (1, 0)),
-                    f"{mid}: example APDU/direction mismatch")
-            if msg["direction"] == "request":
-                require((kind, service) in {(1, 8), (0, 12)},
-                        f"{mid}: runtime request encoder unavailable for APDU/service")
         if "runtime_encode" in msg:
             require(msg["runtime_encode"] == (runtime and msg["direction"] == "request"),
                     f"{mid}: runtime_encode is a capability assertion, not an execution switch")
@@ -332,23 +406,28 @@ def validate(protocol, state):
             require(membership.get(fid) == f["block"], where + ": block membership mismatch")
             require(f["locator"] and len(f["locator"]) < 64, where + ": invalid locator")
             if runtime:
-                require(f["type"] in RUNTIME_TYPES, where + ": unsupported runtime field type")
-                require(f["locator"] in {"bvlc.type", "bvlc.function", "bvlc.length", "npdu.version", "npdu.control",
-                        "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu", "apdu.content",
-                        "bacnet.object", "bacnet.property", "bacnet.array"} or f["locator"].startswith("abs:"),
-                        where + ": unsupported runtime locator")
-                require("when" not in f and "repeat" not in f, where + ": generic when/repeat is static-only; BACnet codec handles conditional tags")
-                if f["locator"] in BACNET_OCTET_LOCATORS:
-                    require(f["type"] == "uint8", where + ": BACnet octet locator requires uint8")
-                if f["locator"] == "bvlc.length":
-                    require(f["type"] == "uint16", where + ": BVLC length locator requires uint16")
-                if f["locator"] == "bacnet.object":
-                    require(f["type"] == "uint32", where + ": BACnet object locator requires uint32")
-                if f["locator"] in {"bacnet.property", "bacnet.array"}:
-                    require(f["type"] in {"uint8", "uint16", "uint24", "uint32"},
-                            where + ": BACnet unsigned context locator requires uint8..uint32")
-                if f["locator"] == "apdu.content":
-                    require(f["width"] == 0, where + ": APDU content locator requires a variable field")
+                require(f["type"] in (BACNET_RUNTIME_TYPES if codec == "bacnet" else RUNTIME_TYPES),
+                        where + ": unsupported runtime field type")
+                require("when" not in f, where + ": generic when is static-only; codecs handle their scoped conditional structure")
+                if "repeat" in f:
+                    require(codec == "modbus", where + ": generic repeat is static-only")
+                    modbus_runtime_repeat(msg, fields[mid], f, where)
+                if codec == "bacnet":
+                    require(f["locator"] in {"bvlc.type", "bvlc.function", "bvlc.length", "npdu.version", "npdu.control",
+                            "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu", "apdu.content",
+                            "bacnet.object", "bacnet.property", "bacnet.array"} or f["locator"].startswith("abs:"),
+                            where + ": unsupported runtime locator")
+                    if f["locator"] in BACNET_OCTET_LOCATORS:
+                        require(f["type"] == "uint8", where + ": BACnet octet locator requires uint8")
+                    if f["locator"] == "bvlc.length":
+                        require(f["type"] == "uint16", where + ": BVLC length locator requires uint16")
+                    if f["locator"] == "bacnet.object":
+                        require(f["type"] == "uint32", where + ": BACnet object locator requires uint32")
+                    if f["locator"] in {"bacnet.property", "bacnet.array"}:
+                        require(f["type"] in {"uint8", "uint16", "uint24", "uint32"},
+                                where + ": BACnet unsigned context locator requires uint8..uint32")
+                    if f["locator"] == "apdu.content":
+                        require(f["width"] == 0, where + ": APDU content locator requires a variable field")
             if f["locator"].startswith("abs:"):
                 try: offset = int(f["locator"][4:])
                 except ValueError as exc: raise SpecError(where + ": invalid offset") from exc
@@ -359,8 +438,6 @@ def validate(protocol, state):
                 integer(f["max"], f["min"], 2 ** (8 * f["width"]) - 1, where + ".max")
                 integer(f["default"], f["min"], f["max"], where + ".default")
                 for v in f["values"]: integer(v, f["min"], f["max"], where + ".values")
-                require(not runtime or f["max"] <= 2**63-1,
-                        where + ": C runtime IR integers must fit signed 64-bit")
             else:
                 require(isinstance(f["default"], str), where + ": variable field default must be string")
                 integer(f["min"], 0, 65507, where + ".min")
@@ -387,10 +464,7 @@ def validate(protocol, state):
                             where + ": fixed variable field bounds must equal default byte length")
             require(set(f["strategies"]) <= {"enum", "boundary", "bitflip", "arithmetic", "afl", "resize"}, where + ": unknown strategy")
             if runtime:
-                if f["locator"].startswith("abs:"):
-                    location = (int(f["locator"][4:]), f["width"] or len(seed) - int(f["locator"][4:]))
-                else:
-                    location = locations.get(f["locator"])
+                location = runtime_location(codec, seed, f, locations)
                 require(location is not None or f["mutability"] == "conditional",
                         where + ": runtime field absent from example; declare conditional mutability")
                 if location is not None:
@@ -402,7 +476,7 @@ def validate(protocol, state):
                     require(f["width"] > 0, where + ": runtime HEAD mutation requires an integer field")
                     require(not f["strategies"] or set(f["strategies"]) & SCALAR_STRATEGIES,
                             where + ": runtime HEAD mutation requires a scalar strategy")
-                if msg["direction"] == "request" and f["role"] == "content" and not f["width"] and f["mutability"] in {"fuzzable", "conditional"}:
+                if codec == "bacnet" and msg["direction"] == "request" and f["role"] == "content" and not f["width"] and f["mutability"] in {"fuzzable", "conditional"}:
                     require((kind, service, f["locator"]) == (1, 8, "apdu.content"),
                             where + ": runtime variable CONTENT encoder unavailable")
             if "when" in f:
@@ -420,37 +494,13 @@ def validate(protocol, state):
                 require(TYPES[fields[mid][f["repeat"]["count"]]["type"]] > 0, where + ": repetition count must be integer")
             if "structure_model" in f:
                 structure_tree(f["structure_model"], where + ".structure_model")
-    if runtime:
-        # model_for() selects the first model whose fixed scalar fields match.
-        # Validate all examples against every model so annotations or an overly
-        # broad fixed signature cannot silently shadow a more specific message.
-        for mid, seed in examples.items():
-            matches = []
-            for candidate, candidate_fields in fields.items():
-                matched = True
-                for field in candidate_fields.values():
-                    if field["mutability"] != "fixed":
-                        continue
-                    locator = field["locator"]
-                    if locator.startswith("abs:"):
-                        offset, width = int(locator[4:]), field["width"]
-                        location = (offset, width) if offset + width <= len(seed) else None
-                    else:
-                        location = runtime_locations[mid].get(locator)
-                    if location is None or int.from_bytes(seed[location[0]:sum(location)], field["endian"]) != field["min"]:
-                        matched = False
-                        break
-                if matched:
-                    matches.append(candidate)
-            require(matches == [mid],
-                    f"{mid}: ambiguous runtime message matching: {matches}; match is static metadata")
     # Typed references and cycles apply equally to local and cross-message edges.
     graph = {}
     for mid, msg in messages.items():
         derived_targets = set()
         for dep in msg["dependencies"]:
             require(dep["op"] in OPS, f"{mid}: unsupported dependency {dep['op']}")
-            require(not runtime or (dep["op"] in RUNTIME_OPS and dep.get("multiply", 1) == 1),
+            require(not runtime or dep["op"] in RUNTIME_OPS,
                     f"{mid}: dependency not available in runtime: {dep['op']}")
             require(dep["target"] in fields[mid], f"{mid}: missing dependency target {dep['target']}")
             require(dep["target"] not in derived_targets, f"{mid}: multiple dependency writers for {dep['target']}")
@@ -485,10 +535,18 @@ def validate(protocol, state):
             integer(dep.get("multiply", 1), 1, 65507, f"{mid}.dependency.multiply")
             integer(dep.get("add", 0), -65507, 65507, f"{mid}.dependency.add")
             if runtime:
+                if dep["op"] == "tagged_length":
+                    target = fields[mid][dep["target"]]
+                    require(codec == "mms" and target["type"] == "ber_tlv" and
+                            target["width"] == 0 and target["locator"] == "ber:presentation" and
+                            sf == "$message" and sm == mid,
+                            f"{mid}: tagged_length requires codec-managed MMS presentation and $message source")
                 require(dep["op"] in {"length_of", "count_of", "sequence_number"} or dep.get("unit", 1) == 1,
                         f"{mid}: dependency unit is not executed for {dep['op']}")
                 require(dep["op"] in {"length_of", "count_of", "offset_of"} or dep.get("add", 0) == 0,
                         f"{mid}: dependency add is not executed for {dep['op']}")
+                require(dep["op"] in {"length_of", "count_of"} or dep.get("multiply", 1) == 1,
+                        f"{mid}: dependency multiply is not executed for {dep['op']}")
                 if dep["op"] == "sequence_number":
                     require(sm == mid and sf in {"$message", dep["target"]},
                             f"{mid}: sequence_number uses its target's own previous value")
@@ -507,6 +565,49 @@ def validate(protocol, state):
                     writer = next(d for d in msg["dependencies"] if d["target"] == fid)
                     require(writer["op"] not in {"conditional_presence", "correlate_request_response"},
                             f"{mid}.{fid}: derived field requires a value-producing dependency")
+    if runtime:
+        # Mirror C selection: direction, codec service, then every required
+        # field's range/fixed constraint. Human-facing match labels never run.
+        signatures = {}
+        for mid, seed in examples.items():
+            matches = []
+            for candidate, candidate_fields in fields.items():
+                if messages[candidate]["direction"] != messages[mid]["direction"]:
+                    continue
+                if codec != "bacnet" and not native_same_kind(codec, seed, examples[candidate]):
+                    continue
+                if codec == "bacnet":
+                    candidate_locations = runtime_locations[mid]
+                else:
+                    try:
+                        candidate_locations = native_inspect(codec, seed, candidate_fields.values())
+                    except (ValueError, OSError):
+                        continue
+                matched = True
+                for field in candidate_fields.values():
+                    if codec == "bacnet" and field["mutability"] != "fixed":
+                        continue
+                    location = runtime_location(codec, seed, field, candidate_locations)
+                    if location is None:
+                        if field["mutability"] != "conditional":
+                            matched = False
+                            break
+                        continue
+                    offset, width = location
+                    actual = int.from_bytes(seed[offset:offset + width], field["endian"]) if field["width"] else width
+                    if not field["min"] <= actual <= field["max"]:
+                        matched = False
+                        break
+                if matched:
+                    matches.append(candidate)
+            equivalent = matches == [mid]
+            if codec != "bacnet" and mid in matches:
+                for candidate in matches:
+                    if candidate not in signatures:
+                        signatures[candidate] = runtime_profile_signature(candidate, codec, messages, fields, examples)
+                equivalent = all(signatures[candidate] == signatures[mid] for candidate in matches)
+            require(equivalent,
+                    f"{mid}: ambiguous runtime message matching: {matches}; match is static metadata; only equivalent codec profiles may alias")
     visiting, visited = set(), set()
     for root in graph:
         stack = [(root, False)]
@@ -567,18 +668,36 @@ def compile_spec(protocol, state, output):
     output.mkdir(parents=True, exist_ok=True)
     for filename, serialized in documents.items():
         (output / filename).write_text(serialized, encoding="utf-8")
+    aliases = {}
+    if p["support"]["runtime"] and p["codec"] != "bacnet":
+        messages = {m["id"]: m for m in p["messages"]}
+        fields = {mid: {f["id"]: f for f in m["fields"]} for mid, m in messages.items()}
+        examples = {mid: bytes.fromhex(m["example"]) for mid, m in messages.items()}
+        signatures = {mid: runtime_profile_signature(mid, p["codec"], messages, fields, examples)
+                      for mid in messages}
+        for mid in messages:
+            for earlier in messages:
+                if earlier == mid:
+                    break
+                if signatures[mid] == signatures[earlier] and native_same_kind(
+                        p["codec"], examples[mid], examples[earlier]) and native_same_kind(
+                        p["codec"], examples[earlier], examples[mid]):
+                    aliases[mid] = aliases.get(earlier, earlier)
+                    break
     result = {"protocol": p["protocol_id"], "messages": len(p["messages"]),
               "fields": sum(len(m["fields"]) for m in p["messages"]),
               "semantic_states": len(s["states"]), "validated": True,
               "runtime": p["support"]["runtime"], "scope": p["scope"],
-              "example_validation": ("protocol envelope and length consistency; scoped BACnet decoder checks for runtime fixtures; not live service conformance"),
+              "example_validation": ("protocol envelope and length consistency; bounded runtime codec validates complete fixtures and exact field ranges; not live service conformance"),
+              "message_aliases": aliases,
               "execution_contract": {
                   "static_only": not p["support"]["runtime"],
                   "static_metadata": STATIC_METADATA,
-                  "field_when_repeat": "static-only; rejected by runtime-enabled profiles",
+                  "field_when_repeat": "generic when/repeat are static-only; exact Modbus multiwrite data/count repeat descriptors are codec-managed",
                   "dependencies": "whitelisted operations only; scope and when are annotations",
                   "content_scalar_strategies": "runtime uses AFL field projection; values/strategies are annotations for CONTENT scalars",
                   "runtime_encode": "capability assertion derived from runtime support and message direction; never an execution switch",
+                  "validator_build": "non-BACnet runtime validation requires a C11 compiler (CC or cc), protocol_codecs.h and all five protocol_codec_*.c sources; no Python in StateAFL mutation loop",
               }}
     (output / "validation.json").write_text(json.dumps(result, indent=2) + "\n")
     return result

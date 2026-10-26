@@ -1596,8 +1596,12 @@ int send_over_network()
                             kl_val(it)->msize, error, sizeof(error)) < 0) {
         /* Deliberately invalid packets must reach the target unchanged. */
         if (kl_val(it)->protocol_structured &&
-            (protocol_mode == PROTO_VALID || protocol_mode == PROTO_HYBRID))
-          FATAL("Protocol session dependency: %s", error);
+            (protocol_mode == PROTO_VALID || protocol_mode == PROTO_HYBRID)) {
+          protocol_rejections++;
+          if (protocol_log)
+            fprintf(protocol_log,"{\"event\":\"session_rejected\",\"reason\":\"%s\"}\n",error);
+          goto HANDLE_RESPONSES;
+        }
       }
     }
     n = net_send(sockfd, timeout, kl_val(it)->mdata, kl_val(it)->msize);
@@ -6412,6 +6416,16 @@ static void protocol_capture(kliter_t(lms) *first, kliter_t(lms) *last) {
   size_t whole = 0;
   for (kliter_t(lms) *it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it))
     whole += 4 + kl_val(it)->msize;
+  size_t prefix = 0;
+  for (kliter_t(lms) *it = kl_begin(kl_messages); it != first; it = kl_next(it)) {
+    message_t *message = kl_val(it);
+    if (message->msize > MAX_FILE - prefix - 4) FATAL("Protocol M1 exceeds MAX_FILE");
+    for (unsigned j=0;j<4;j++) protocol_wire[prefix+j]=(u32)message->msize>>(8*j);
+    memcpy(protocol_wire+prefix+4,message->mdata,message->msize);prefix+=4+message->msize;
+  }
+  char error[256];
+  if (proto_set_prefix(protocol_engine,protocol_wire,prefix,error,sizeof(error))<0 && protocol_log)
+    fprintf(protocol_log,"{\"event\":\"prefix_rejected\",\"reason\":\"%s\"}\n",error);
   protocol_base_len = 0;
   for (; first != last; first = kl_next(first)) {
     message_t *m = kl_val(first);
@@ -10638,8 +10652,8 @@ int main(int argc, char** argv) {
     char error[256];
     protocol_engine = proto_load(protocol_spec_path, protocol_state_path, error, sizeof(error));
     if (!protocol_engine) FATAL("Protocol model: %s", error);
-    if (net_protocol != PRO_UDP)
-      FATAL("The enabled BACnet/IP runtime model requires UDP transport");
+    if ((net_protocol == PRO_UDP) != !strcmp(proto_transport(protocol_engine),"udp"))
+      FATAL("The enabled protocol runtime model requires %s transport",proto_transport(protocol_engine));
     if (protocol_selected)
       FATAL("Use generic replayable framing with --protocol-spec; omit legacy -P");
   }

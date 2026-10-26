@@ -17,17 +17,11 @@
             "protocol_version",
             "option_flags"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -242,7 +236,7 @@
       "id": "register",
       "match": "register",
       "notes": "RegisterSession request handle is zero. A successful response assigns a nonzero handle; Sender Context is echoed. Registration request alone does not establish a registered session.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -256,17 +250,11 @@
             "context",
             "options"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -436,7 +424,7 @@
       "id": "unregister",
       "match": "unregister",
       "notes": "UnregisterSession has no command-specific data and no response; closes registered encapsulation session and its connections.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -452,17 +440,11 @@
             "protocol_version",
             "option_flags"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -705,20 +687,14 @@
             "cip_service",
             "path_words"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "cip",
             "epath"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1241,7 +1217,7 @@
       "id": "send_rr",
       "match": "send_rr",
       "notes": "CIP GetAttributeSingle Identity class 1/instance 1/attribute 1 (Vendor ID). Response bit7 set; additional-status size counts UInt16 words.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -1266,8 +1242,7 @@
             "general_status",
             "additional_status_words"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -1275,12 +1250,7 @@
             "additional_status",
             "response_data"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1894,8 +1864,7 @@
             "general_status",
             "additional_status_words"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -1903,12 +1872,7 @@
             "additional_status",
             "response_data"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -2522,20 +2486,14 @@
             "connection_id",
             "connected_sequence"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "cip",
             "epath"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3117,7 +3075,7 @@
       "id": "send_unit",
       "match": "send_unit",
       "notes": "Complete static SendUnitData packet: ConnectedAddress(0xA1,length=4), ConnectedData(0xB1) with UInt16 sequence plus complete GetAttributeSingle CIP. EXTERNAL PRECONDITION: a successful ForwardOpen has already established an unexpired class-3 explicit connection in this registered session and supplied both directional connection IDs. RegisterSession alone is insufficient. IDs 0x10000001/0x20000001 are illustrative placeholders, not an automatically established connection; no ForwardOpen fixture or automatic provisioning is claimed.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -3144,8 +3102,7 @@
             "connection_id",
             "connected_sequence"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -3153,12 +3110,7 @@
             "additional_status",
             "response_data"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3821,17 +3773,11 @@
             "context",
             "options"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -4015,17 +3961,11 @@
             "context",
             "options"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -4201,7 +4141,7 @@
   ],
   "name": "EtherNet/IP and CIP explicit TCP",
   "protocol_id": "ethernet_ip_cip_tcp",
-  "scope": "EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply), SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response layouts and encapsulation/CIP errors. SendUnitData requires an externally successful ForwardOpen establishing class-3 connection and supplying directional IDs; this model does not establish that prerequisite. Complete static explicit-message profile; no runtime encoder.",
+  "scope": "EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply), SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response layouts and encapsulation/CIP errors. SendUnitData requires an externally successful ForwardOpen establishing class-3 connection and supplying directional IDs; this model does not establish that prerequisite. Bounded runtime explicit-message codec and structural repair.",
   "sources": [
     {
       "basis": "implementation",
@@ -4224,8 +4164,8 @@
       "other CIP objects/services",
       "full subscription-only ODVA normative conformance"
     ],
-    "level": "static description; runtime encoder unavailable",
-    "runtime": false
+    "level": "runtime scoped codec",
+    "runtime": true
   },
   "transport": "tcp",
   "version": "Encapsulation v1; public OpENer implementation"

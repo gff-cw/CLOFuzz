@@ -74,8 +74,9 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h $(COMM_HDR) aflnet.o aflnet.h | test_x86
-	$(CC) $(CFLAGS) $@.c protocol_runtime.c aflnet.o -o $@ $(LDFLAGS)
+PROTOCOL_CODECS = $(wildcard protocol_codec_*.c)
+afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_codecs.h $(PROTOCOL_CODECS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
+	$(CC) $(CFLAGS) $@.c protocol_runtime.c $(PROTOCOL_CODECS) aflnet.o -o $@ $(LDFLAGS)
 
 afl-replay: afl-replay.c $(COMM_HDR) aflnet.o aflnet.h | test_x86
 	$(CC) $(CFLAGS) $@.c aflnet.o -o $@ $(LDFLAGS)
