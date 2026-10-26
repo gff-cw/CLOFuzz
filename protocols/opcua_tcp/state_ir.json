@@ -1,0 +1,162 @@
+{
+  "format_version": 1,
+  "initial": "tcp",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "opcua_tcp",
+  "states": [
+    {
+      "id": "tcp",
+      "meaning": "TCP connected"
+    },
+    {
+      "id": "hello_sent",
+      "meaning": "HEL sent; ACK pending"
+    },
+    {
+      "id": "acknowledged",
+      "meaning": "ACK buffers negotiated"
+    },
+    {
+      "id": "channel_pending",
+      "meaning": "OpenSecureChannel Issue sent"
+    },
+    {
+      "id": "channel",
+      "meaning": "Successful OpenSecureChannel response; unexpired token bound, no Session"
+    },
+    {
+      "id": "closed",
+      "meaning": "Transport/channel closed"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [],
+      "from": "tcp",
+      "guard": "",
+      "message": "hello",
+      "response": "ack",
+      "to": "hello_sent"
+    },
+    {
+      "actions": [],
+      "from": "hello_sent",
+      "guard": "negotiation accepted",
+      "message": "ack",
+      "response": "",
+      "to": "acknowledged"
+    },
+    {
+      "actions": [],
+      "from": "acknowledged",
+      "guard": "SecurityPolicy None; request type Issue",
+      "message": "open_channel",
+      "response": "open_channel_response",
+      "to": "channel_pending"
+    },
+    {
+      "actions": [
+        "bind channel and token; track expiry"
+      ],
+      "from": "channel_pending",
+      "guard": "service_result Good; channel/token assigned",
+      "message": "open_channel_response",
+      "response": "",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "advance per-direction sequence; cache request ID/handle"
+      ],
+      "from": "channel",
+      "guard": "token valid; GetEndpoints requires no Session",
+      "message": "message",
+      "response": "message_response",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "clear request context"
+      ],
+      "from": "channel",
+      "guard": "matching request ID/handle",
+      "message": "message_response",
+      "response": "",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "clear request context"
+      ],
+      "from": "channel",
+      "guard": "matching request ID/handle; Bad status",
+      "message": "service_fault",
+      "response": "",
+      "to": "channel"
+    },
+    {
+      "actions": [
+        "clear token/channel"
+      ],
+      "from": "channel",
+      "guard": "no response expected",
+      "message": "close_channel",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "tcp",
+      "guard": "reverse-connect role only",
+      "message": "reverse_hello",
+      "response": "",
+      "to": "tcp"
+    },
+    {
+      "actions": [],
+      "from": "tcp",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "hello_sent",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "acknowledged",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "channel_pending",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    },
+    {
+      "actions": [],
+      "from": "channel",
+      "guard": "transport error closes connection",
+      "message": "error",
+      "response": "",
+      "to": "closed"
+    }
+  ]
+}

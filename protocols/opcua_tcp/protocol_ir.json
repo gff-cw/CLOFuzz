@@ -1,0 +1,3895 @@
+{
+  "codec": "opcua",
+  "format_version": 1,
+  "framing": "protocol length inside replayable records",
+  "ir_version": 1,
+  "messages": [
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "protocol_version",
+            "receive_buffer",
+            "send_buffer",
+            "max_message_size",
+            "max_chunk_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "endpoint"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "request",
+      "example": "48454c46380000000000000000000100000001000000000000000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4998472,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4998472,
+          "min": 4998472,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4998472
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0000000000000100000001000000000000000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "protocol_version",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "receive_buffer",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "send_buffer",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "max_message_size",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "max_chunk_count",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "endpoint_url",
+                "kind": "field",
+                "type": "String-Int32-length-UTF8"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "protocol_version",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "official",
+          "id": "receive_buffer",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "official",
+          "id": "send_buffer",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "max_message_size",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "max_chunk_count",
+          "locator": "abs:24",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "opc.tcp://127.0.0.1:4840",
+          "endian": "big",
+          "evidence": "official",
+          "id": "endpoint",
+          "locator": "uabin:endpoint",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:endpoint",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "hello",
+      "match": "hello",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "protocol_version",
+            "receive_buffer",
+            "send_buffer",
+            "max_message_size",
+            "max_chunk_count"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "response",
+      "example": "41434b461c0000000000000000000100000001000000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4932417,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4932417,
+          "min": 4932417,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4932417
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0000000000000100000001000000000000000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "protocol_version",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "receive_buffer",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "send_buffer",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "max_message_size",
+                "kind": "field",
+                "type": "UInt32-little"
+              },
+              {
+                "id": "max_chunk_count",
+                "kind": "field",
+                "type": "UInt32-little"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "protocol_version",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "official",
+          "id": "receive_buffer",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 65536,
+          "endian": "little",
+          "evidence": "official",
+          "id": "send_buffer",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "max_message_size",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "max_chunk_count",
+          "locator": "abs:24",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "ack",
+      "match": "ack",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "error_code"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "reason"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "response",
+      "example": "45525246200000000000838010000000556e6b6e6f776e20656e64706f696e74",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5395013,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 5395013,
+          "min": 5395013,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            5395013
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0000838010000000556e6b6e6f776e20656e64706f696e74",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "error",
+                "kind": "field",
+                "type": "StatusCode"
+              },
+              {
+                "id": "reason",
+                "kind": "field",
+                "type": "String"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2156068864,
+          "endian": "little",
+          "evidence": "official",
+          "id": "error_code",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "Unknown endpoint",
+          "endian": "big",
+          "evidence": "official",
+          "id": "reason",
+          "locator": "uabin:reason",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:reason",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "error",
+      "match": "error",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "server_uri",
+            "endpoint"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        }
+      ],
+      "direction": "response",
+      "example": "52484546400000001800000075726e3a6578616d706c653a6c6f63616c3a736572766572180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4540498,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4540498,
+          "min": 4540498,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4540498
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "1800000075726e3a6578616d706c653a6c6f63616c3a736572766572180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "server_uri",
+                "kind": "field",
+                "type": "String"
+              },
+              {
+                "id": "endpoint_url",
+                "kind": "field",
+                "type": "String"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "urn:example:local:server",
+          "endian": "big",
+          "evidence": "official",
+          "id": "server_uri",
+          "locator": "uabin:server_uri",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:server_uri",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "opc.tcp://127.0.0.1:4840",
+          "endian": "big",
+          "evidence": "official",
+          "id": "endpoint",
+          "locator": "uabin:endpoint",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:endpoint",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "reverse_hello",
+      "match": "reverse_hello",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response. RHE is sent by the server in reverse-connect mode; it does not itself negotiate a SecureChannel.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "sequence",
+            "request_id",
+            "request_handle",
+            "protocol_version",
+            "request_type",
+            "security_mode",
+            "requested_lifetime"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid",
+            "policy_uri",
+            "sender_certificate",
+            "receiver_thumbprint"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "sequence"
+        }
+      ],
+      "direction": "request",
+      "example": "4f504e4684000000000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100be01000000c030c71364dd0101000000000000000000000010270000000000000000000000000001000000ffffffffc0270900",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5132367,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 5132367,
+          "min": 5132367,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            5132367
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100be01000000c030c71364dd0101000000000000000000000010270000000000000000000000000001000000ffffffffc0270900",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "secure_channel_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "security_header",
+                "kind": "field",
+                "type": "AsymmetricAlgorithmHeader-3-Strings"
+              },
+              {
+                "id": "sequence_number",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "request_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "encoding_id",
+                "kind": "field",
+                "type": "NodeId"
+              },
+              {
+                "children": [
+                  {
+                    "id": "authentication_token",
+                    "kind": "field",
+                    "type": "NodeId-null-for-discovery"
+                  },
+                  {
+                    "id": "timestamp",
+                    "kind": "field",
+                    "type": "DateTime-Int64"
+                  },
+                  {
+                    "id": "request_handle",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "return_diagnostics",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "audit_entry_id",
+                    "kind": "field",
+                    "type": "String"
+                  },
+                  {
+                    "id": "timeout_hint",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "additional_header",
+                    "kind": "field",
+                    "type": "ExtensionObject"
+                  }
+                ],
+                "id": "request_header",
+                "kind": "sequence"
+              },
+              {
+                "id": "client_protocol_version",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "request_type",
+                "kind": "field",
+                "type": "SecurityTokenRequestType-Issue"
+              },
+              {
+                "id": "security_mode",
+                "kind": "field",
+                "type": "MessageSecurityMode-None-1"
+              },
+              {
+                "id": "nonce",
+                "kind": "field",
+                "type": "ByteString-null-for-None"
+              },
+              {
+                "id": "requested_lifetime",
+                "kind": "field",
+                "type": "UInt32"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "abs:8",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "sequence",
+          "locator": "abs:71",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:71",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_id",
+          "locator": "abs:75",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:75",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0100be01",
+          "endian": "big",
+          "evidence": "official",
+          "id": "service_nodeid",
+          "locator": "abs:79",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:79",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_handle",
+          "locator": "uabin:header.request_handle",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.request_handle",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "http://opcfoundation.org/UA/SecurityPolicy#None",
+          "endian": "big",
+          "evidence": "official",
+          "id": "policy_uri",
+          "locator": "uabin:policy_uri",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:policy_uri",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "",
+          "endian": "big",
+          "evidence": "official",
+          "id": "sender_certificate",
+          "locator": "uabin:sender_certificate",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:sender_certificate",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Int32 length -1 means null in None profile.",
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "",
+          "endian": "big",
+          "evidence": "official",
+          "id": "receiver_thumbprint",
+          "locator": "uabin:receiver_thumbprint",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:receiver_thumbprint",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Int32 length -1 means null in None profile.",
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "protocol_version",
+          "locator": "uabin:open.protocol_version",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "uabin:open.protocol_version",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_type",
+          "locator": "uabin:open.request_type",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "uabin:open.request_type",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            0
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "security_mode",
+          "locator": "uabin:open.security_mode",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "uabin:open.security_mode",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            1
+          ],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 600000,
+          "endian": "little",
+          "evidence": "official",
+          "id": "requested_lifetime",
+          "locator": "uabin:open.lifetime",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:open.lifetime",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "open_channel",
+      "match": "open_channel",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "sequence",
+            "request_id",
+            "request_handle",
+            "token",
+            "token_channel",
+            "created_at",
+            "revised_lifetime",
+            "service_result"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid",
+            "policy_uri",
+            "sender_certificate",
+            "receiver_thumbprint"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        },
+        {
+          "message": "open_channel",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "request_id",
+          "target": "request_id"
+        },
+        {
+          "message": "open_channel",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "request_handle",
+          "target": "request_handle"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "sequence"
+        }
+      ],
+      "direction": "response",
+      "example": "4f504e4687000000010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100c10100c030c71364dd010100000000000000000000000000000000000000010000000100000000c030c71364dd01c0270900ffffffff",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 5132367,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 5132367,
+          "min": 5132367,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            5132367
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100c10100c030c71364dd010100000000000000000000000000000000000000010000000100000000c030c71364dd01c0270900ffffffff",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "secure_channel_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "security_header",
+                "kind": "field",
+                "type": "AsymmetricAlgorithmHeader-3-Strings"
+              },
+              {
+                "id": "sequence_number",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "request_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "encoding_id",
+                "kind": "field",
+                "type": "NodeId"
+              },
+              {
+                "children": [
+                  {
+                    "id": "timestamp",
+                    "kind": "field",
+                    "type": "DateTime-Int64"
+                  },
+                  {
+                    "id": "request_handle",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "service_result",
+                    "kind": "field",
+                    "type": "StatusCode"
+                  },
+                  {
+                    "id": "service_diagnostics",
+                    "kind": "field",
+                    "type": "DiagnosticInfo"
+                  },
+                  {
+                    "children": [
+                      {
+                        "id": "string",
+                        "kind": "field",
+                        "type": "String"
+                      }
+                    ],
+                    "id": "string_table",
+                    "kind": "repeat",
+                    "max": 64,
+                    "min": 0
+                  },
+                  {
+                    "id": "additional_header",
+                    "kind": "field",
+                    "type": "ExtensionObject"
+                  }
+                ],
+                "id": "response_header",
+                "kind": "sequence"
+              },
+              {
+                "id": "server_protocol_version",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "children": [
+                  {
+                    "id": "channel_id",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "token_id",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "created_at",
+                    "kind": "field",
+                    "type": "DateTime"
+                  },
+                  {
+                    "id": "revised_lifetime",
+                    "kind": "field",
+                    "type": "UInt32"
+                  }
+                ],
+                "id": "security_token",
+                "kind": "sequence"
+              },
+              {
+                "id": "nonce",
+                "kind": "field",
+                "type": "ByteString-null-for-None"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "sequence",
+          "locator": "abs:71",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:71",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_id",
+          "locator": "abs:75",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:75",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0100c101",
+          "endian": "big",
+          "evidence": "official",
+          "id": "service_nodeid",
+          "locator": "abs:79",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:79",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_handle",
+          "locator": "uabin:header.request_handle",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.request_handle",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "http://opcfoundation.org/UA/SecurityPolicy#None",
+          "endian": "big",
+          "evidence": "official",
+          "id": "policy_uri",
+          "locator": "uabin:policy_uri",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:policy_uri",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "",
+          "endian": "big",
+          "evidence": "official",
+          "id": "sender_certificate",
+          "locator": "uabin:sender_certificate",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:sender_certificate",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Int32 length -1 means null in None profile.",
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "",
+          "endian": "big",
+          "evidence": "official",
+          "id": "receiver_thumbprint",
+          "locator": "uabin:receiver_thumbprint",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:receiver_thumbprint",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Int32 length -1 means null in None profile.",
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "token",
+          "locator": "uabin:token.token_id",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:token.token_id",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "token_channel",
+          "locator": "uabin:token.channel_id",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:token.channel_id",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 134373600000000000,
+          "endian": "little",
+          "evidence": "official",
+          "id": "created_at",
+          "locator": "uabin:token.created_at",
+          "max": 18446744073709551615,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:token.created_at",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint64",
+          "values": [],
+          "width": 8
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 600000,
+          "endian": "little",
+          "evidence": "official",
+          "id": "revised_lifetime",
+          "locator": "uabin:token.lifetime",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:token.lifetime",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "service_result",
+          "locator": "uabin:header.service_result",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.service_result",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "open_channel_response",
+      "match": "open_channel_response",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "sequence",
+            "request_id",
+            "request_handle",
+            "token"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid",
+            "endpoint"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "channel",
+          "target": "channel"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "token",
+          "target": "token"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "sequence"
+        }
+      ],
+      "direction": "request",
+      "example": "4d5347465d000000010000000100000002000000020000000100ac01000000c030c71364dd0102000000000000000000000010270000000000180000006f70632e7463703a2f2f3132372e302e302e313a343834300000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4674381,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4674381,
+          "min": 4674381,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4674381
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "010000000100000002000000020000000100ac01000000c030c71364dd0102000000000000000000000010270000000000180000006f70632e7463703a2f2f3132372e302e302e313a343834300000000000000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "secure_channel_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "security_header",
+                "kind": "field",
+                "type": "SymmetricAlgorithmHeader-TokenId"
+              },
+              {
+                "id": "sequence_number",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "request_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "encoding_id",
+                "kind": "field",
+                "type": "NodeId"
+              },
+              {
+                "children": [
+                  {
+                    "id": "authentication_token",
+                    "kind": "field",
+                    "type": "NodeId-null-for-discovery"
+                  },
+                  {
+                    "id": "timestamp",
+                    "kind": "field",
+                    "type": "DateTime-Int64"
+                  },
+                  {
+                    "id": "request_handle",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "return_diagnostics",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "audit_entry_id",
+                    "kind": "field",
+                    "type": "String"
+                  },
+                  {
+                    "id": "timeout_hint",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "additional_header",
+                    "kind": "field",
+                    "type": "ExtensionObject"
+                  }
+                ],
+                "id": "request_header",
+                "kind": "sequence"
+              },
+              {
+                "id": "endpoint_url",
+                "kind": "field",
+                "type": "String"
+              },
+              {
+                "children": [
+                  {
+                    "id": "locale",
+                    "kind": "field",
+                    "type": "String"
+                  }
+                ],
+                "id": "locale_ids",
+                "kind": "repeat",
+                "max": 64,
+                "min": 0
+              },
+              {
+                "children": [
+                  {
+                    "id": "uri",
+                    "kind": "field",
+                    "type": "String"
+                  }
+                ],
+                "id": "profile_uris",
+                "kind": "repeat",
+                "max": 64,
+                "min": 0
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "sequence",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_id",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0100ac01",
+          "endian": "big",
+          "evidence": "official",
+          "id": "service_nodeid",
+          "locator": "abs:24",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_handle",
+          "locator": "uabin:header.request_handle",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.request_handle",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "token",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "opc.tcp://127.0.0.1:4840",
+          "endian": "big",
+          "evidence": "official",
+          "id": "endpoint",
+          "locator": "uabin:endpoint",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:endpoint",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "string",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "message",
+      "match": "message",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response. MSG carries complete GetEndpoints Discovery request; this service does not require CreateSession/ActivateSession.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "sequence",
+            "request_id",
+            "request_handle",
+            "token",
+            "service_result"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "channel",
+          "target": "channel"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "token",
+          "target": "token"
+        },
+        {
+          "message": "message",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "request_id",
+          "target": "request_id"
+        },
+        {
+          "message": "message",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "request_handle",
+          "target": "request_handle"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "sequence"
+        }
+      ],
+      "direction": "response",
+      "example": "4d5347466e010000010000000100000002000000020000000100af0100c030c71364dd010200000000000000000000000000000001000000180000006f70632e7463703a2f2f3132372e302e302e313a343834301800000075726e3a6578616d706c653a6c6f63616c3a7365727665721300000075726e3a6578616d706c653a70726f66696c6502140000004c6f63616c206578616d706c652073657276657200000000ffffffffffffffff01000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430ffffffff010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e650100000009000000616e6f6e796d6f757300000000ffffffffffffffffffffffff41000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412d50726f66696c652f5472616e73706f72742f75617463702d756173632d756162696e61727900",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4674381,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4674381,
+          "min": 4674381,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4674381
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "010000000100000002000000020000000100af0100c030c71364dd010200000000000000000000000000000001000000180000006f70632e7463703a2f2f3132372e302e302e313a343834301800000075726e3a6578616d706c653a6c6f63616c3a7365727665721300000075726e3a6578616d706c653a70726f66696c6502140000004c6f63616c206578616d706c652073657276657200000000ffffffffffffffff01000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430ffffffff010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e650100000009000000616e6f6e796d6f757300000000ffffffffffffffffffffffff41000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412d50726f66696c652f5472616e73706f72742f75617463702d756173632d756162696e61727900",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "secure_channel_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "security_header",
+                "kind": "field",
+                "type": "SymmetricAlgorithmHeader-TokenId"
+              },
+              {
+                "id": "sequence_number",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "request_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "encoding_id",
+                "kind": "field",
+                "type": "NodeId"
+              },
+              {
+                "children": [
+                  {
+                    "id": "timestamp",
+                    "kind": "field",
+                    "type": "DateTime-Int64"
+                  },
+                  {
+                    "id": "request_handle",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "service_result",
+                    "kind": "field",
+                    "type": "StatusCode"
+                  },
+                  {
+                    "id": "service_diagnostics",
+                    "kind": "field",
+                    "type": "DiagnosticInfo"
+                  },
+                  {
+                    "children": [
+                      {
+                        "id": "string",
+                        "kind": "field",
+                        "type": "String"
+                      }
+                    ],
+                    "id": "string_table",
+                    "kind": "repeat",
+                    "max": 64,
+                    "min": 0
+                  },
+                  {
+                    "id": "additional_header",
+                    "kind": "field",
+                    "type": "ExtensionObject"
+                  }
+                ],
+                "id": "response_header",
+                "kind": "sequence"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "endpoint_url",
+                        "kind": "field",
+                        "type": "String"
+                      },
+                      {
+                        "children": [
+                          {
+                            "id": "application_uri",
+                            "kind": "field",
+                            "type": "String"
+                          },
+                          {
+                            "id": "product_uri",
+                            "kind": "field",
+                            "type": "String"
+                          },
+                          {
+                            "id": "application_name",
+                            "kind": "field",
+                            "type": "LocalizedText"
+                          },
+                          {
+                            "id": "application_type",
+                            "kind": "field",
+                            "type": "UInt32"
+                          },
+                          {
+                            "id": "gateway_uri",
+                            "kind": "field",
+                            "type": "String"
+                          },
+                          {
+                            "id": "discovery_profile_uri",
+                            "kind": "field",
+                            "type": "String"
+                          },
+                          {
+                            "children": [
+                              {
+                                "id": "url",
+                                "kind": "field",
+                                "type": "String"
+                              }
+                            ],
+                            "id": "discovery_urls",
+                            "kind": "repeat",
+                            "max": 64,
+                            "min": 0
+                          }
+                        ],
+                        "id": "server",
+                        "kind": "sequence"
+                      },
+                      {
+                        "id": "certificate",
+                        "kind": "field",
+                        "type": "ByteString"
+                      },
+                      {
+                        "id": "security_mode",
+                        "kind": "field",
+                        "type": "UInt32"
+                      },
+                      {
+                        "id": "security_policy_uri",
+                        "kind": "field",
+                        "type": "String"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "id": "policy_id",
+                                "kind": "field",
+                                "type": "String"
+                              },
+                              {
+                                "id": "token_type",
+                                "kind": "field",
+                                "type": "UInt32"
+                              },
+                              {
+                                "id": "issued_token_type",
+                                "kind": "field",
+                                "type": "String"
+                              },
+                              {
+                                "id": "issuer_endpoint_url",
+                                "kind": "field",
+                                "type": "String"
+                              },
+                              {
+                                "id": "security_policy_uri",
+                                "kind": "field",
+                                "type": "String"
+                              }
+                            ],
+                            "id": "user_token_policy",
+                            "kind": "sequence"
+                          }
+                        ],
+                        "id": "user_tokens",
+                        "kind": "repeat",
+                        "max": 64,
+                        "min": 0
+                      },
+                      {
+                        "id": "transport_profile_uri",
+                        "kind": "field",
+                        "type": "String"
+                      },
+                      {
+                        "id": "security_level",
+                        "kind": "field",
+                        "type": "Byte"
+                      }
+                    ],
+                    "id": "endpoint",
+                    "kind": "sequence"
+                  }
+                ],
+                "encoding": "Int32-count-then-EndpointDescription",
+                "id": "endpoints",
+                "kind": "repeat",
+                "max": 64,
+                "min": 0
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "sequence",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_id",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0100af01",
+          "endian": "big",
+          "evidence": "official",
+          "id": "service_nodeid",
+          "locator": "abs:24",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_handle",
+          "locator": "uabin:header.request_handle",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.request_handle",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "token",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "service_result",
+          "locator": "uabin:header.service_result",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.service_result",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "message_response",
+      "match": "message_response",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "sequence",
+            "request_id",
+            "request_handle",
+            "token",
+            "service_result"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "channel",
+          "target": "channel"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "token",
+          "target": "token"
+        },
+        {
+          "message": "message",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "request_id",
+          "target": "request_id"
+        },
+        {
+          "message": "message",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "request_handle",
+          "target": "request_handle"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "sequence"
+        }
+      ],
+      "direction": "response",
+      "example": "4d534746340000000100000001000000020000000200000001008d0100c030c71364dd010200000000000b800000000000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 4674381,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 4674381,
+          "min": 4674381,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            4674381
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 70,
+          "endian": "big",
+          "evidence": "official",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 0,
+          "endian": "little",
+          "evidence": "official",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "0100000001000000020000000200000001008d0100c030c71364dd010200000000000b800000000000000000",
+          "endian": "big",
+          "evidence": "official",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "secure_channel_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "security_header",
+                "kind": "field",
+                "type": "SymmetricAlgorithmHeader-TokenId"
+              },
+              {
+                "id": "sequence_number",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "request_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "encoding_id",
+                "kind": "field",
+                "type": "NodeId"
+              },
+              {
+                "children": [
+                  {
+                    "id": "timestamp",
+                    "kind": "field",
+                    "type": "DateTime-Int64"
+                  },
+                  {
+                    "id": "request_handle",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "service_result",
+                    "kind": "field",
+                    "type": "StatusCode"
+                  },
+                  {
+                    "id": "service_diagnostics",
+                    "kind": "field",
+                    "type": "DiagnosticInfo"
+                  },
+                  {
+                    "children": [
+                      {
+                        "id": "string",
+                        "kind": "field",
+                        "type": "String"
+                      }
+                    ],
+                    "id": "string_table",
+                    "kind": "repeat",
+                    "max": 64,
+                    "min": 0
+                  },
+                  {
+                    "id": "additional_header",
+                    "kind": "field",
+                    "type": "ExtensionObject"
+                  }
+                ],
+                "id": "response_header",
+                "kind": "sequence"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "sequence",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_id",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "normative",
+          "default": "01008d01",
+          "endian": "big",
+          "evidence": "official",
+          "id": "service_nodeid",
+          "locator": "abs:24",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2,
+          "endian": "little",
+          "evidence": "official",
+          "id": "request_handle",
+          "locator": "uabin:header.request_handle",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.request_handle",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 1,
+          "endian": "little",
+          "evidence": "official",
+          "id": "token",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "normative",
+          "default": 2148204544,
+          "endian": "little",
+          "evidence": "official",
+          "id": "service_result",
+          "locator": "uabin:header.service_result",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.service_result",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "service_fault",
+      "match": "service_fault",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "message_type",
+            "chunk",
+            "message_size",
+            "channel",
+            "sequence",
+            "request_id",
+            "request_handle",
+            "token"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "body",
+            "service_nodeid"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "message_size"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "channel",
+          "target": "channel"
+        },
+        {
+          "message": "open_channel_response",
+          "op": "bind_from_response",
+          "scope": "connection",
+          "source": "token",
+          "target": "token"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "sequence"
+        }
+      ],
+      "direction": "request",
+      "example": "434c4f4639000000010000000100000003000000030000000100c401000000c030c71364dd0103000000000000000000000010270000000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 5196867,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "message_type",
+          "locator": "abs:0",
+          "max": 5196867,
+          "min": 5196867,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            5196867
+          ],
+          "width": 3
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 70,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "chunk",
+          "locator": "abs:3",
+          "max": 70,
+          "min": 70,
+          "mutability": "fixed",
+          "path": "abs:3",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            70
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "message_size",
+          "locator": "abs:4",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:4",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "010000000100000003000000030000000100c401000000c030c71364dd0103000000000000000000000010270000000000",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "body",
+          "locator": "abs:8",
+          "max": 65507,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure_model": {
+            "children": [
+              {
+                "id": "secure_channel_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "security_header",
+                "kind": "field",
+                "type": "SymmetricAlgorithmHeader-TokenId"
+              },
+              {
+                "id": "sequence_number",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "request_id",
+                "kind": "field",
+                "type": "UInt32"
+              },
+              {
+                "id": "encoding_id",
+                "kind": "field",
+                "type": "NodeId"
+              },
+              {
+                "children": [
+                  {
+                    "id": "authentication_token",
+                    "kind": "field",
+                    "type": "NodeId-null-for-discovery"
+                  },
+                  {
+                    "id": "timestamp",
+                    "kind": "field",
+                    "type": "DateTime-Int64"
+                  },
+                  {
+                    "id": "request_handle",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "return_diagnostics",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "audit_entry_id",
+                    "kind": "field",
+                    "type": "String"
+                  },
+                  {
+                    "id": "timeout_hint",
+                    "kind": "field",
+                    "type": "UInt32"
+                  },
+                  {
+                    "id": "additional_header",
+                    "kind": "field",
+                    "type": "ExtensionObject"
+                  }
+                ],
+                "id": "request_header",
+                "kind": "sequence"
+              }
+            ],
+            "encoding": "UA-Binary-little-endian; String/ByteString/array use signed-Int32 count; -1 null",
+            "id": "ua_binary_body",
+            "kind": "sequence"
+          },
+          "type": "bytes",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "channel",
+          "locator": "abs:8",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "sequence",
+          "locator": "abs:16",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:16",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "request_id",
+          "locator": "abs:20",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:20",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "0100c401",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "service_nodeid",
+          "locator": "abs:24",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:24",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "type": "nodeid",
+          "values": [],
+          "width": 0
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 3,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "request_handle",
+          "locator": "uabin:header.request_handle",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "uabin:header.request_handle",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "token",
+          "locator": "abs:12",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "abs:12",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "close_channel",
+      "match": "close_channel",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response. Implementation profile includes binary encoding NodeId 452 plus RequestHeader; Part6 7.1.4 says empty body. This wording difference is unresolved, so CLO is implementation evidence, not asserted full normative conformance. No response is sent.",
+      "runtime_encode": false,
+      "weight": 2
+    }
+  ],
+  "name": "OPC UA TCP",
+  "protocol_id": "opcua_tcp",
+  "scope": "Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers and nested endpoint/token arrays; no Session services or runtime encoder.",
+  "sources": [
+    {
+      "basis": "implementation",
+      "id": "wire",
+      "sections": "ua_binary.py and generated uaprotocol_auto.py: all service fixtures decoded completely and re-encoded byte-for-byte; no network exchange",
+      "url": "https://github.com/FreeOpcUa/opcua-asyncio/tree/c321a240e53d083fd6e167c67f795915d8f236fd/asyncua/ua"
+    },
+    {
+      "basis": "normative",
+      "id": "services",
+      "sections": "Discovery service set; Session not required",
+      "url": "https://reference.opcfoundation.org/specs/OPC-10000-4/5.5.1"
+    },
+    {
+      "basis": "normative",
+      "id": "nodeids",
+      "sections": "namespace0 binary encoding IDs: 397,428,431,446,449,452",
+      "url": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/latest/Schema/NodeIds.csv"
+    },
+    {
+      "basis": "normative",
+      "id": "official",
+      "sections": "Part 6 5.2 UA Binary, 6.7 UASC, 7.1 UACP; SecurityPolicy None, single final chunk",
+      "url": "https://reference.opcfoundation.org/specs/OPC-10000-6/full"
+    }
+  ],
+  "support": {
+    "excluded": [
+      "signing/encryption and certificates",
+      "OpenSecureChannel Renew and token-overlap behavior",
+      "CreateSession/ActivateSession and authenticated/session services",
+      "intermediate/abort chunks and runtime reassembly",
+      "whole-standard conformance; CLO normative wording difference unresolved"
+    ],
+    "level": "static description; runtime encoder unavailable",
+    "runtime": false
+  },
+  "transport": "tcp",
+  "version": "OPC10000 Part4/6 v1.05 / asyncua interoperability profile"
+}

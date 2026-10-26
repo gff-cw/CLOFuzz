@@ -6,8 +6,8 @@ mkdir -p "$result_dir"
 result_dir="$(realpath "$result_dir")"
 trap 'printf "Regression failed at line %s. Logs: %s\n" "$LINENO" "$result_dir" >&2' ERR
 export AFL_PATH="$PWD"
-regression_cc="${CC:-clang-18}"
-regression_cxx="${CXX:-clang++-18}"
+regression_cc="${CC:-clang}"
+regression_cxx="${CXX:-clang++}"
 export CC="$regression_cc" CXX="$regression_cxx"
 
 printf '%s\n' 'IR matrix'

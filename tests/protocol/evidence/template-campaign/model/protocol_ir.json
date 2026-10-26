@@ -1,0 +1,1157 @@
+{
+  "codec": "bacnet",
+  "format_version": 1,
+  "framing": "datagram",
+  "ir_version": 1,
+  "messages": [
+    {
+      "blocks": [
+        {
+          "fields": [
+            "bvlc_type",
+            "bvlc_function",
+            "bvlc_length",
+            "npdu_version",
+            "npdu_control",
+            "apdu_type",
+            "service"
+          ],
+          "id": "HEAD"
+        },
+        {
+          "fields": [
+            "limits"
+          ],
+          "id": "CONTENT"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "bvlc_length"
+        }
+      ],
+      "direction": "request",
+      "example": "810a000801001008",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 129,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_type",
+          "locator": "bvlc.type",
+          "max": 129,
+          "min": 129,
+          "mutability": "fixed",
+          "path": "bvlc.type",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            129
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 10,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_function",
+          "locator": "bvlc.function",
+          "max": 10,
+          "min": 10,
+          "mutability": "fixed",
+          "path": "bvlc.function",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            10
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_length",
+          "locator": "bvlc.length",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "bvlc.length",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "npdu_version",
+          "locator": "npdu.version",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "npdu.version",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "npdu_control",
+          "locator": "npdu.control",
+          "max": 255,
+          "min": 0,
+          "mutability": "conditional",
+          "path": "npdu.control",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Destination DNET/DLEN/DADR and source SNET/SLEN/SADR appear when NPDU control bits 5 and 3 are set; hop count follows addresses only for destination; reject network-layer bit 7 in runtime APDU scope.",
+          "structure_model": {
+            "children": [
+              {
+                "condition": "control bit5 set",
+                "id": "dnet",
+                "kind": "field",
+                "type": "uint16-big"
+              },
+              {
+                "condition": "control bit5 set",
+                "id": "dlen",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "children": [
+                  {
+                    "id": "address_octet",
+                    "kind": "field",
+                    "type": "uint8"
+                  }
+                ],
+                "condition": "DLEN octets when control bit5 set",
+                "id": "dadr",
+                "kind": "repeat",
+                "max": 255,
+                "min": 0
+              },
+              {
+                "condition": "control bit3 set",
+                "id": "snet",
+                "kind": "field",
+                "type": "uint16-big"
+              },
+              {
+                "condition": "control bit3 set",
+                "id": "slen",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "children": [
+                  {
+                    "id": "address_octet",
+                    "kind": "field",
+                    "type": "uint8"
+                  }
+                ],
+                "condition": "SLEN octets when control bit3 set",
+                "id": "sadr",
+                "kind": "repeat",
+                "max": 255,
+                "min": 1
+              },
+              {
+                "condition": "control bit5 set",
+                "id": "hop_count",
+                "kind": "field",
+                "type": "uint8"
+              }
+            ],
+            "encoding": "BACnet-NPDU",
+            "id": "npdu_addresses",
+            "kind": "sequence"
+          },
+          "type": "uint8",
+          "values": [
+            0,
+            4,
+            32,
+            8
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 16,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "apdu_type",
+          "locator": "apdu.type",
+          "max": 16,
+          "min": 16,
+          "mutability": "fixed",
+          "path": "apdu.type",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            16
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 8,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "service",
+          "locator": "apdu.service",
+          "max": 8,
+          "min": 8,
+          "mutability": "fixed",
+          "path": "apdu.service",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            8
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "limits",
+          "locator": "apdu.content",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "apdu.content",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Optional context [0] low and [1] high device-instance limits (0..4194303), both absent or both present.",
+          "structure_model": {
+            "children": [
+              {
+                "condition": "both limits absent",
+                "id": "absent",
+                "kind": "field",
+                "type": "empty"
+              },
+              {
+                "children": [
+                  {
+                    "id": "low",
+                    "kind": "field",
+                    "max": 4194303,
+                    "min": 0,
+                    "tag": 0,
+                    "type": "context-unsigned"
+                  },
+                  {
+                    "id": "high",
+                    "kind": "field",
+                    "max": 4194303,
+                    "min": 0,
+                    "tag": 1,
+                    "type": "context-unsigned"
+                  }
+                ],
+                "condition": "both present; low <= high <= 4194303",
+                "id": "range",
+                "kind": "sequence"
+              }
+            ],
+            "encoding": "BACnet-LVT",
+            "id": "device_limits",
+            "kind": "choice"
+          },
+          "type": "bacnet_tags",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "who_is",
+      "match": "who_is",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "bvlc_type",
+            "bvlc_function",
+            "bvlc_length",
+            "npdu_version",
+            "npdu_control",
+            "apdu_type",
+            "max_apdu",
+            "invoke_id",
+            "service"
+          ],
+          "id": "HEAD"
+        },
+        {
+          "fields": [
+            "object_id",
+            "property_id",
+            "array_index"
+          ],
+          "id": "CONTENT"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "bvlc_length"
+        }
+      ],
+      "direction": "request",
+      "example": "810a001101000005010c0c0200007b194d",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 129,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_type",
+          "locator": "bvlc.type",
+          "max": 129,
+          "min": 129,
+          "mutability": "fixed",
+          "path": "bvlc.type",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            129
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 10,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_function",
+          "locator": "bvlc.function",
+          "max": 10,
+          "min": 10,
+          "mutability": "fixed",
+          "path": "bvlc.function",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            10
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_length",
+          "locator": "bvlc.length",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "bvlc.length",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "npdu_version",
+          "locator": "npdu.version",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "npdu.version",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "npdu_control",
+          "locator": "npdu.control",
+          "max": 255,
+          "min": 0,
+          "mutability": "conditional",
+          "path": "npdu.control",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Destination DNET/DLEN/DADR and source SNET/SLEN/SADR appear when NPDU control bits 5 and 3 are set; hop count follows addresses only for destination; reject network-layer bit 7 in runtime APDU scope.",
+          "structure_model": {
+            "children": [
+              {
+                "condition": "control bit5 set",
+                "id": "dnet",
+                "kind": "field",
+                "type": "uint16-big"
+              },
+              {
+                "condition": "control bit5 set",
+                "id": "dlen",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "children": [
+                  {
+                    "id": "address_octet",
+                    "kind": "field",
+                    "type": "uint8"
+                  }
+                ],
+                "condition": "DLEN octets when control bit5 set",
+                "id": "dadr",
+                "kind": "repeat",
+                "max": 255,
+                "min": 0
+              },
+              {
+                "condition": "control bit3 set",
+                "id": "snet",
+                "kind": "field",
+                "type": "uint16-big"
+              },
+              {
+                "condition": "control bit3 set",
+                "id": "slen",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "children": [
+                  {
+                    "id": "address_octet",
+                    "kind": "field",
+                    "type": "uint8"
+                  }
+                ],
+                "condition": "SLEN octets when control bit3 set",
+                "id": "sadr",
+                "kind": "repeat",
+                "max": 255,
+                "min": 1
+              },
+              {
+                "condition": "control bit5 set",
+                "id": "hop_count",
+                "kind": "field",
+                "type": "uint8"
+              }
+            ],
+            "encoding": "BACnet-NPDU",
+            "id": "npdu_addresses",
+            "kind": "sequence"
+          },
+          "type": "uint8",
+          "values": [
+            0,
+            4,
+            32,
+            8
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "apdu_type",
+          "locator": "apdu.type",
+          "max": 0,
+          "min": 0,
+          "mutability": "fixed",
+          "path": "apdu.type",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            0
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 5,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "max_apdu",
+          "locator": "apdu.max_apdu",
+          "max": 5,
+          "min": 5,
+          "mutability": "fixed",
+          "path": "apdu.max_apdu",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            5
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "apdu.invoke",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "apdu.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 12,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "service",
+          "locator": "apdu.service",
+          "max": 12,
+          "min": 12,
+          "mutability": "fixed",
+          "path": "apdu.service",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            12
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 33554555,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "object_id",
+          "locator": "bacnet.object",
+          "max": 4294967295,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "bacnet.object",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "BACnet context tag 0; 10-bit object type and 22-bit instance.",
+          "type": "uint32",
+          "values": [
+            33554555,
+            33555666
+          ],
+          "width": 4
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 77,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "property_id",
+          "locator": "bacnet.property",
+          "max": 255,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "bacnet.property",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            75,
+            76,
+            77,
+            79,
+            112,
+            120,
+            121
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "array_index",
+          "locator": "bacnet.array",
+          "max": 255,
+          "min": 0,
+          "mutability": "conditional",
+          "path": "bacnet.array",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Optional context tag 2 unsigned array index; decoder uses actual tag width.",
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        }
+      ],
+      "id": "read_property",
+      "match": "read_property",
+      "notes": "",
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "bvlc_type",
+            "bvlc_function",
+            "bvlc_length",
+            "npdu_version",
+            "npdu_control",
+            "apdu_type",
+            "invoke_id",
+            "service"
+          ],
+          "id": "HEAD"
+        },
+        {
+          "fields": [
+            "value"
+          ],
+          "id": "CONTENT"
+        }
+      ],
+      "dependencies": [
+        {
+          "op": "length_of",
+          "source": "$message",
+          "target": "bvlc_length"
+        },
+        {
+          "message": "read_property",
+          "op": "correlate_request_response",
+          "scope": "transaction",
+          "source": "invoke_id",
+          "target": "invoke_id"
+        }
+      ],
+      "direction": "response",
+      "example": "810a0014010030010c0c0200007b194d3e75003f",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 129,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_type",
+          "locator": "bvlc.type",
+          "max": 129,
+          "min": 129,
+          "mutability": "fixed",
+          "path": "bvlc.type",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            129
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 10,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_function",
+          "locator": "bvlc.function",
+          "max": 10,
+          "min": 10,
+          "mutability": "fixed",
+          "path": "bvlc.function",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            10
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "bvlc_length",
+          "locator": "bvlc.length",
+          "max": 65535,
+          "min": 0,
+          "mutability": "derived",
+          "path": "bvlc.length",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "npdu_version",
+          "locator": "npdu.version",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "npdu.version",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "npdu_control",
+          "locator": "npdu.control",
+          "max": 255,
+          "min": 0,
+          "mutability": "conditional",
+          "path": "npdu.control",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Destination DNET/DLEN/DADR and source SNET/SLEN/SADR appear when NPDU control bits 5 and 3 are set; hop count follows addresses only for destination; reject network-layer bit 7 in runtime APDU scope.",
+          "structure_model": {
+            "children": [
+              {
+                "condition": "control bit5 set",
+                "id": "dnet",
+                "kind": "field",
+                "type": "uint16-big"
+              },
+              {
+                "condition": "control bit5 set",
+                "id": "dlen",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "children": [
+                  {
+                    "id": "address_octet",
+                    "kind": "field",
+                    "type": "uint8"
+                  }
+                ],
+                "condition": "DLEN octets when control bit5 set",
+                "id": "dadr",
+                "kind": "repeat",
+                "max": 255,
+                "min": 0
+              },
+              {
+                "condition": "control bit3 set",
+                "id": "snet",
+                "kind": "field",
+                "type": "uint16-big"
+              },
+              {
+                "condition": "control bit3 set",
+                "id": "slen",
+                "kind": "field",
+                "type": "uint8"
+              },
+              {
+                "children": [
+                  {
+                    "id": "address_octet",
+                    "kind": "field",
+                    "type": "uint8"
+                  }
+                ],
+                "condition": "SLEN octets when control bit3 set",
+                "id": "sadr",
+                "kind": "repeat",
+                "max": 255,
+                "min": 1
+              },
+              {
+                "condition": "control bit5 set",
+                "id": "hop_count",
+                "kind": "field",
+                "type": "uint8"
+              }
+            ],
+            "encoding": "BACnet-NPDU",
+            "id": "npdu_addresses",
+            "kind": "sequence"
+          },
+          "type": "uint8",
+          "values": [
+            0,
+            4,
+            32,
+            8
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 48,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "apdu_type",
+          "locator": "apdu.type",
+          "max": 48,
+          "min": 48,
+          "mutability": "fixed",
+          "path": "apdu.type",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            48
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "invoke_id",
+          "locator": "apdu.invoke",
+          "max": 255,
+          "min": 0,
+          "mutability": "runtime_bound",
+          "path": "apdu.invoke",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 12,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "service",
+          "locator": "apdu.service",
+          "max": 12,
+          "min": 12,
+          "mutability": "fixed",
+          "path": "apdu.service",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            12
+          ],
+          "width": 1
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": "",
+          "endian": "big",
+          "evidence": "wire",
+          "id": "value",
+          "locator": "apdu.content",
+          "max": 4096,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "apdu.content",
+          "role": "content",
+          "strategies": [
+            "afl",
+            "resize"
+          ],
+          "structure": "Context [3] opening/closing tags enclose application tags; BACnet LVT is not ASN.1 BER.",
+          "structure_model": {
+            "children": [
+              {
+                "id": "object_identifier",
+                "kind": "field",
+                "tag": 0,
+                "type": "context-object-id"
+              },
+              {
+                "id": "property_identifier",
+                "kind": "field",
+                "tag": 1,
+                "type": "context-unsigned"
+              },
+              {
+                "condition": "optional array index",
+                "id": "array_index",
+                "kind": "field",
+                "tag": 2,
+                "type": "context-unsigned"
+              },
+              {
+                "children": [
+                  {
+                    "id": "application_value",
+                    "kind": "field",
+                    "type": "BACnet-application-tags"
+                  }
+                ],
+                "id": "property_value",
+                "kind": "tlv",
+                "tag": 3
+              }
+            ],
+            "encoding": "BACnet-opening-closing-tags",
+            "id": "read_property_ack",
+            "kind": "sequence"
+          },
+          "type": "bacnet_tags",
+          "values": [],
+          "width": 0
+        }
+      ],
+      "id": "read_property_ack",
+      "match": "read_property_ack",
+      "notes": "Example is structural only; live server response is captured in integration evidence.",
+      "weight": 2
+    }
+  ],
+  "name": "BACnet/IP",
+  "protocol_id": "local_bacnet_template",
+  "scope": "BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is with optional limits and ReadProperty with optional array index; application/context tag walking and invoke correlation.",
+  "sources": [
+    {
+      "basis": "implementation",
+      "id": "wire",
+      "sections": "src/bacnet/{npdu,bacdcode,rp}.c; datalink/bvlc.c; apps/server/main.c",
+      "url": "https://github.com/bacnet-stack/bacnet-stack/tree/bacnet-stack-1.5.0"
+    },
+    {
+      "basis": "implementation",
+      "id": "official",
+      "sections": "ASHRAE 135 catalogue identity only; wire semantics verified against local BACnet Stack 1.5.0",
+      "url": "https://www.ashrae.org/technical-resources/standards-and-guidelines/titles-purposes-and-scopes"
+    }
+  ],
+  "support": {
+    "excluded": [
+      "segmented APDUs",
+      "BACnet/SC",
+      "other services runtime encoding",
+      "BBMD/foreign-device lifecycle"
+    ],
+    "level": "runtime scoped codec",
+    "runtime": true
+  },
+  "transport": "udp",
+  "version": "BACnet Stack 1.5.0 / ASHRAE 135"
+}

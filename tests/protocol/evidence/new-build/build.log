@@ -1,0 +1,747 @@
+$ cmake --build /home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration --target server -j 4
+[  0%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/access_rule.c.o
+[  1%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/arf.c.o
+[  1%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/alarm_ack.c.o
+[  2%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/abort.c.o
+[  2%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/assigned_access_rights.c.o
+[  2%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/authentication_factor.c.o
+[  4%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/authentication_factor_format.c.o
+[  4%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/awf.c.o
+[  4%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacaddr.c.o
+[  5%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacaction.c.o
+[  5%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacapp.c.o
+[  5%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacaudit.c.o
+[  7%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacdcode.c.o
+[  7%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacdest.c.o
+[  7%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacdevobjpropref.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[  7%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacerror.c.o
+[  8%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacint.c.o
+[  8%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/baclog.c.o
+[  8%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacprop.c.o
+[ 10%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacpropstates.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 10%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacreal.c.o
+[ 10%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bacstr.c.o
+[ 11%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bactext.c.o
+[ 11%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/bactimevalue.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: realloc
+[0m
+[1;92m[+] [0mFound function call: malloc
+[0m
+[ 11%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/channel_value.c.o
+[ 13%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/dailyschedule.c.o
+[ 13%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/weeklyschedule.c.o
+[ 13%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/special_event.c.o
+[ 14%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/secure_connect.c.o
+[ 14%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/bbmd/h_bbmd.c.o
+[ 14%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/binding/address.c.o
+[ 15%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/npdu/h_npdu.c.o
+[1;92m[+] [0mFound function call: fgets
+[0m
+[1;92m[+] [0mFound function call: fclose
+[0m
+[ 15%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/npdu/h_routed_npdu.c.o
+[ 15%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/npdu/s_router.c.o
+[ 15%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/access_credential.c.o
+[ 17%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/access_door.c.o
+[ 17%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/access_point.c.o
+[ 17%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/access_rights.c.o
+[ 18%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/access_user.c.o
+[ 18%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/access_zone.c.o
+[ 18%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/acc.c.o
+[ 20%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/auditlog.c.o
+[ 20%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/ai.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 20%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/ao.c.o
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 21%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/av.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 21%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/bacfile.c.o
+[ 21%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/bi.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 23%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/bitstring_value.c.o
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 23%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/blo.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 23%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/bo.c.o
+[ 24%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/bv.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 24%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/channel.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 24%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/calendar.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 26%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/color_temperature.c.o
+[ 26%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/color_object.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 26%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/command.c.o
+[ 26%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/credential_data_input.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 27%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/csv.c.o
+[ 27%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/device.c.o
+[ 27%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/gateway/gw_device.c.o
+[ 28%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/iv.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 28%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/lc.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 28%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/lo.c.o
+[ 30%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/loop.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 30%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/lsp.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 30%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/lsz.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 31%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/ms-input.c.o
+[ 31%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/mso.c.o
+[ 31%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/msv.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 33%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/nc.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 33%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/netport.c.o
+[ 33%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/objects.c.o
+[ 33%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/osv.c.o
+[ 34%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/piv.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 34%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/program.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 34%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/schedule.c.o
+[ 36%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/structured_view.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 36%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/time_value.c.o
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 36%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/timer.c.o
+[ 37%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/object/trendlog.c.o
+[ 37%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_alarm_ack.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 37%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_apdu.c.o
+[ 39%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_arf_a.c.o
+[ 39%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_arf.c.o
+[ 39%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_awf.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 40%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_ccov.c.o
+[ 40%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_create_object.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 40%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_cov.c.o
+[ 42%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_dcc.c.o
+[ 42%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_delete_object.c.o
+[ 42%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_gas_a.c.o
+[ 42%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_get_alarm_sum.c.o
+[ 43%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_getevent_a.c.o
+[ 43%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_getevent.c.o
+[ 43%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_iam.c.o
+[ 44%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_ihave.c.o
+[ 44%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_lso.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 44%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_list_element.c.o
+[ 46%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_noserv.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 46%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_rd.c.o
+[ 46%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_rp_a.c.o
+[ 47%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_rp.c.o
+[ 47%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_rpm_a.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[ 47%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_rpm.c.o
+[ 49%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_rr_a.c.o
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[ 49%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_rr.c.o
+[ 49%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_ts.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 50%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_ucov.c.o
+[ 50%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_upt.c.o
+[ 50%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_whoami.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 50%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_whohas.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 52%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_whois.c.o
+[ 52%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_wp.c.o
+[ 52%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_wpm.c.o
+[ 53%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_write_group.c.o
+[ 53%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/h_youare.c.o
+[ 53%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_abort.c.o
+[ 55%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_ack_alarm.c.o
+[ 55%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_arfs.c.o
+[ 55%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_awfs.c.o
+[ 56%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_cevent.c.o
+[ 56%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_create_object.c.o
+[ 56%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_cov.c.o
+[ 57%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_dcc.c.o
+[ 57%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_delete_object.c.o
+[ 57%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_error.c.o
+[ 59%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_get_alarm_sum.c.o
+[ 59%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_get_event.c.o
+[ 59%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_getevent.c.o
+[ 59%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_iam.c.o
+[ 60%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_ihave.c.o
+[ 60%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_list_element.c.o
+[ 60%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_lso.c.o
+[ 62%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_rd.c.o
+[ 62%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_readrange.c.o
+[ 62%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_rp.c.o
+[ 63%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_rpm.c.o
+[ 63%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_ts.c.o
+[ 63%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_uevent.c.o
+[ 65%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_upt.c.o
+[ 65%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_whoami.c.o
+[ 65%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_whohas.c.o
+[ 66%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_whois.c.o
+[ 66%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_wp.c.o
+[ 66%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_wpm.c.o
+[ 66%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_write_group.c.o
+[ 68%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/service/s_youare.c.o
+[ 68%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/bigend.c.o
+[ 68%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/bramfs.c.o
+[ 69%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/bsramfs.c.o
+[ 69%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/color_rgb.c.o
+[ 69%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/days.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: realloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: realloc
+[0m
+[1;92m[+] [0mFound function call: realloc
+[0m
+[1;92m[+] [0mFound function call: realloc
+[0m
+[1;92m[+] [0mFound function call: realloc
+[0m
+[1;92m[+] [0mFound function call: realloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 71%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/debug.c.o
+[ 71%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/dst.c.o
+[ 71%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/fifo.c.o
+[ 72%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/filename.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 72%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/keylist.c.o
+[ 72%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/linear.c.o
+[ 73%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/lighting_command.c.o
+[ 73%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/mstimer.c.o
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: calloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[ 73%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/ringbuf.c.o
+[ 75%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/sys/sbuf.c.o
+[ 75%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/basic/tsm/tsm.c.o
+[ 75%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/calendar_entry.c.o
+[ 75%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/cov.c.o
+[ 76%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/create_object.c.o
+[ 76%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/credential_authentication_factor.c.o
+[ 76%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datalink/bacsec.c.o
+[ 78%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datalink/bvlc6.c.o
+[ 78%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datalink/bvlc.c.o
+[ 78%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datalink/crc.c.o
+[ 79%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datalink/cobs.c.o
+[ 79%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datalink/datalink.c.o
+[ 79%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datalink/dlenv.c.o
+[ 81%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/datetime.c.o
+[ 81%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/dcc.c.o
+[ 81%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/delete_object.c.o
+[ 82%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/event.c.o
+[1;92m[+] [0mFound function call: fprintf
+[0m
+[ 82%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/get_alarm_sum.c.o
+[ 82%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/getevent.c.o
+[ 84%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/hostnport.c.o
+[ 84%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/iam.c.o
+[ 84%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/ihave.c.o
+[ 84%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/indtext.c.o
+[ 85%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/lighting.c.o
+[ 85%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/list_element.c.o
+[ 85%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/lso.c.o
+[ 86%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/memcopy.c.o
+[ 86%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/npdu.c.o
+[ 86%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/property.c.o
+[ 88%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/proplist.c.o
+[ 88%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/ptransfer.c.o
+[ 88%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/rd.c.o
+[ 89%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/readrange.c.o
+[ 89%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/reject.c.o
+[ 89%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/rp.c.o
+[ 91%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/rpm.c.o
+[ 91%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/segmentack.c.o
+[ 91%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/shed_level.c.o
+[ 92%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/timer_value.c.o
+[ 92%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/timestamp.c.o
+[ 92%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/timesync.c.o
+[ 92%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/whoami.c.o
+[ 94%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/whohas.c.o
+[ 94%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/whois.c.o
+[ 94%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/wp.c.o
+[ 95%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/wpm.c.o
+[ 95%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/write_group.c.o
+[ 95%] Building C object CMakeFiles/bacnet-stack.dir/src/bacnet/youare.c.o
+[ 97%] Building C object CMakeFiles/bacnet-stack.dir/ports/linux/datetime-init.c.o
+[ 97%] Building C object CMakeFiles/bacnet-stack.dir/ports/posix/bacfile-posix.c.o
+[ 97%] Building C object CMakeFiles/bacnet-stack.dir/ports/linux/bip-init.c.o
+[ 98%] Building C object CMakeFiles/bacnet-stack.dir/ports/linux/mstimer-init.c.o
+[1;92m[+] [0mFound function call: fclose
+[0m
+[1;92m[+] [0mFound function call: fread
+[0m
+[1;92m[+] [0mFound function call: fclose
+[0m
+[1;92m[+] [0mFound function call: fwrite
+[0m
+[1;92m[+] [0mFound function call: fclose
+[0m
+[1;92m[+] [0mFound function call: fgets
+[0m
+[1;92m[+] [0mFound function call: fwrite
+[0m
+[1;92m[+] [0mFound function call: fclose
+[0m
+[1;92m[+] [0mFound function call: fgets
+[0m
+[1;92m[+] [0mFound function call: fclose
+[0m
+[1;92m[+] [0mFound function call: sendto
+[0m
+[1;92m[+] [0mFound function call: recvfrom
+[0m
+[1;92m[+] [0mFound function call: close
+[0m
+[1;92m[+] [0mFound function call: send
+[0m
+[1;92m[+] [0mFound function call: malloc
+[0m
+[1;92m[+] [0mFound function call: free
+[0m
+[1;92m[+] [0mFound function call: close
+[0m
+[1;92m[+] [0mFound function call: close
+[0m
+[1;92m[+] [0mFound function call: close
+[0m
+[1;92m[+] [0mFound function call: close
+[0m
+[1;92m[+] [0mFound function call: close
+[0m
+[1;92m[+] [0mFound function call: close
+[0m
+[1;92m[+] [0mFound function call: recv
+[0m
+[ 98%] Linking C static library libbacnet-stack.a
+[ 98%] Built target bacnet-stack
+[ 98%] Building C object CMakeFiles/server.dir/apps/server/main.c.o
+[100%] Linking C executable server
+[100%] Built target server

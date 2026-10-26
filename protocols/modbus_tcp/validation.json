@@ -1,0 +1,52 @@
+{
+  "protocol": "modbus_tcp",
+  "messages": 19,
+  "fields": 138,
+  "semantic_states": 1,
+  "validated": true,
+  "runtime": false,
+  "scope": "Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10 multiple writes; all normal response layouts and generic exception layout; FC0F arbitrary 1..1968 coils including final-byte padding. Complete static profile; no runtime encoder.",
+  "example_validation": "protocol envelope and length consistency; scoped BACnet decoder checks for runtime fixtures; not live service conformance",
+  "execution_contract": {
+    "static_only": true,
+    "static_metadata": {
+      "protocol": [
+        "name",
+        "version",
+        "scope",
+        "framing",
+        "sources"
+      ],
+      "message": [
+        "match",
+        "blocks",
+        "notes",
+        "fixture_status",
+        "runtime_encode"
+      ],
+      "field": [
+        "block",
+        "path",
+        "default",
+        "evidence",
+        "confidence",
+        "structure",
+        "structure_model"
+      ],
+      "dependency": [
+        "scope",
+        "when"
+      ],
+      "state": [
+        "states[].meaning",
+        "transitions[].guard",
+        "transitions[].actions",
+        "invalid_strategy"
+      ]
+    },
+    "field_when_repeat": "static-only; rejected by runtime-enabled profiles",
+    "dependencies": "whitelisted operations only; scope and when are annotations",
+    "content_scalar_strategies": "runtime uses AFL field projection; values/strategies are annotations for CONTENT scalars",
+    "runtime_encode": "capability assertion derived from runtime support and message direction; never an execution switch"
+  }
+}

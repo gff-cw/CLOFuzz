@@ -1,0 +1,178 @@
+{
+  "format_version": 1,
+  "initial": "tcp",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "iec61850_mms_tcp",
+  "states": [
+    {
+      "id": "tcp",
+      "meaning": "TCP connected"
+    },
+    {
+      "id": "cotp_pending",
+      "meaning": "CR sent; CC required"
+    },
+    {
+      "id": "cotp",
+      "meaning": "COTP TP0 established"
+    },
+    {
+      "id": "association_pending",
+      "meaning": "AARQ/embedded-initiate sent"
+    },
+    {
+      "id": "associated",
+      "meaning": "AARE accepted and initiate response negotiated"
+    },
+    {
+      "id": "concluding",
+      "meaning": "MMS conclude response pending"
+    },
+    {
+      "id": "concluded",
+      "meaning": "MMS conclude accepted; association release remains"
+    },
+    {
+      "id": "releasing",
+      "meaning": "ACSE/session release response pending"
+    },
+    {
+      "id": "closed",
+      "meaning": "Association and transport released"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [],
+      "from": "tcp",
+      "guard": "",
+      "message": "cotp_cr",
+      "response": "cotp_cc",
+      "to": "cotp_pending"
+    },
+    {
+      "actions": [],
+      "from": "cotp_pending",
+      "guard": "matching transport reference",
+      "message": "cotp_cc",
+      "response": "",
+      "to": "cotp"
+    },
+    {
+      "actions": [],
+      "from": "cotp",
+      "guard": "",
+      "message": "associate",
+      "response": "associate_response",
+      "to": "association_pending"
+    },
+    {
+      "actions": [
+        "cache negotiated limits"
+      ],
+      "from": "association_pending",
+      "guard": "AARE result accepted and valid initiate response",
+      "message": "associate_response",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "cache invoke context"
+      ],
+      "from": "associated",
+      "guard": "unique invoke ID within negotiated outstanding limit",
+      "message": "get_name_list",
+      "response": "get_name_list_response",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "cache invoke context"
+      ],
+      "from": "associated",
+      "guard": "unique invoke ID within negotiated outstanding limit",
+      "message": "read",
+      "response": "read_response",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "cache invoke context"
+      ],
+      "from": "associated",
+      "guard": "unique invoke ID within negotiated outstanding limit",
+      "message": "write",
+      "response": "write_response",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "clear invoke context"
+      ],
+      "from": "associated",
+      "guard": "matching pending invoke ID",
+      "message": "get_name_list_response",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "clear invoke context"
+      ],
+      "from": "associated",
+      "guard": "matching pending invoke ID",
+      "message": "read_response",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [
+        "clear invoke context"
+      ],
+      "from": "associated",
+      "guard": "matching pending invoke ID",
+      "message": "write_response",
+      "response": "",
+      "to": "associated"
+    },
+    {
+      "actions": [],
+      "from": "associated",
+      "guard": "no pending confirmed services",
+      "message": "conclude",
+      "response": "conclude_response",
+      "to": "concluding"
+    },
+    {
+      "actions": [],
+      "from": "concluding",
+      "guard": "conclude accepted",
+      "message": "conclude_response",
+      "response": "",
+      "to": "concluded"
+    },
+    {
+      "actions": [],
+      "from": "concluded",
+      "guard": "",
+      "message": "release",
+      "response": "release_response",
+      "to": "releasing"
+    },
+    {
+      "actions": [],
+      "from": "releasing",
+      "guard": "session disconnect and ACSE release complete",
+      "message": "release_response",
+      "response": "",
+      "to": "closed"
+    }
+  ]
+}

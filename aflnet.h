@@ -17,6 +17,7 @@ typedef struct {
 typedef struct {
   char *mdata; /* Buffer keeping the message data */
   int msize;   /* Message size */
+  unsigned char protocol_structured; /* Current M2 candidate; zero for legacy */
 } message_t;
 
 typedef struct {

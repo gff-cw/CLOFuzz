@@ -1,0 +1,3641 @@
+format_version: 1
+protocol_id: modbus_tcp
+name: Modbus TCP
+version: Application Protocol 1.1b3; MBAP
+scope: Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10 multiple
+  writes; all normal response layouts and generic exception layout; FC0F arbitrary
+  1..1968 coils including final-byte padding. Complete static profile; no runtime
+  encoder.
+transport: tcp
+framing: protocol length inside replayable records
+codec: modbus
+support:
+  runtime: false
+  level: static description; runtime encoder unavailable
+  excluded:
+  - serial RTU
+  - file-record and diagnostic function families
+sources:
+- id: wire
+  url: https://github.com/stephane/libmodbus/blob/master/src/modbus.c
+  basis: implementation
+  sections: libmodbus src/modbus.c and modbus-tcp.c; Modbus Application Protocol 1.1b3
+    sections 4,6
+- id: official
+  url: https://www.modbus.org/file/secure/modbusprotocolspecification.pdf
+  basis: normative
+  sections: Application Protocol V1.1b3 sections 4, 6.1-6.6, 6.11-6.12 and 7
+messages:
+- id: read_coils
+  example: '000100000006010100000001'
+  direction: request
+  weight: 2
+  match: read_coils
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 2000
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: read_discrete
+  example: '000100000006010200000001'
+  direction: request
+  weight: 2
+  match: read_discrete
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 2000
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: read_holding
+  example: '000100000006010300000001'
+  direction: request
+  weight: 2
+  match: read_holding
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 125
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: read_input
+  example: '000100000006010400000001'
+  direction: request
+  weight: 2
+  match: read_input
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 4
+    min: 4
+    max: 4
+    values:
+    - 4
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 125
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_coil
+  example: '000100000006010500000000'
+  direction: request
+  weight: 2
+  match: write_coil
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - value
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 5
+    min: 5
+    max: 5
+    values:
+    - 5
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: value
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values:
+    - 0
+    - 65280
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+    structure: Valid coil values are exactly 0x0000 (OFF) and 0xFF00 (ON); other UInt16
+      encodings require exception 03.
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_register
+  example: '000100000006010600000000'
+  direction: request
+  weight: 2
+  match: write_register
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - value
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 6
+    min: 6
+    max: 6
+    values:
+    - 6
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: value
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values:
+    - 0
+    - 1
+    - 65535
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_coils
+  example: 000100000008010f000000080101
+  direction: request
+  weight: 2
+  match: write_coils
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    - data
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 15
+    min: 15
+    max: 15
+    values:
+    - 15
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 8
+    min: 1
+    max: 1968
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:13
+    locator: abs:13
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01'
+    min: 1
+    max: 246
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    repeat:
+      count: byte_count
+      min: 1
+      max: 246
+      element_width: 1
+    structure: Byte count = ceil(quantity/8), LSB first, unused high bits in final
+      octet zero.
+    structure_model:
+      id: values
+      kind: repeat
+      children:
+      - id: value
+        kind: field
+        type: packed-coils-LSB-first
+      min: 1
+      max: 246
+      encoding: ceil(quantity/8)-octets
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: 'Cross-field semantic constraint: byte_count equals ceil(quantity/8) and
+    unused high bits zero.'
+  fixture_status: complete
+  runtime_encode: false
+- id: write_registers
+  example: 000100000009011000000001020001
+  direction: request
+  weight: 2
+  match: write_registers
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    - data
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 16
+    min: 16
+    max: 16
+    values:
+    - 16
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 123
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:13
+    locator: abs:13
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0001'
+    min: 2
+    max: 246
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    repeat:
+      count: quantity
+      min: 1
+      max: 123
+      element_width: 2
+    structure: Byte count = 2*quantity, big-endian UInt16 register values.
+    structure_model:
+      id: values
+      kind: repeat
+      children:
+      - id: value
+        kind: field
+        type: uint16-big
+      min: 1
+      max: 123
+      encoding: quantity*2-octets
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: 'Cross-field semantic constraint: byte_count equals quantity*2.'
+  fixture_status: complete
+  runtime_encode: false
+- id: read_response
+  example: '0001000000050103020001'
+  direction: response
+  weight: 2
+  match: read_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - data
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values:
+    - 3
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:9
+    locator: abs:9
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0001'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: read_holding
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: read_holding
+    scope: transaction
+  notes: 'FC03 response: byte count is twice the correlated requested register quantity.'
+  fixture_status: complete
+  runtime_encode: false
+- id: exception
+  example: 000100000003018302
+  direction: response
+  weight: 2
+  match: exception
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - exception
+    parent: REQUEST
+  - id: CONTENT
+    fields: []
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 131
+    min: 0
+    max: 255
+    values:
+    - 129
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    - 143
+    - 144
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+    structure: Function equals correlated request function OR 0x80; exception applies
+      to all supported request function families. Fixture correlates FC03.
+  - id: exception
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 255
+    values:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 8
+    - 10
+    - 11
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: read_holding
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: read_holding
+    scope: transaction
+  notes: Generic exception layout; fixture FC03/illegal-data-address(02). Exceptional
+    responses have exactly one exception byte and no byte-count field.
+  fixture_status: complete
+  runtime_encode: false
+- id: write_coils_partial
+  example: 000100000009010f00000009020101
+  direction: request
+  weight: 2
+  match: write_coils_partial
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    - data
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 15
+    min: 15
+    max: 15
+    values:
+    - 15
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 9
+    min: 1
+    max: 1968
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:13
+    locator: abs:13
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0101'
+    min: 1
+    max: 246
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    repeat:
+      count: byte_count
+      min: 1
+      max: 246
+      element_width: 1
+    structure: Byte count = ceil(quantity/8), LSB first, unused high bits in final
+      octet zero.
+    structure_model:
+      id: values
+      kind: repeat
+      children:
+      - id: value
+        kind: field
+        type: packed-coils-LSB-first
+      min: 1
+      max: 246
+      encoding: ceil(quantity/8)-octets
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: 'Cross-field semantic constraint: byte_count equals ceil(quantity/8) and
+    unused high bits zero.'
+  fixture_status: complete
+  runtime_encode: false
+- id: read_coils_response
+  example: '00010000000401010101'
+  direction: response
+  weight: 2
+  match: read_coils_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - data
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:9
+    locator: abs:9
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: read_coils
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: read_coils
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: read_discrete_response
+  example: '00010000000401020101'
+  direction: response
+  weight: 2
+  match: read_discrete_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - data
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:9
+    locator: abs:9
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '01'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: read_discrete
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: read_discrete
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: read_input_response
+  example: '0001000000050104020001'
+  direction: response
+  weight: 2
+  match: read_input_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - data
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 4
+    min: 4
+    max: 4
+    values:
+    - 4
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:9
+    locator: abs:9
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0001'
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: read_input
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: read_input
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_coil_response
+  example: '000100000006010500000000'
+  direction: response
+  weight: 2
+  match: write_coil_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - value
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 5
+    min: 5
+    max: 5
+    values:
+    - 5
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: value
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 0
+    min: 0
+    max: 65535
+    values:
+    - 0
+    - 65280
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: write_coil
+    scope: transaction
+  - op: copy_from_message
+    target: address
+    source: address
+    message: write_coil
+    scope: transaction
+  - op: copy_from_message
+    target: value
+    source: value
+    message: write_coil
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: write_coil
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_register_response
+  example: '000100000006010600000000'
+  direction: response
+  weight: 2
+  match: write_register_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - value
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 6
+    min: 6
+    max: 6
+    values:
+    - 6
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: value
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 0
+    min: 0
+    max: 65535
+    values:
+    - 0
+    - 1
+    - 65535
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: write_register
+    scope: transaction
+  - op: copy_from_message
+    target: address
+    source: address
+    message: write_register
+    scope: transaction
+  - op: copy_from_message
+    target: value
+    source: value
+    message: write_register
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: write_register
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_coils_response
+  example: 000100000006010f00000008
+  direction: response
+  weight: 2
+  match: write_coils_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 15
+    min: 15
+    max: 15
+    values:
+    - 15
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 8
+    min: 1
+    max: 1968
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: write_coils
+    scope: transaction
+  - op: copy_from_message
+    target: address
+    source: address
+    message: write_coils
+    scope: transaction
+  - op: copy_from_message
+    target: quantity
+    source: quantity
+    message: write_coils
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: write_coils
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_coils_partial_response
+  example: 000100000006010f00000009
+  direction: response
+  weight: 2
+  match: write_coils_partial_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 15
+    min: 15
+    max: 15
+    values:
+    - 15
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 9
+    min: 1
+    max: 1968
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: write_coils_partial
+    scope: transaction
+  - op: copy_from_message
+    target: address
+    source: address
+    message: write_coils_partial
+    scope: transaction
+  - op: copy_from_message
+    target: quantity
+    source: quantity
+    message: write_coils_partial
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: write_coils_partial
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false
+- id: write_registers_response
+  example: '000100000006011000000001'
+  direction: response
+  weight: 2
+  match: write_registers_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 16
+    min: 16
+    max: 16
+    values:
+    - 16
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 1
+    min: 1
+    max: 123
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: write_registers
+    scope: transaction
+  - op: copy_from_message
+    target: address
+    source: address
+    message: write_registers
+    scope: transaction
+  - op: copy_from_message
+    target: quantity
+    source: quantity
+    message: write_registers
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: write_registers
+    scope: transaction
+  notes: ''
+  fixture_status: complete
+  runtime_encode: false

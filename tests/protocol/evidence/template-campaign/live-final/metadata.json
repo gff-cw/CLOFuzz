@@ -1,0 +1,33 @@
+{
+  "server": "/home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server",
+  "server_sha256": "8b030a7fe5ef4d96cff35c1cbd5339a20cbc40084f07e5ae16ac887c8902bbdc",
+  "afl_fuzz_sha256": "912c48ccce3e15be9a904b923d5f6e88e7912300edc86e0db619545b157dd202",
+  "protocol_ir_sha256": "f636ccbc4df8018b47a9252d4e258db3a897f88e283457f3aca458765d8e2939",
+  "state_ir_sha256": "0152b3a1c1a8793294abd26fdb07d8f7105f00624932d198ba123315f47721c4",
+  "corpus": [
+    {
+      "name": "seed01_whois.replay",
+      "sha256": "79fd027e616c9c8ebab68e32708619133e598f0d235fe11127e04bc18cd646b6",
+      "bytes": 12
+    },
+    {
+      "name": "seed03_read_objectname.replay",
+      "sha256": "be7b2f31880efdc6a9e423243b67f80b4418ab938e1d3e585b4d029c615fe4c5",
+      "bytes": 21
+    },
+    {
+      "name": "seed04_read_vendorname.replay",
+      "sha256": "2cfec5237ea0644058cfda8ee8209b0068854de14ec3a72f64ce966c3af20814",
+      "bytes": 21
+    },
+    {
+      "name": "seed05_read_objectlist.replay",
+      "sha256": "d7a07fc987df9c96f7af83772d80ec86af4a17f3cc7fadaad54d6e26a0d857f1",
+      "bytes": 23
+    }
+  ],
+  "seconds_after_ready": 15.0,
+  "modes": [
+    "all"
+  ]
+}

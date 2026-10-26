@@ -1,0 +1,2162 @@
+{
+  "codec": "iec104",
+  "format_version": 1,
+  "framing": "protocol length inside replayable records",
+  "ir_version": 1,
+  "messages": [
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "control"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "680407000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 7,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "control",
+          "locator": "abs:2",
+          "max": 7,
+          "min": 7,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            7
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "start_act",
+      "match": "start_act",
+      "notes": "",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "control"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "response",
+      "example": "68040b000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 11,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "control",
+          "locator": "abs:2",
+          "max": 11,
+          "min": 11,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            11
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "start_con",
+      "match": "start_con",
+      "notes": "",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "control"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "680413000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 19,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "control",
+          "locator": "abs:2",
+          "max": 19,
+          "min": 19,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            19
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "stop_act",
+      "match": "stop_act",
+      "notes": "",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "control"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "response",
+      "example": "680423000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 35,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "control",
+          "locator": "abs:2",
+          "max": 35,
+          "min": 35,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            35
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "stop_con",
+      "match": "stop_con",
+      "notes": "",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "control"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "680443000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 67,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "control",
+          "locator": "abs:2",
+          "max": 67,
+          "min": 67,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            67
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "test_act",
+      "match": "test_act",
+      "notes": "",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "control"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "response",
+      "example": "680483000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 131,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "control",
+          "locator": "abs:2",
+          "max": 131,
+          "min": 131,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint32",
+          "values": [
+            131
+          ],
+          "width": 4
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "test_con",
+      "match": "test_con",
+      "notes": "",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "format",
+            "receive_seq"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        }
+      ],
+      "direction": "request",
+      "example": "680401000000",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "format",
+          "locator": "abs:2",
+          "max": 1,
+          "min": 1,
+          "mutability": "fixed",
+          "path": "abs:2",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [
+            1
+          ],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "receive_seq",
+          "locator": "abs:4",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "s_ack",
+      "match": "s_ack",
+      "notes": "",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "send_seq",
+            "receive_seq",
+            "type_id",
+            "vsq",
+            "cot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "common_address",
+            "ioa",
+            "qoi"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "send_seq",
+          "unit": 2
+        }
+      ],
+      "direction": "request",
+      "example": "680e0000000064010600010000000014",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "send_seq",
+          "locator": "abs:2",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:2",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "receive_seq",
+          "locator": "abs:4",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 100,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "type_id",
+          "locator": "abs:6",
+          "max": 100,
+          "min": 100,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            100
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "vsq",
+          "locator": "abs:7",
+          "max": 1,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:7",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Exactly one information object; SQ=0 in this profile.",
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 6,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "cot",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator address.",
+          "type": "uint16",
+          "values": [
+            6
+          ],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "common_address",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "ioa",
+          "locator": "abs:12",
+          "max": 0,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            0
+          ],
+          "width": 3
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 20,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "qoi",
+          "locator": "abs:15",
+          "max": 36,
+          "min": 20,
+          "mutability": "fuzzable",
+          "path": "abs:15",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ],
+          "width": 1
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "interrogation",
+      "match": "interrogation",
+      "notes": "C_IC_NA_1 request: SQ=0/count=1, IOA=0, QOI 20 global or 21..36 group. Data ASDUs between confirmation/termination are excluded, so completion does not mean an empty remote database.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "send_seq",
+            "receive_seq",
+            "type_id",
+            "vsq",
+            "cot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "common_address",
+            "ioa",
+            "qoi"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "send_seq",
+          "unit": 2
+        },
+        {
+          "message": "interrogation",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "common_address",
+          "target": "common_address"
+        },
+        {
+          "message": "interrogation",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "qoi",
+          "target": "qoi"
+        }
+      ],
+      "direction": "response",
+      "example": "680e0000020064010700010000000014",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "send_seq",
+          "locator": "abs:2",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:2",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "receive_seq",
+          "locator": "abs:4",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 100,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "type_id",
+          "locator": "abs:6",
+          "max": 100,
+          "min": 100,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            100
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "vsq",
+          "locator": "abs:7",
+          "max": 1,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:7",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Exactly one information object; SQ=0 in this profile.",
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 7,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "cot",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator address.",
+          "type": "uint16",
+          "values": [
+            7
+          ],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "common_address",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "ioa",
+          "locator": "abs:12",
+          "max": 0,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            0
+          ],
+          "width": 3
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 20,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "qoi",
+          "locator": "abs:15",
+          "max": 36,
+          "min": 20,
+          "mutability": "fuzzable",
+          "path": "abs:15",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ],
+          "width": 1
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "interrogation_confirmation",
+      "match": "interrogation_confirmation",
+      "notes": "C_IC_NA_1 activation confirmation or activation termination. Negative confirmation sets P/N bit6; fixture cause 7+64.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "send_seq",
+            "receive_seq",
+            "type_id",
+            "vsq",
+            "cot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "common_address",
+            "ioa",
+            "qoi"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "send_seq",
+          "unit": 2
+        },
+        {
+          "message": "interrogation",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "common_address",
+          "target": "common_address"
+        },
+        {
+          "message": "interrogation",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "qoi",
+          "target": "qoi"
+        }
+      ],
+      "direction": "response",
+      "example": "680e0200020064010a00010000000014",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "send_seq",
+          "locator": "abs:2",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:2",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "receive_seq",
+          "locator": "abs:4",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 100,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "type_id",
+          "locator": "abs:6",
+          "max": 100,
+          "min": 100,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            100
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "vsq",
+          "locator": "abs:7",
+          "max": 1,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:7",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Exactly one information object; SQ=0 in this profile.",
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 10,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "cot",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator address.",
+          "type": "uint16",
+          "values": [
+            10
+          ],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "common_address",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "ioa",
+          "locator": "abs:12",
+          "max": 0,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            0
+          ],
+          "width": 3
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 20,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "qoi",
+          "locator": "abs:15",
+          "max": 36,
+          "min": 20,
+          "mutability": "fuzzable",
+          "path": "abs:15",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ],
+          "width": 1
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "interrogation_termination",
+      "match": "interrogation_termination",
+      "notes": "C_IC_NA_1 activation confirmation or activation termination. Negative confirmation sets P/N bit6; fixture cause 7+64.",
+      "runtime_encode": false,
+      "weight": 2
+    },
+    {
+      "blocks": [
+        {
+          "fields": [
+            "start",
+            "length",
+            "send_seq",
+            "receive_seq",
+            "type_id",
+            "vsq",
+            "cot"
+          ],
+          "id": "HEAD",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [
+            "common_address",
+            "ioa",
+            "qoi"
+          ],
+          "id": "CONTENT",
+          "parent": "REQUEST"
+        },
+        {
+          "fields": [],
+          "id": "REQUEST"
+        }
+      ],
+      "dependencies": [
+        {
+          "add": -2,
+          "op": "length_of",
+          "source": "$message",
+          "target": "length"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "send_seq",
+          "unit": 2
+        },
+        {
+          "message": "interrogation",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "common_address",
+          "target": "common_address"
+        },
+        {
+          "message": "interrogation",
+          "op": "copy_from_message",
+          "scope": "transaction",
+          "source": "qoi",
+          "target": "qoi"
+        }
+      ],
+      "direction": "response",
+      "example": "680e0000020064014700010000000014",
+      "fields": [
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 104,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "start",
+          "locator": "abs:0",
+          "max": 104,
+          "min": 104,
+          "mutability": "fixed",
+          "path": "abs:0",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            104
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "length",
+          "locator": "abs:1",
+          "max": 255,
+          "min": 0,
+          "mutability": "derived",
+          "path": "abs:1",
+          "role": "derived",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "send_seq",
+          "locator": "abs:2",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:2",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 2,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "receive_seq",
+          "locator": "abs:4",
+          "max": 65534,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:4",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 100,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "type_id",
+          "locator": "abs:6",
+          "max": 100,
+          "min": 100,
+          "mutability": "fixed",
+          "path": "abs:6",
+          "role": "fixed",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            100
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "vsq",
+          "locator": "abs:7",
+          "max": 1,
+          "min": 1,
+          "mutability": "fuzzable",
+          "path": "abs:7",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Exactly one information object; SQ=0 in this profile.",
+          "type": "uint8",
+          "values": [
+            1
+          ],
+          "width": 1
+        },
+        {
+          "block": "HEAD",
+          "confidence": "implementation",
+          "default": 71,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "cot",
+          "locator": "abs:8",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:8",
+          "role": "head",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "structure": "Low six bits cause=activation(6); bit6 P/N, bit7 test; high octet originator address.",
+          "type": "uint16",
+          "values": [
+            71
+          ],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 1,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "common_address",
+          "locator": "abs:10",
+          "max": 65535,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:10",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint16",
+          "values": [],
+          "width": 2
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 0,
+          "endian": "little",
+          "evidence": "wire",
+          "id": "ioa",
+          "locator": "abs:12",
+          "max": 0,
+          "min": 0,
+          "mutability": "fuzzable",
+          "path": "abs:12",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint24",
+          "values": [
+            0
+          ],
+          "width": 3
+        },
+        {
+          "block": "CONTENT",
+          "confidence": "implementation",
+          "default": 20,
+          "endian": "big",
+          "evidence": "wire",
+          "id": "qoi",
+          "locator": "abs:15",
+          "max": 36,
+          "min": 20,
+          "mutability": "fuzzable",
+          "path": "abs:15",
+          "role": "content",
+          "strategies": [
+            "enum",
+            "boundary",
+            "bitflip",
+            "arithmetic"
+          ],
+          "type": "uint8",
+          "values": [
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ],
+          "width": 1
+        }
+      ],
+      "fixture_status": "complete",
+      "id": "interrogation_negative",
+      "match": "interrogation_negative",
+      "notes": "C_IC_NA_1 activation confirmation or activation termination. Negative confirmation sets P/N bit6; fixture cause 7+64.",
+      "runtime_encode": false,
+      "weight": 2
+    }
+  ],
+  "name": "IEC 60870-5-104",
+  "protocol_id": "iec60870_5_104",
+  "scope": "IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group interrogation request, positive/negative activation confirmation and termination; COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no runtime encoder.",
+  "sources": [
+    {
+      "basis": "implementation",
+      "id": "wire",
+      "sections": "APCI U controls, defaultAppLayerParameters, sequence update and acknowledgment handlers",
+      "url": "https://github.com/mz-automation/lib60870/blob/master/lib60870-C/src/iec60870/cs104/cs104_connection.c"
+    },
+    {
+      "basis": "inferred",
+      "id": "official",
+      "sections": "IEC 60870-5-104:2006+AMD1:2016 catalogue only; paid text not consulted",
+      "url": "https://webstore.iec.ch/en/publication/25035"
+    }
+  ],
+  "support": {
+    "excluded": [
+      "other ASDU payload types",
+      "TLS",
+      "multi-object runtime generation"
+    ],
+    "level": "static description; runtime encoder unavailable",
+    "runtime": false
+  },
+  "transport": "tcp",
+  "version": "IEC 60870-5-104; lib60870 profile"
+}

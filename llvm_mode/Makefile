@@ -24,10 +24,10 @@ BIN_PATH     = $(PREFIX)/bin
 
 VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 
-LLVM_CONFIG ?= llvm-config-18
-LLVM_BINDIR := $(shell $(LLVM_CONFIG) --bindir)
-CLANG ?= $(LLVM_BINDIR)/clang
-CLANGXX ?= $(LLVM_BINDIR)/clang++
+# Resolve the system toolchain through PATH; llvm-config supplies its headers/libraries.
+LLVM_CONFIG ?= llvm-config
+CLANG ?= clang
+CLANGXX ?= clang++
 CMAKE ?= cmake
 
 CFLAGS      ?= -O3 -funroll-loops
@@ -52,7 +52,7 @@ ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
 endif
 
-# Default to the compiler shipped with the selected LLVM, independently for C/C++.
+# Use the system Clang commands by default; preserve explicit build compiler overrides.
 ifeq "$(origin CC)" "default"
   CC = $(CLANG)
 endif
@@ -82,7 +82,7 @@ STDCXX = $(shell $(CXX) -print-file-name=libstdc++.a)
 FORCE:
 $(BUILD_DIR)/config: FORCE
 	@mkdir -p $(BUILD_DIR)
-	@{ echo '$(LLVM_CONFIG) $(shell $(LLVM_CONFIG) --version)'; echo '$(CC) $(shell $(CC) --version | head -n 1)'; echo '$(CXX) $(shell $(CXX) --version | head -n 1)'; echo '$(CLANG) $(CLANGXX)'; echo '$(CFLAGS) $(CXXFLAGS) $(LDFLAGS) $(AFL_TRACE_PC)'; } > $@.tmp
+	@{ echo '$(LLVM_CONFIG) $(shell command -v $(LLVM_CONFIG)) $(shell $(LLVM_CONFIG) --version)'; echo '$(CC) $(shell $(CC) --version | head -n 1)'; echo '$(CXX) $(shell $(CXX) --version | head -n 1)'; echo '$(CLANG) $(shell command -v $(CLANG)) $(shell $(CLANG) -dumpversion)'; echo '$(CLANGXX) $(shell command -v $(CLANGXX)) $(shell $(CLANGXX) -dumpversion)'; echo '$(CFLAGS) $(CXXFLAGS) $(LDFLAGS) $(AFL_TRACE_PC)'; } > $@.tmp
 	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
 
 all: test_deps $(PROGS) test_build all_done
@@ -90,11 +90,18 @@ all: test_deps $(PROGS) test_build all_done
 test_deps:
 ifndef AFL_TRACE_PC
 	@echo "[*] Checking for working 'llvm-config'..."
-	@which $(LLVM_CONFIG) >/dev/null 2>&1 || ( echo "[-] Oops, can't find 'llvm-config'. Install clang or set \$$LLVM_CONFIG or \$$PATH beforehand."; echo "    (Sometimes, the binary will be named llvm-config-3.5 or something like that.)"; exit 1 )
+	@which $(LLVM_CONFIG) >/dev/null 2>&1 || ( echo "[-] Oops, can't find 'llvm-config'. Install clang or set \$$LLVM_CONFIG or \$$PATH beforehand."; echo "    Use the llvm-config command from your system LLVM 18 development package."; exit 1 )
 	@test "`$(LLVM_CONFIG) --version | cut -d. -f1`" = 18 || ( echo "[-] This pass requires LLVM 18; set LLVM_CONFIG."; exit 1 )
 else
 	@echo "[!] Note: using -fsanitize=trace-pc mode (this will fail with older LLVM)."
 endif
+	@echo "[*] Using system LLVM configuration: $$(command -v $(LLVM_CONFIG))"
+	@for compiler in "$(CLANG)" "$(CLANGXX)"; do \
+		command -v "$$compiler" >/dev/null 2>&1 || { echo "[-] Cannot find $$compiler in PATH."; exit 1; }; \
+		"$$compiler" --version | head -n 1 | grep -q 'clang version' || { echo "[-] $$compiler is not Clang."; exit 1; }; \
+		test "$$($$compiler -dumpversion | cut -d. -f1)" = "$$($(LLVM_CONFIG) --version | cut -d. -f1)" || { echo "[-] $$compiler and $(LLVM_CONFIG) must use the same LLVM major version."; exit 1; }; \
+		echo "[*] Using target compiler: $$(command -v "$$compiler") ($$($$compiler -dumpversion))"; \
+	done
 	@echo "[*] Checking for working '$(CC)'..."
 	@which $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
 	@echo "[*] Checking for '../afl-showmap'..."

@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "fixture": "intentional local assertion; not a BACnet Stack failure",
+  "fuzzer_exit": 0,
+  "saved_crashes": 1,
+  "replayed_file": "id:000000,sig:06,src:000000,op:havoc,rep:8",
+  "replay_command": [
+    "/home/weicresec/Desktop/workspace/stateafl/aflnet-replay",
+    "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/failure-replay/out/replayable-crashes/id:000000,sig:06,src:000000,op:havoc,rep:8",
+    "BACNET",
+    "36526",
+    "20",
+    "1000"
+  ],
+  "replay_client_exit": 0,
+  "replay_server_signal": 6,
+  "messages": 1,
+  "framing": "LE32-length-prefixed",
+  "intentional_constraint": "BVLC declared length is actual length plus one"
+}

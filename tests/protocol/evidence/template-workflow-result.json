@@ -1,0 +1,52 @@
+{
+  "template_version": 1,
+  "status": "passed",
+  "template_tests": 12,
+  "compiler_regression_tests": 51,
+  "runtime_contract": {
+    "head_field": "read_property.invoke_id",
+    "strategies": [
+      "enum"
+    ],
+    "configured_values": [
+      33,
+      77
+    ],
+    "iterations_per_value": 20,
+    "other_wire_bytes_preserved": true,
+    "sanitizers": [
+      "address",
+      "undefined"
+    ]
+  },
+  "live_campaign": {
+    "protocol_id": "local_bacnet_template",
+    "description_source": "template-campaign/model/protocol_spec.yaml",
+    "runner": "tools/run_protocol_campaign.py",
+    "passed": true,
+    "execs_done": "142",
+    "queue_count": 7,
+    "bitmap_cvg": "3.10%",
+    "inferred_state_ids": [
+      0,
+      1
+    ],
+    "layers": {
+      "CONTENT": 2,
+      "SEQUENCE": 2,
+      "HEAD": 1
+    },
+    "result": "template-campaign/live-final/all/result.json"
+  },
+  "runtime_support": {
+    "bacnet_ip": "scoped runtime",
+    "remaining_five": "static-only; fail before target startup"
+  },
+  "source_sha256": {
+    "tools/init_protocol_spec.py": "5ee1bca6740336702a2e9d439f3e813eb789c1e1d0a8d8f41aeab737cc136185",
+    "tools/run_protocol_campaign.py": "0e94e50f36d5d2b66278878d94854452b885062667d1251e404883ee0524fc79",
+    "protocol_runtime.c": "39585120110b293afb6d8de7ee77caa7066839a392a8047244b73c01648ee142",
+    "tests/protocol/test_templates.py": "99291ad734b088356a66faf1550b3bbad4a348fee8d8975a3845930acca5511a"
+  },
+  "message_id_independence": "Renamed Who-Is CONTENT correctly selects codec from parsed APDU service and serializes optional limits."
+}

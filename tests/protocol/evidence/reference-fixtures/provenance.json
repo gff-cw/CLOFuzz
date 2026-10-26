@@ -1,0 +1,13 @@
+{
+  "mms_reference_commit": "6d231326bff8e9b6500aa1e345c076d3a329f211",
+  "opcua_reference_commit": "c321a240e53d083fd6e167c67f795915d8f236fd",
+  "purpose": "Reference construction/decoding evidence only; StateAFL live target remains BACnet. Capture scripts preserve their original temporary reference paths.",
+  "files": {
+    "mms-capture.py": "9baaa9a2e0de8addc8c71720ab7214240a6619134a9e8af711a270a9168e9378",
+    "mms-client.c": "ce0c75a923a3c985136a7dc0a2ffe07edc071e216cc5f94dbff10e2276e87579",
+    "mms-fixtures.json": "86c5f90ba2851ec256dc545b999b9d9dac70d5527b42cfd1f004f0f585c3e537",
+    "opcua-build-report.py": "93aa83fe1462319eff42bb8e1fd8bef7ec4e3d707a26e00ee1232e594e472c1f",
+    "opcua-fixtures.json": "2246e1944d104d4d39f388a0ee3bf179cd5ce433ad11617ea2695f8ff70a5f7b",
+    "opcua-validator.py": "10383ceefe23b7068880da9bebc1ef121937fbd3e65ac1c5b57a0a234c3cec8a"
+  }
+}

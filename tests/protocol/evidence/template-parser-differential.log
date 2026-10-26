@@ -1,0 +1,30 @@
+{
+  "seed": 111,
+  "cases": 15000,
+  "accepted": 1031,
+  "rejected": 13969,
+  "locator_count": 13,
+  "locator_comparisons": 13403,
+  "discrepancies": 0,
+  "discrepancy_samples": [],
+  "locators": [
+    "bvlc.type",
+    "bvlc.function",
+    "bvlc.length",
+    "npdu.version",
+    "npdu.control",
+    "apdu.type",
+    "apdu.service",
+    "apdu.invoke",
+    "apdu.max_apdu",
+    "apdu.content",
+    "bacnet.object",
+    "bacnet.property",
+    "bacnet.array"
+  ],
+  "source_sha256": {
+    "tools/proto_spec_compiler.py": "6920b83946b93ed307d3d8a1e17b9dd6e42eb7fc94c54b980c02cf70d7ad5f03",
+    "protocol_runtime.c": "39585120110b293afb6d8de7ee77caa7066839a392a8047244b73c01648ee142"
+  },
+  "interpretation": "Scoped decoder agreement; no claim of live service conformance."
+}

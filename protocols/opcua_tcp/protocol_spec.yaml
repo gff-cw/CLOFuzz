@@ -1,0 +1,3071 @@
+format_version: 1
+protocol_id: opcua_tcp
+name: OPC UA TCP
+version: OPC10000 Part4/6 v1.05 / asyncua interoperability profile
+scope: Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue
+  OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault,
+  implementation-profile CloseSecureChannel. Complete UA Binary headers and nested
+  endpoint/token arrays; no Session services or runtime encoder.
+transport: tcp
+framing: protocol length inside replayable records
+codec: opcua
+support:
+  runtime: false
+  level: static description; runtime encoder unavailable
+  excluded:
+  - signing/encryption and certificates
+  - OpenSecureChannel Renew and token-overlap behavior
+  - CreateSession/ActivateSession and authenticated/session services
+  - intermediate/abort chunks and runtime reassembly
+  - whole-standard conformance; CLO normative wording difference unresolved
+sources:
+- id: wire
+  url: https://github.com/FreeOpcUa/opcua-asyncio/tree/c321a240e53d083fd6e167c67f795915d8f236fd/asyncua/ua
+  basis: implementation
+  sections: 'ua_binary.py and generated uaprotocol_auto.py: all service fixtures decoded
+    completely and re-encoded byte-for-byte; no network exchange'
+- id: services
+  url: https://reference.opcfoundation.org/specs/OPC-10000-4/5.5.1
+  basis: normative
+  sections: Discovery service set; Session not required
+- id: nodeids
+  url: https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/latest/Schema/NodeIds.csv
+  basis: normative
+  sections: 'namespace0 binary encoding IDs: 397,428,431,446,449,452'
+- id: official
+  url: https://reference.opcfoundation.org/specs/OPC-10000-6/full
+  basis: normative
+  sections: Part 6 5.2 UA Binary, 6.7 UASC, 7.1 UACP; SecurityPolicy None, single
+    final chunk
+messages:
+- id: hello
+  example: 48454c46380000000000000000000100000001000000000000000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430
+  direction: request
+  weight: 2
+  match: hello
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - protocol_version
+    - receive_buffer
+    - send_buffer
+    - max_message_size
+    - max_chunk_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - endpoint
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4998472
+    min: 4998472
+    max: 4998472
+    values:
+    - 4998472
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0000000000000100000001000000000000000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: protocol_version
+        kind: field
+        type: UInt32-little
+      - id: receive_buffer
+        kind: field
+        type: UInt32-little
+      - id: send_buffer
+        kind: field
+        type: UInt32-little
+      - id: max_message_size
+        kind: field
+        type: UInt32-little
+      - id: max_chunk_count
+        kind: field
+        type: UInt32-little
+      - id: endpoint_url
+        kind: field
+        type: String-Int32-length-UTF8
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: protocol_version
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: receive_buffer
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: send_buffer
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: max_message_size
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: max_chunk_count
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: endpoint
+    block: CONTENT
+    path: uabin:endpoint
+    locator: uabin:endpoint
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: opc.tcp://127.0.0.1:4840
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response.
+  fixture_status: complete
+  runtime_encode: false
+- id: ack
+  example: 41434b461c0000000000000000000100000001000000000000000000
+  direction: response
+  weight: 2
+  match: ack
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - protocol_version
+    - receive_buffer
+    - send_buffer
+    - max_message_size
+    - max_chunk_count
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4932417
+    min: 4932417
+    max: 4932417
+    values:
+    - 4932417
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0000000000000100000001000000000000000000'
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: protocol_version
+        kind: field
+        type: UInt32-little
+      - id: receive_buffer
+        kind: field
+        type: UInt32-little
+      - id: send_buffer
+        kind: field
+        type: UInt32-little
+      - id: max_message_size
+        kind: field
+        type: UInt32-little
+      - id: max_chunk_count
+        kind: field
+        type: UInt32-little
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: protocol_version
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: receive_buffer
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: send_buffer
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 65536
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: max_message_size
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: max_chunk_count
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response.
+  fixture_status: complete
+  runtime_encode: false
+- id: error
+  example: 45525246200000000000838010000000556e6b6e6f776e20656e64706f696e74
+  direction: response
+  weight: 2
+  match: error
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - error_code
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - reason
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 5395013
+    min: 5395013
+    max: 5395013
+    values:
+    - 5395013
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0000838010000000556e6b6e6f776e20656e64706f696e74
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: error
+        kind: field
+        type: StatusCode
+      - id: reason
+        kind: field
+        type: String
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: error_code
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2156068864
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: reason
+    block: CONTENT
+    path: uabin:reason
+    locator: uabin:reason
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: Unknown endpoint
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response.
+  fixture_status: complete
+  runtime_encode: false
+- id: reverse_hello
+  example: 52484546400000001800000075726e3a6578616d706c653a6c6f63616c3a736572766572180000006f70632e7463703a2f2f3132372e302e302e313a34383430
+  direction: response
+  weight: 2
+  match: reverse_hello
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - server_uri
+    - endpoint
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4540498
+    min: 4540498
+    max: 4540498
+    values:
+    - 4540498
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 1800000075726e3a6578616d706c653a6c6f63616c3a736572766572180000006f70632e7463703a2f2f3132372e302e302e313a34383430
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: server_uri
+        kind: field
+        type: String
+      - id: endpoint_url
+        kind: field
+        type: String
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: server_uri
+    block: CONTENT
+    path: uabin:server_uri
+    locator: uabin:server_uri
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: urn:example:local:server
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: endpoint
+    block: CONTENT
+    path: uabin:endpoint
+    locator: uabin:endpoint
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: opc.tcp://127.0.0.1:4840
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response. RHE
+    is sent by the server in reverse-connect mode; it does not itself negotiate a
+    SecureChannel.
+  fixture_status: complete
+  runtime_encode: false
+- id: open_channel
+  example: 4f504e4684000000000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100be01000000c030c71364dd0101000000000000000000000010270000000000000000000000000001000000ffffffffc0270900
+  direction: request
+  weight: 2
+  match: open_channel
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - sequence
+    - request_id
+    - request_handle
+    - protocol_version
+    - request_type
+    - security_mode
+    - requested_lifetime
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    - policy_uri
+    - sender_certificate
+    - receiver_thumbprint
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 5132367
+    min: 5132367
+    max: 5132367
+    values:
+    - 5132367
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 000000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100be01000000c030c71364dd0101000000000000000000000010270000000000000000000000000001000000ffffffffc0270900
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: secure_channel_id
+        kind: field
+        type: UInt32
+      - id: security_header
+        kind: field
+        type: AsymmetricAlgorithmHeader-3-Strings
+      - id: sequence_number
+        kind: field
+        type: UInt32
+      - id: request_id
+        kind: field
+        type: UInt32
+      - id: encoding_id
+        kind: field
+        type: NodeId
+      - id: request_header
+        kind: sequence
+        children:
+        - id: authentication_token
+          kind: field
+          type: NodeId-null-for-discovery
+        - id: timestamp
+          kind: field
+          type: DateTime-Int64
+        - id: request_handle
+          kind: field
+          type: UInt32
+        - id: return_diagnostics
+          kind: field
+          type: UInt32
+        - id: audit_entry_id
+          kind: field
+          type: String
+        - id: timeout_hint
+          kind: field
+          type: UInt32
+        - id: additional_header
+          kind: field
+          type: ExtensionObject
+      - id: client_protocol_version
+        kind: field
+        type: UInt32
+      - id: request_type
+        kind: field
+        type: SecurityTokenRequestType-Issue
+      - id: security_mode
+        kind: field
+        type: MessageSecurityMode-None-1
+      - id: nonce
+        kind: field
+        type: ByteString-null-for-None
+      - id: requested_lifetime
+        kind: field
+        type: UInt32
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: sequence
+    block: HEAD
+    path: abs:71
+    locator: abs:71
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_id
+    block: HEAD
+    path: abs:75
+    locator: abs:75
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:79
+    locator: abs:79
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0100be01
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: request_handle
+    block: HEAD
+    path: uabin:header.request_handle
+    locator: uabin:header.request_handle
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: policy_uri
+    block: CONTENT
+    path: uabin:policy_uri
+    locator: uabin:policy_uri
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: http://opcfoundation.org/UA/SecurityPolicy#None
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: sender_certificate
+    block: CONTENT
+    path: uabin:sender_certificate
+    locator: uabin:sender_certificate
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: Int32 length -1 means null in None profile.
+  - id: receiver_thumbprint
+    block: CONTENT
+    path: uabin:receiver_thumbprint
+    locator: uabin:receiver_thumbprint
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: Int32 length -1 means null in None profile.
+  - id: protocol_version
+    block: HEAD
+    path: uabin:open.protocol_version
+    locator: uabin:open.protocol_version
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_type
+    block: HEAD
+    path: uabin:open.request_type
+    locator: uabin:open.request_type
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: security_mode
+    block: HEAD
+    path: uabin:open.security_mode
+    locator: uabin:open.security_mode
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: requested_lifetime
+    block: HEAD
+    path: uabin:open.lifetime
+    locator: uabin:open.lifetime
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 600000
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  - op: sequence_number
+    target: sequence
+    source: $message
+    scope: connection
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response.
+  fixture_status: complete
+  runtime_encode: false
+- id: open_channel_response
+  example: 4f504e4687000000010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100c10100c030c71364dd010100000000000000000000000000000000000000010000000100000000c030c71364dd01c0270900ffffffff
+  direction: response
+  weight: 2
+  match: open_channel_response
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - sequence
+    - request_id
+    - request_handle
+    - token
+    - token_channel
+    - created_at
+    - revised_lifetime
+    - service_result
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    - policy_uri
+    - sender_certificate
+    - receiver_thumbprint
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 5132367
+    min: 5132367
+    max: 5132367
+    values:
+    - 5132367
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e65ffffffffffffffff01000000010000000100c10100c030c71364dd010100000000000000000000000000000000000000010000000100000000c030c71364dd01c0270900ffffffff
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: secure_channel_id
+        kind: field
+        type: UInt32
+      - id: security_header
+        kind: field
+        type: AsymmetricAlgorithmHeader-3-Strings
+      - id: sequence_number
+        kind: field
+        type: UInt32
+      - id: request_id
+        kind: field
+        type: UInt32
+      - id: encoding_id
+        kind: field
+        type: NodeId
+      - id: response_header
+        kind: sequence
+        children:
+        - id: timestamp
+          kind: field
+          type: DateTime-Int64
+        - id: request_handle
+          kind: field
+          type: UInt32
+        - id: service_result
+          kind: field
+          type: StatusCode
+        - id: service_diagnostics
+          kind: field
+          type: DiagnosticInfo
+        - id: string_table
+          kind: repeat
+          children:
+          - id: string
+            kind: field
+            type: String
+          min: 0
+          max: 64
+        - id: additional_header
+          kind: field
+          type: ExtensionObject
+      - id: server_protocol_version
+        kind: field
+        type: UInt32
+      - id: security_token
+        kind: sequence
+        children:
+        - id: channel_id
+          kind: field
+          type: UInt32
+        - id: token_id
+          kind: field
+          type: UInt32
+        - id: created_at
+          kind: field
+          type: DateTime
+        - id: revised_lifetime
+          kind: field
+          type: UInt32
+      - id: nonce
+        kind: field
+        type: ByteString-null-for-None
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: sequence
+    block: HEAD
+    path: abs:71
+    locator: abs:71
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_id
+    block: HEAD
+    path: abs:75
+    locator: abs:75
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:79
+    locator: abs:79
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0100c101
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: request_handle
+    block: HEAD
+    path: uabin:header.request_handle
+    locator: uabin:header.request_handle
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: policy_uri
+    block: CONTENT
+    path: uabin:policy_uri
+    locator: uabin:policy_uri
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: http://opcfoundation.org/UA/SecurityPolicy#None
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: sender_certificate
+    block: CONTENT
+    path: uabin:sender_certificate
+    locator: uabin:sender_certificate
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: Int32 length -1 means null in None profile.
+  - id: receiver_thumbprint
+    block: CONTENT
+    path: uabin:receiver_thumbprint
+    locator: uabin:receiver_thumbprint
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure: Int32 length -1 means null in None profile.
+  - id: token
+    block: HEAD
+    path: uabin:token.token_id
+    locator: uabin:token.token_id
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: token_channel
+    block: HEAD
+    path: uabin:token.channel_id
+    locator: uabin:token.channel_id
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: created_at
+    block: HEAD
+    path: uabin:token.created_at
+    locator: uabin:token.created_at
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 134373600000000000
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: revised_lifetime
+    block: HEAD
+    path: uabin:token.lifetime
+    locator: uabin:token.lifetime
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 600000
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_result
+    block: HEAD
+    path: uabin:header.service_result
+    locator: uabin:header.service_result
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  - op: correlate_request_response
+    target: request_id
+    source: request_id
+    message: open_channel
+    scope: transaction
+  - op: copy_from_message
+    target: request_handle
+    source: request_handle
+    message: open_channel
+    scope: transaction
+  - op: sequence_number
+    target: sequence
+    source: $message
+    scope: connection
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response.
+  fixture_status: complete
+  runtime_encode: false
+- id: message
+  example: 4d5347465d000000010000000100000002000000020000000100ac01000000c030c71364dd0102000000000000000000000010270000000000180000006f70632e7463703a2f2f3132372e302e302e313a343834300000000000000000
+  direction: request
+  weight: 2
+  match: message
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - sequence
+    - request_id
+    - request_handle
+    - token
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    - endpoint
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4674381
+    min: 4674381
+    max: 4674381
+    values:
+    - 4674381
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 010000000100000002000000020000000100ac01000000c030c71364dd0102000000000000000000000010270000000000180000006f70632e7463703a2f2f3132372e302e302e313a343834300000000000000000
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: secure_channel_id
+        kind: field
+        type: UInt32
+      - id: security_header
+        kind: field
+        type: SymmetricAlgorithmHeader-TokenId
+      - id: sequence_number
+        kind: field
+        type: UInt32
+      - id: request_id
+        kind: field
+        type: UInt32
+      - id: encoding_id
+        kind: field
+        type: NodeId
+      - id: request_header
+        kind: sequence
+        children:
+        - id: authentication_token
+          kind: field
+          type: NodeId-null-for-discovery
+        - id: timestamp
+          kind: field
+          type: DateTime-Int64
+        - id: request_handle
+          kind: field
+          type: UInt32
+        - id: return_diagnostics
+          kind: field
+          type: UInt32
+        - id: audit_entry_id
+          kind: field
+          type: String
+        - id: timeout_hint
+          kind: field
+          type: UInt32
+        - id: additional_header
+          kind: field
+          type: ExtensionObject
+      - id: endpoint_url
+        kind: field
+        type: String
+      - id: locale_ids
+        kind: repeat
+        children:
+        - id: locale
+          kind: field
+          type: String
+        min: 0
+        max: 64
+      - id: profile_uris
+        kind: repeat
+        children:
+        - id: uri
+          kind: field
+          type: String
+        min: 0
+        max: 64
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: sequence
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_id
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:24
+    locator: abs:24
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0100ac01
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: request_handle
+    block: HEAD
+    path: uabin:header.request_handle
+    locator: uabin:header.request_handle
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: token
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: endpoint
+    block: CONTENT
+    path: uabin:endpoint
+    locator: uabin:endpoint
+    type: string
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: opc.tcp://127.0.0.1:4840
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  - op: bind_from_response
+    target: channel
+    source: channel
+    message: open_channel_response
+    scope: connection
+  - op: bind_from_response
+    target: token
+    source: token
+    message: open_channel_response
+    scope: connection
+  - op: sequence_number
+    target: sequence
+    source: $message
+    scope: connection
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response. MSG
+    carries complete GetEndpoints Discovery request; this service does not require
+    CreateSession/ActivateSession.
+  fixture_status: complete
+  runtime_encode: false
+- id: message_response
+  example: 4d5347466e010000010000000100000002000000020000000100af0100c030c71364dd010200000000000000000000000000000001000000180000006f70632e7463703a2f2f3132372e302e302e313a343834301800000075726e3a6578616d706c653a6c6f63616c3a7365727665721300000075726e3a6578616d706c653a70726f66696c6502140000004c6f63616c206578616d706c652073657276657200000000ffffffffffffffff01000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430ffffffff010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e650100000009000000616e6f6e796d6f757300000000ffffffffffffffffffffffff41000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412d50726f66696c652f5472616e73706f72742f75617463702d756173632d756162696e61727900
+  direction: response
+  weight: 2
+  match: message_response
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - sequence
+    - request_id
+    - request_handle
+    - token
+    - service_result
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4674381
+    min: 4674381
+    max: 4674381
+    values:
+    - 4674381
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 010000000100000002000000020000000100af0100c030c71364dd010200000000000000000000000000000001000000180000006f70632e7463703a2f2f3132372e302e302e313a343834301800000075726e3a6578616d706c653a6c6f63616c3a7365727665721300000075726e3a6578616d706c653a70726f66696c6502140000004c6f63616c206578616d706c652073657276657200000000ffffffffffffffff01000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430ffffffff010000002f000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412f5365637572697479506f6c696379234e6f6e650100000009000000616e6f6e796d6f757300000000ffffffffffffffffffffffff41000000687474703a2f2f6f7063666f756e646174696f6e2e6f72672f55412d50726f66696c652f5472616e73706f72742f75617463702d756173632d756162696e61727900
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: secure_channel_id
+        kind: field
+        type: UInt32
+      - id: security_header
+        kind: field
+        type: SymmetricAlgorithmHeader-TokenId
+      - id: sequence_number
+        kind: field
+        type: UInt32
+      - id: request_id
+        kind: field
+        type: UInt32
+      - id: encoding_id
+        kind: field
+        type: NodeId
+      - id: response_header
+        kind: sequence
+        children:
+        - id: timestamp
+          kind: field
+          type: DateTime-Int64
+        - id: request_handle
+          kind: field
+          type: UInt32
+        - id: service_result
+          kind: field
+          type: StatusCode
+        - id: service_diagnostics
+          kind: field
+          type: DiagnosticInfo
+        - id: string_table
+          kind: repeat
+          children:
+          - id: string
+            kind: field
+            type: String
+          min: 0
+          max: 64
+        - id: additional_header
+          kind: field
+          type: ExtensionObject
+      - id: endpoints
+        kind: repeat
+        children:
+        - id: endpoint
+          kind: sequence
+          children:
+          - id: endpoint_url
+            kind: field
+            type: String
+          - id: server
+            kind: sequence
+            children:
+            - id: application_uri
+              kind: field
+              type: String
+            - id: product_uri
+              kind: field
+              type: String
+            - id: application_name
+              kind: field
+              type: LocalizedText
+            - id: application_type
+              kind: field
+              type: UInt32
+            - id: gateway_uri
+              kind: field
+              type: String
+            - id: discovery_profile_uri
+              kind: field
+              type: String
+            - id: discovery_urls
+              kind: repeat
+              children:
+              - id: url
+                kind: field
+                type: String
+              min: 0
+              max: 64
+          - id: certificate
+            kind: field
+            type: ByteString
+          - id: security_mode
+            kind: field
+            type: UInt32
+          - id: security_policy_uri
+            kind: field
+            type: String
+          - id: user_tokens
+            kind: repeat
+            children:
+            - id: user_token_policy
+              kind: sequence
+              children:
+              - id: policy_id
+                kind: field
+                type: String
+              - id: token_type
+                kind: field
+                type: UInt32
+              - id: issued_token_type
+                kind: field
+                type: String
+              - id: issuer_endpoint_url
+                kind: field
+                type: String
+              - id: security_policy_uri
+                kind: field
+                type: String
+            min: 0
+            max: 64
+          - id: transport_profile_uri
+            kind: field
+            type: String
+          - id: security_level
+            kind: field
+            type: Byte
+        min: 0
+        max: 64
+        encoding: Int32-count-then-EndpointDescription
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: sequence
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_id
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:24
+    locator: abs:24
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0100af01
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: request_handle
+    block: HEAD
+    path: uabin:header.request_handle
+    locator: uabin:header.request_handle
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: token
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_result
+    block: HEAD
+    path: uabin:header.service_result
+    locator: uabin:header.service_result
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  - op: bind_from_response
+    target: channel
+    source: channel
+    message: open_channel_response
+    scope: connection
+  - op: bind_from_response
+    target: token
+    source: token
+    message: open_channel_response
+    scope: connection
+  - op: correlate_request_response
+    target: request_id
+    source: request_id
+    message: message
+    scope: transaction
+  - op: copy_from_message
+    target: request_handle
+    source: request_handle
+    message: message
+    scope: transaction
+  - op: sequence_number
+    target: sequence
+    source: $message
+    scope: connection
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response.
+  fixture_status: complete
+  runtime_encode: false
+- id: service_fault
+  example: 4d534746340000000100000001000000020000000200000001008d0100c030c71364dd010200000000000b800000000000000000
+  direction: response
+  weight: 2
+  match: service_fault
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - sequence
+    - request_id
+    - request_handle
+    - token
+    - service_result
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4674381
+    min: 4674381
+    max: 4674381
+    values:
+    - 4674381
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0100000001000000020000000200000001008d0100c030c71364dd010200000000000b800000000000000000
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: secure_channel_id
+        kind: field
+        type: UInt32
+      - id: security_header
+        kind: field
+        type: SymmetricAlgorithmHeader-TokenId
+      - id: sequence_number
+        kind: field
+        type: UInt32
+      - id: request_id
+        kind: field
+        type: UInt32
+      - id: encoding_id
+        kind: field
+        type: NodeId
+      - id: response_header
+        kind: sequence
+        children:
+        - id: timestamp
+          kind: field
+          type: DateTime-Int64
+        - id: request_handle
+          kind: field
+          type: UInt32
+        - id: service_result
+          kind: field
+          type: StatusCode
+        - id: service_diagnostics
+          kind: field
+          type: DiagnosticInfo
+        - id: string_table
+          kind: repeat
+          children:
+          - id: string
+            kind: field
+            type: String
+          min: 0
+          max: 64
+        - id: additional_header
+          kind: field
+          type: ExtensionObject
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: sequence
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: request_id
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:24
+    locator: abs:24
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 01008d01
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+  - id: request_handle
+    block: HEAD
+    path: uabin:header.request_handle
+    locator: uabin:header.request_handle
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: token
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: service_result
+    block: HEAD
+    path: uabin:header.service_result
+    locator: uabin:header.service_result
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 2148204544
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  - op: bind_from_response
+    target: channel
+    source: channel
+    message: open_channel_response
+    scope: connection
+  - op: bind_from_response
+    target: token
+    source: token
+    message: open_channel_response
+    scope: connection
+  - op: correlate_request_response
+    target: request_id
+    source: request_id
+    message: message
+    scope: transaction
+  - op: copy_from_message
+    target: request_handle
+    source: request_handle
+    message: message
+    scope: transaction
+  - op: sequence_number
+    target: sequence
+    source: $message
+    scope: connection
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response.
+  fixture_status: complete
+  runtime_encode: false
+- id: close_channel
+  example: 434c4f4639000000010000000100000003000000030000000100c401000000c030c71364dd0103000000000000000000000010270000000000
+  direction: request
+  weight: 2
+  match: close_channel
+  blocks:
+  - id: HEAD
+    fields:
+    - message_type
+    - chunk
+    - message_size
+    - channel
+    - sequence
+    - request_id
+    - request_handle
+    - token
+    parent: REQUEST
+  - id: CONTENT
+    fields:
+    - body
+    - service_nodeid
+    parent: REQUEST
+  - id: REQUEST
+    fields: []
+  fields:
+  - id: message_type
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint24
+    width: 3
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 5196867
+    min: 5196867
+    max: 5196867
+    values:
+    - 5196867
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: chunk
+    block: HEAD
+    path: abs:3
+    locator: abs:3
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 70
+    min: 70
+    max: 70
+    values:
+    - 70
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: message_size
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: body
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 010000000100000003000000030000000100c401000000c030c71364dd0103000000000000000000000010270000000000
+    min: 0
+    max: 65507
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: ua_binary_body
+      kind: sequence
+      children:
+      - id: secure_channel_id
+        kind: field
+        type: UInt32
+      - id: security_header
+        kind: field
+        type: SymmetricAlgorithmHeader-TokenId
+      - id: sequence_number
+        kind: field
+        type: UInt32
+      - id: request_id
+        kind: field
+        type: UInt32
+      - id: encoding_id
+        kind: field
+        type: NodeId
+      - id: request_header
+        kind: sequence
+        children:
+        - id: authentication_token
+          kind: field
+          type: NodeId-null-for-discovery
+        - id: timestamp
+          kind: field
+          type: DateTime-Int64
+        - id: request_handle
+          kind: field
+          type: UInt32
+        - id: return_diagnostics
+          kind: field
+          type: UInt32
+        - id: audit_entry_id
+          kind: field
+          type: String
+        - id: timeout_hint
+          kind: field
+          type: UInt32
+        - id: additional_header
+          kind: field
+          type: ExtensionObject
+      encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32
+        count; -1 null
+  - id: channel
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: sequence
+    block: HEAD
+    path: abs:16
+    locator: abs:16
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 3
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: request_id
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 3
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: service_nodeid
+    block: CONTENT
+    path: abs:24
+    locator: abs:24
+    type: nodeid
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0100c401
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: request_handle
+    block: HEAD
+    path: uabin:header.request_handle
+    locator: uabin:header.request_handle
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 3
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: token
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: message_size
+    source: $message
+  - op: bind_from_response
+    target: channel
+    source: channel
+    message: open_channel_response
+    scope: connection
+  - op: bind_from_response
+    target: token
+    source: token
+    message: open_channel_response
+    scope: connection
+  - op: sequence_number
+    target: sequence
+    source: $message
+    scope: connection
+  notes: Complete single final chunk in None profile. Assigned channel/token values
+    are examples and must be replaced from a fresh OpenSecureChannel response. Implementation
+    profile includes binary encoding NodeId 452 plus RequestHeader; Part6 7.1.4 says
+    empty body. This wording difference is unresolved, so CLO is implementation evidence,
+    not asserted full normative conformance. No response is sent.
+  fixture_status: complete
+  runtime_encode: false

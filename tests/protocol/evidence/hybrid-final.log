@@ -1,0 +1,3 @@
+START hybrid: UDP 38738
+READY hybrid: calibration=19.75s; running 45.0s
+END hybrid: passed=True execs=265 queue=13 coverage=3.09% states=[0, 1]

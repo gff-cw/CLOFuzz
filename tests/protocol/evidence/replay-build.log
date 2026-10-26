@@ -1,0 +1,3 @@
+[*] Checking for the ability to compile x86 code...
+[+] Everything seems to be working, ready to compile.
+clang -O3 -funroll-loops -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign -Wno-unused-result -DAFL_PATH=\"/usr/local/lib/afl\" -DDOC_PATH=\"/usr/local/share/doc/afl\" -DBIN_PATH=\"/usr/local/bin\" aflnet-replay.c aflnet.o -o aflnet-replay -ldl -lgvc -lcgraph -lm

@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,6 +40,41 @@ def main():
     versions = run('default-c-version', [cc, '--version'])
     assert 'clang version 18.' in versions
     assert 'clang version 18.' in run('default-cpp-version', [cxx, '--version'])
+    # Resolve the real compilers before adding probes to PATH. A hard-coded
+    # compiler pathname would bypass these probes even if its version matched.
+    compilers = {name: shutil.which(name, path=env.get('PATH'))
+                 for name in ('clang', 'clang++')}
+    assert all(compilers.values()), compilers
+    probe_bin = out / 'path-compilers'
+    probe_bin.mkdir(exist_ok=True)
+    probe_log = out / 'path-compiler-calls.jsonl'
+    probe_log.write_text('')
+    for name, real_compiler in compilers.items():
+        probe = probe_bin / name
+        probe.write_text(
+            '#!/usr/bin/env python3\nimport json,os,sys\n'
+            f'with open({str(probe_log)!r}, "a") as log:\n'
+            f'    print(json.dumps({{"compiler": {name!r}, "argv": sys.argv[1:]}}), file=log)\n'
+            f'os.execv({real_compiler!r}, [{real_compiler!r}, *sys.argv[1:]])\n')
+        probe.chmod(0o755)
+    probe_env = {'PATH': str(probe_bin) + os.pathsep + env.get('PATH', os.defpath)}
+    for name, wrapper, suffix in (('clang', cc, '.c'), ('clang++', cxx, '.cpp')):
+        assert 'clang version 18.' in run('path-' + name + '-version',
+                                           [wrapper, '--version'], probe_env)
+        source = out / ('path-probe' + suffix)
+        source.write_text('int path_probe(void) { return 0; }\n')
+        run('path-' + name + '-compile',
+            [wrapper, '-O0', '-g0', '-c', source,
+             '-o', out / ('path-probe-' + name + '.o')], probe_env)
+    probe_calls = [json.loads(line) for line in probe_log.read_text().splitlines()]
+    assert [entry['compiler'] for entry in probe_calls] == [
+        'clang', 'clang', 'clang++', 'clang++'], probe_calls
+    for index, entry in enumerate(probe_calls):
+        if index % 2 == 0:
+            assert '--version' in entry['argv'], entry
+        else:
+            assert '-c' in entry['argv'] and any(
+                flag.startswith('-fpass-plugin=') for flag in entry['argv']), entry
     run('plugin-export', ['nm', '-D', ROOT / 'afl-llvm-pass.so'])
     assert 'llvmGetPassPluginInfo' in (out / 'plugin-export.log').read_text()
     driver = run('driver', [cc, '-###', '-O0', ROOT / 'test-instr.c', '-o', out / 'driver'])
@@ -96,7 +132,8 @@ def main():
     run('msan-execute', [binary], {'MSAN_OPTIONS': 'exit_code=86', 'ASAN_OPTIONS': 'detect_leaks=0'})
     (out / 'commands.json').write_text(json.dumps(commands, indent=2) + '\n')
     (out / 'result.json').write_text(json.dumps({'passed': True, 'cases': results,
-        'coverage_tuple_counts': [len(x.splitlines()) for x in (first, second)]}, indent=2) + '\n')
+        'coverage_tuple_counts': [len(x.splitlines()) for x in (first, second)],
+        'path_compiler_resolutions': compilers, 'path_compiler_probes': probe_calls}, indent=2) + '\n')
     print(f'{len(results)} checks passed; coverage tuple counts: {[len(x.splitlines()) for x in (first, second)]}')
 
 

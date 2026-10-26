@@ -1,0 +1,549 @@
+{
+  "status": "passed",
+  "utc": "2026-10-26T02:44:56.106650+00:00",
+  "sanitizers": [
+    "address",
+    "undefined",
+    "leak"
+  ],
+  "seed": 20903,
+  "random_wire_iterations": 25000,
+  "loader_cases": [
+    {
+      "name": "compiled BACnet runtime",
+      "expected": "accept",
+      "passed": true
+    },
+    {
+      "name": "invalid message type",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid direction",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "duplicate message ID",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "duplicate field ID",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "empty identifier",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "unknown codec",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "runtime false",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "runtime wrong type",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "messages wrong type",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "fields wrong type",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "unknown field type",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "wrong field width",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "overflow scalar max",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "negative scalar min",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "overflow signed64",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "oversize variable field",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "wrong integer type",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid enumeration",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid endian",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "unknown runtime strategy",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "head without scalar strategy",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid role",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid mutability",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "nonfixed fixed range",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "stale BVLC example",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid example hex",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid fixed example",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "unknown locator",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "empty absolute locator",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "negative absolute locator",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "overflow absolute locator",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing required field",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "static-only conditional",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "static-only repeat",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing dependency target",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing dependency source",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing dependency message",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "cross-message structural dependency",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "unknown dependency",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "static-only conditional dependency",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "static-only tagged dependency",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "multiple dependency writers",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "unsupported multiply",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "zero dependency unit",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "invalid checksum",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "nonscalar dependency target",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "incompatible copy types",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "dependency cycle",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "response bind from request",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "namespace mismatch",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "duplicate state ID",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing initial state",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing transition state",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing transition message",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "missing transition response",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "request as response",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "ambiguous transition",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "unreachable state",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "max messages overflow",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "zero max repeat",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "tiny byte limit",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "byte limit overflow",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 0",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 1",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 2",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 3",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 4",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 5",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 6",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 7",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 8",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 9",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 10",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 11",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 12",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 13",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "malformed JSON 14",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "explicit static-only ethernet_ip_cip_tcp",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "explicit static-only iec60870_5_104",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "explicit static-only iec61850_mms_tcp",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "explicit static-only modbus_tcp",
+      "expected": "reject",
+      "passed": true
+    },
+    {
+      "name": "explicit static-only opcua_tcp",
+      "expected": "reject",
+      "passed": true
+    }
+  ],
+  "failures": [],
+  "run_command": [
+    "python3",
+    "tests/protocol/run_runtime_tests.py",
+    "--iterations",
+    "25000",
+    "--random-models",
+    "250",
+    "--compiler",
+    "clang"
+  ],
+  "compiler": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+  "build_command": [
+    "clang",
+    "-std=gnu11",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-Wno-unused-parameter",
+    "-fsanitize=address,undefined",
+    "-fno-omit-frame-pointer",
+    "-g",
+    "-I.",
+    "protocol_runtime.c",
+    "tests/protocol/test_runtime.c",
+    "-o",
+    "<temporary-binary>"
+  ],
+  "random_model_iterations": 250,
+  "runtime_harness": {
+    "checks": 100096,
+    "status": "passed"
+  },
+  "session_harness": {
+    "checks": 6,
+    "status": "passed"
+  },
+  "dependency_harnesses": [
+    {
+      "name": "local copy",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
+      "name": "local length",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
+      "name": "local count",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
+      "name": "local offset",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
+      "name": "sum8 checksum",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
+      "name": "crc32 checksum",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
+      "name": "serialized byte limit",
+      "checks": 2,
+      "status": "passed"
+    },
+    {
+      "name": "session sequence number",
+      "checks": 3,
+      "status": "passed"
+    }
+  ],
+  "source_sha256": {
+    "protocol_runtime.c": "39585120110b293afb6d8de7ee77caa7066839a392a8047244b73c01648ee142",
+    "protocol_runtime.h": "612178d079fd6727853852f612c93ceba8ab3e808a57032932534fe5043105fc",
+    "tests/protocol/test_runtime.c": "ab03f8055d7426477ea8d1e9b8350ab3e44d94b2b25474ed4afc6a933822a559"
+  },
+  "supported_scope": {
+    "runtime_codec": "BACnet/IP UDP Original-Unicast/Broadcast-NPDU, unsegmented APDUs",
+    "content_encoders": [
+      "Who-Is optional paired device limits",
+      "ReadProperty object/property/present optional array index scalar projection"
+    ],
+    "parser": "dynamic destination/source NPDU addresses, BACnet LVT including extended lengths and balanced context tags",
+    "integers": "IR signed-64-bit nonnegative scalar bounds; uint8/16/24/32/64 field types",
+    "sequence": "request replay insert/delete/repeat/reorder; declared response transition simulated between requests; bounded counts/repetitions/serialized bytes",
+    "dependencies": [
+      "local length_of/count_of/offset_of",
+      "local sum8/crc32 checksum_of",
+      "scalar copy_from_message/bind_from_response",
+      "invoke response correlation",
+      "field-width sequence_number"
+    ],
+    "static_only_codecs": [
+      "modbus_tcp",
+      "ethernet_ip_cip_tcp",
+      "opcua_tcp",
+      "iec60870_5_104",
+      "iec61850_mms_tcp"
+    ],
+    "excluded": [
+      "segmented APDUs",
+      "network-layer NPDUs",
+      "BACnet/SC",
+      "BBMD/foreign-device lifecycle",
+      "conditional_presence/tagged_length runtime dependencies",
+      "when/repeat executable field controls",
+      "response payload mutation encoder",
+      "absent ReadProperty array-index insertion"
+    ],
+    "invalid_modes": "near_valid and invalid both intentionally change one BVLC length constraint after repair; before_send preserves these bytes",
+    "metadata": "guards/actions/structure descriptions are documentation; dependencies drive runtime binding",
+    "evidence_limits": "Standalone local tests only; randomized runs do not prove protocol conformance or replace live target integration."
+  }
+}

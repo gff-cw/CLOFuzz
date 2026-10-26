@@ -1,0 +1,146 @@
+format_version: 1
+protocol_id: modbus_tcp
+initial: connected
+states:
+- id: connected
+  meaning: TCP transport; independent transaction contexts
+transitions:
+- from: connected
+  to: connected
+  message: read_coils
+  response: read_coils_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: read_discrete
+  response: read_discrete_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: read_holding
+  response: read_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: read_input
+  response: read_input_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_coil
+  response: write_coil_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_register
+  response: write_register_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_coils
+  response: write_coils_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_registers
+  response: write_registers_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: read_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: exception
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_coils_partial
+  response: write_coils_partial_response
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: read_coils_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: read_discrete_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: read_input_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_coil_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_register_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_coils_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_coils_partial_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+- from: connected
+  to: connected
+  message: write_registers_response
+  response: ''
+  guard: transaction ID + unit + function correlation; success or corresponding exception
+  actions:
+  - cache or clear selected MBAP transaction
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

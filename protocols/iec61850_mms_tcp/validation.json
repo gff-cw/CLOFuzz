@@ -1,0 +1,52 @@
+{
+  "protocol": "iec61850_mms_tcp",
+  "messages": 14,
+  "fields": 136,
+  "semantic_states": 9,
+  "validated": true,
+  "runtime": false,
+  "scope": "Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific named-variable Read/Write, MMS conclude and ACSE/session release, all successful request/response layouts. BER definite lengths; no runtime encoder.",
+  "example_validation": "protocol envelope and length consistency; scoped BACnet decoder checks for runtime fixtures; not live service conformance",
+  "execution_contract": {
+    "static_only": true,
+    "static_metadata": {
+      "protocol": [
+        "name",
+        "version",
+        "scope",
+        "framing",
+        "sources"
+      ],
+      "message": [
+        "match",
+        "blocks",
+        "notes",
+        "fixture_status",
+        "runtime_encode"
+      ],
+      "field": [
+        "block",
+        "path",
+        "default",
+        "evidence",
+        "confidence",
+        "structure",
+        "structure_model"
+      ],
+      "dependency": [
+        "scope",
+        "when"
+      ],
+      "state": [
+        "states[].meaning",
+        "transitions[].guard",
+        "transitions[].actions",
+        "invalid_strategy"
+      ]
+    },
+    "field_when_repeat": "static-only; rejected by runtime-enabled profiles",
+    "dependencies": "whitelisted operations only; scope and when are annotations",
+    "content_scalar_strategies": "runtime uses AFL field projection; values/strategies are annotations for CONTENT scalars",
+    "runtime_encode": "capability assertion derived from runtime support and message direction; never an execution switch"
+  }
+}

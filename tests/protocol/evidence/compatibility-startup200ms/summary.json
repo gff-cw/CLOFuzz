@@ -1,0 +1,247 @@
+{
+  "passed": false,
+  "runs": [
+    {
+      "mode": "legacy",
+      "passed": false,
+      "checks": {
+        "ready_reached": true,
+        "clean_sigint_stop": false,
+        "fuzzer_aslr_disabled": true,
+        "executions_continue": true,
+        "coverage_nonzero": true,
+        "queue_matches_stats": true,
+        "replays_present_and_framed": true,
+        "memory_states_present": true,
+        "memory_graph_matches_paths": true,
+        "calibration_present": true,
+        "no_crashes": true,
+        "no_hangs": true,
+        "legacy_has_no_protocol_outputs": true
+      },
+      "command": [
+        "setarch",
+        "x86_64",
+        "-R",
+        "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz",
+        "-d",
+        "-i",
+        "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-startup200ms/in",
+        "-o",
+        "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-startup200ms/legacy/out",
+        "-N",
+        "udp://127.0.0.1/40649",
+        "-D",
+        "200000",
+        "-W",
+        "10",
+        "-w",
+        "1000",
+        "-r",
+        "10",
+        "-E",
+        "-K",
+        "-q",
+        "3",
+        "-s",
+        "3",
+        "-m",
+        "none",
+        "-t",
+        "1000",
+        "--",
+        "/home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server",
+        "123"
+      ],
+      "exit_code": 0,
+      "timing": {
+        "ready_elapsed_seconds": null,
+        "sigint_sent": false,
+        "total_elapsed_seconds": 213.107,
+        "seconds_after_ready": null
+      },
+      "stats": {
+        "start_time": "1792931760",
+        "last_update": "1792931973",
+        "fuzzer_pid": "35379",
+        "cycles_done": "0",
+        "execs_done": "879",
+        "execs_per_sec": "4.14",
+        "paths_total": "37",
+        "paths_favored": "4",
+        "paths_found": "33",
+        "paths_imported": "0",
+        "max_depth": "2",
+        "cur_path": "0",
+        "pending_favs": "4",
+        "pending_total": "37",
+        "variable_paths": "37",
+        "stability": "97.26%",
+        "bitmap_cvg": "3.34%",
+        "unique_crashes": "0",
+        "unique_hangs": "0",
+        "last_path": "1792931970",
+        "last_crash": "0",
+        "last_hang": "0",
+        "execs_since_crash": "879",
+        "exec_timeout": "1000",
+        "afl_banner": "server",
+        "afl_version": "2.56b",
+        "target_mode": "default",
+        "command_line": "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz -d -i /home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-startup200ms/in -o /home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-startup200ms/legacy/out -N udp://127.0.0.1/40649 -D 200000 -W 10 -w 1000 -r 10 -E -K -q 3 -s 3 -m none -t 1000 -- /home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server 123",
+        "slowest_exec_ms": "267",
+        "peak_rss_mb": "14"
+      },
+      "queue_count": 37,
+      "replayable_queue": {
+        "files": 37,
+        "framing_valid": 37,
+        "all_messages_structural": 4,
+        "messages": 37,
+        "structural_messages": 4,
+        "examples": [
+          {
+            "file": "id:000000,orig:seed01_whois.replay",
+            "bytes": 12,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              8
+            ],
+            "structural_messages": 1
+          },
+          {
+            "file": "id:000001,orig:seed03_read_objectname.replay",
+            "bytes": 21,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              17
+            ],
+            "structural_messages": 1
+          },
+          {
+            "file": "id:000002,orig:seed04_read_vendorname.replay",
+            "bytes": 21,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              17
+            ],
+            "structural_messages": 1
+          },
+          {
+            "file": "id:000003,orig:seed05_read_objectlist.replay",
+            "bytes": 23,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              19
+            ],
+            "structural_messages": 1
+          },
+          {
+            "file": "id:000004,src:000000,op:havoc,rep:16,+cov",
+            "bytes": 5,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              1
+            ],
+            "structural_messages": 0
+          },
+          {
+            "file": "id:000005,src:000000,op:havoc,rep:4,+cov",
+            "bytes": 17,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              13
+            ],
+            "structural_messages": 0
+          },
+          {
+            "file": "id:000006,src:000000,op:havoc,rep:2,+cov",
+            "bytes": 12,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              8
+            ],
+            "structural_messages": 0
+          },
+          {
+            "file": "id:000007,src:000000,op:havoc,rep:4,+cov",
+            "bytes": 19,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              15
+            ],
+            "structural_messages": 0
+          },
+          {
+            "file": "id:000008,src:000000,op:havoc,rep:2",
+            "bytes": 9,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              5
+            ],
+            "structural_messages": 0
+          },
+          {
+            "file": "id:000009,src:000000,op:havoc,rep:2,+cov",
+            "bytes": 5,
+            "framing": "LE32-length-prefixed",
+            "message_count": 1,
+            "lengths": [
+              1
+            ],
+            "structural_messages": 0
+          }
+        ],
+        "errors": [],
+        "structural_file_ratio": 0.10810810810810811,
+        "structural_message_ratio": 0.10810810810810811
+      },
+      "protocol_stats": null,
+      "protocol_log": {
+        "path": "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-startup200ms/legacy/out/protocol_mutations.jsonl",
+        "events": {},
+        "layers": {},
+        "intentional_violations": {},
+        "invalid_json_lines": []
+      },
+      "ratios": {
+        "structured_run_share": null,
+        "rejection_share_of_attempts": null,
+        "mutation_share_of_log_candidates": null
+      },
+      "memory_state_feedback": {
+        "inferred_state_ids": [
+          0,
+          1
+        ],
+        "state_sequences": [
+          [
+            0,
+            1
+          ]
+        ],
+        "state_paths": [
+          "id:0-1:id:000000,orig:seed01_whois.replay"
+        ],
+        "graph_edges": [
+          [
+            0,
+            1
+          ]
+        ],
+        "calibrated_radii": [
+          "5"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,328 @@
+sources:
+- id: wire
+  url: https://github.com/mz-automation/lib60870/blob/master/lib60870-C/src/iec60870/cs104/cs104_connection.c
+  basis: implementation
+  sections: APCI U controls, defaultAppLayerParameters, sequence update and acknowledgment
+    handlers
+- id: official
+  url: https://webstore.iec.ch/en/publication/25035
+  basis: inferred
+  sections: IEC 60870-5-104:2006+AMD1:2016 catalogue only; paid text not consulted
+scope: IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group
+  interrogation request, positive/negative activation confirmation and termination;
+  COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no
+  runtime encoder.
+confidence: Each field names its source and confidence; catalogue identity does not
+  establish normative wire details.
+accessed: '2026-10-25'
+field_sources:
+- message: start_act
+  field: start
+  source: wire
+  confidence: implementation
+- message: start_act
+  field: length
+  source: wire
+  confidence: implementation
+- message: start_act
+  field: control
+  source: wire
+  confidence: implementation
+- message: start_con
+  field: start
+  source: wire
+  confidence: implementation
+- message: start_con
+  field: length
+  source: wire
+  confidence: implementation
+- message: start_con
+  field: control
+  source: wire
+  confidence: implementation
+- message: stop_act
+  field: start
+  source: wire
+  confidence: implementation
+- message: stop_act
+  field: length
+  source: wire
+  confidence: implementation
+- message: stop_act
+  field: control
+  source: wire
+  confidence: implementation
+- message: stop_con
+  field: start
+  source: wire
+  confidence: implementation
+- message: stop_con
+  field: length
+  source: wire
+  confidence: implementation
+- message: stop_con
+  field: control
+  source: wire
+  confidence: implementation
+- message: test_act
+  field: start
+  source: wire
+  confidence: implementation
+- message: test_act
+  field: length
+  source: wire
+  confidence: implementation
+- message: test_act
+  field: control
+  source: wire
+  confidence: implementation
+- message: test_con
+  field: start
+  source: wire
+  confidence: implementation
+- message: test_con
+  field: length
+  source: wire
+  confidence: implementation
+- message: test_con
+  field: control
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: start
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: length
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: format
+  source: wire
+  confidence: implementation
+- message: s_ack
+  field: receive_seq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: start
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: length
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: send_seq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: receive_seq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: type_id
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: vsq
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: cot
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: common_address
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: ioa
+  source: wire
+  confidence: implementation
+- message: interrogation
+  field: qoi
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: start
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: length
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: send_seq
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: receive_seq
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: type_id
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: vsq
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: cot
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: common_address
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: ioa
+  source: wire
+  confidence: implementation
+- message: interrogation_confirmation
+  field: qoi
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: start
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: length
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: send_seq
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: receive_seq
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: type_id
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: vsq
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: cot
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: common_address
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: ioa
+  source: wire
+  confidence: implementation
+- message: interrogation_termination
+  field: qoi
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: start
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: length
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: send_seq
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: receive_seq
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: type_id
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: vsq
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: cot
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: common_address
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: ioa
+  source: wire
+  confidence: implementation
+- message: interrogation_negative
+  field: qoi
+  source: wire
+  confidence: implementation
+availability: Public OPC Foundation, RFC1006, Modbus current official PDF and open-source
+  implementations were consulted. Full ASHRAE, IEC and ODVA subscription texts were
+  not accessed.
+distinctions: semantic state IDs are unrelated to StateAFL memory-derived IDs
+fixture_counts:
+  complete: 11
+  fragment: 0
+fixture_verification: 'Independent bounded structural readers: tests/protocol/test_model_completeness.py.
+  Compiler validation covers the documented envelope/runtime subset, not complete
+  service conformance.'
+fixture_provenance: Constructed from the named public specification/implementation
+  and checked by independent bounded structural readers; see audit for live-test limits.
+validation:
+  protocol: iec60870_5_104
+  messages: 11
+  fields: 62
+  semantic_states: 6
+  validated: true
+  runtime: false
+  scope: IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group
+    interrogation request, positive/negative activation confirmation and termination;
+    COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no
+    runtime encoder.
+  example_validation: protocol envelope and length consistency; scoped BACnet decoder
+    checks for runtime fixtures; not live service conformance
+  execution_contract:
+    static_only: true
+    static_metadata:
+      protocol:
+      - name
+      - version
+      - scope
+      - framing
+      - sources
+      message:
+      - match
+      - blocks
+      - notes
+      - fixture_status
+      - runtime_encode
+      field:
+      - block
+      - path
+      - default
+      - evidence
+      - confidence
+      - structure
+      - structure_model
+      dependency:
+      - scope
+      - when
+      state:
+      - states[].meaning
+      - transitions[].guard
+      - transitions[].actions
+      - invalid_strategy
+    field_when_repeat: static-only; rejected by runtime-enabled profiles
+    dependencies: whitelisted operations only; scope and when are annotations
+    content_scalar_strategies: runtime uses AFL field projection; values/strategies
+      are annotations for CONTENT scalars
+    runtime_encode: capability assertion derived from runtime support and message
+      direction; never an execution switch

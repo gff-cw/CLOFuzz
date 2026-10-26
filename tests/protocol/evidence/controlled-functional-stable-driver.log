@@ -1,0 +1,6 @@
+START invoke-33-valid/head: seed=20261025 seconds=15.0 UDP=33583
+END invoke-33-valid/head: passed=True fuzz_execs=26 bitmap_bytes=1925 states=2
+START invoke-77-valid/head: seed=20261025 seconds=15.0 UDP=55449
+END invoke-77-valid/head: passed=True fuzz_execs=26 bitmap_bytes=1925 states=2
+START invoke-33-near-valid/head: seed=20261025 seconds=15.0 UDP=40675
+END invoke-33-near-valid/head: passed=True fuzz_execs=26 bitmap_bytes=1925 states=2

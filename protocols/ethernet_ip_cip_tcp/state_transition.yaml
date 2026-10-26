@@ -1,0 +1,89 @@
+format_version: 1
+protocol_id: ethernet_ip_cip_tcp
+initial: connected
+states:
+- id: connected
+  meaning: TCP connected; session unregistered
+- id: registering
+  meaning: RegisterSession response pending
+- id: registered
+  meaning: Successful response assigned nonzero session handle; class-3 connection
+    availability is a separate external prerequisite, never implied by this state
+- id: closed
+  meaning: Session unregistered/transport closed
+transitions:
+- from: connected
+  to: registering
+  message: register
+  response: register_response
+  guard: ''
+  actions: []
+- from: registering
+  to: registered
+  message: register_response
+  response: ''
+  guard: status=0; version=1; nonzero assigned handle
+  actions:
+  - cache peer session handle
+- from: registering
+  to: connected
+  message: register_error
+  response: ''
+  guard: nonzero encapsulation status
+  actions: []
+- from: registered
+  to: registered
+  message: send_rr
+  response: send_rr_response
+  guard: valid session; cache Sender Context
+  actions: []
+- from: registered
+  to: registered
+  message: send_rr_response
+  response: ''
+  guard: echoed context, service bit7, general status=0
+  actions: []
+- from: registered
+  to: registered
+  message: send_rr_error
+  response: ''
+  guard: echoed context and nonzero CIP general status
+  actions: []
+- from: registered
+  to: registered
+  message: send_unit
+  response: send_unit_response
+  guard: 'EXTERNAL PRECONDITION: successful ForwardOpen already established an unexpired
+    class-3 explicit connection on this session; use external O->T consumed ID and
+    T->O produced ID'
+  actions:
+  - advance externally initialized class-3 UInt16 sequence modulo 65536; cache Sender
+    Context
+- from: registered
+  to: registered
+  message: send_unit_response
+  response: ''
+  guard: external class-3 connection remains established; produced T->O ID; echoed
+    connected sequence and Sender Context
+  actions:
+  - clear selected connected request context
+- from: registered
+  to: connected
+  message: invalid_session
+  response: ''
+  guard: encapsulation status invalid session
+  actions:
+  - clear session handle
+- from: registered
+  to: closed
+  message: unregister
+  response: ''
+  guard: matching session handle; no reply
+  actions:
+  - clear session and connection contexts
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

@@ -1,0 +1,2 @@
+{"event":"mutation","layer":"HEAD","message":"read_property","field":"invoke_id","strategy":"enum","derived_repaired":true,"intentional_violation":false,"constraint":"none","messages_before":1,"messages_after":1,"parse_failed":false,"serialize_failed":false}
+{"event":"mutation","layer":"HEAD","message":"read_property","field":"invoke_id","strategy":"enum","derived_repaired":true,"intentional_violation":false,"constraint":"none","messages_before":1,"messages_after":1,"parse_failed":false,"serialize_failed":false}

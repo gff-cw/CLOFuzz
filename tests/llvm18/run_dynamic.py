@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     out = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else ROOT / "tests/llvm18/out/dynamic"
     out.mkdir(parents=True, exist_ok=True)
-    cc = shlex.split(os.environ.get("CC", "clang-18"))
-    cxx = shlex.split(os.environ.get("CXX", "clang++-18"))
+    cc = shlex.split(os.environ.get("CC", "clang"))
+    cxx = shlex.split(os.environ.get("CXX", "clang++"))
     wrapper = ROOT / "afl-clang-fast"
     build_log = out / "build.log"
 

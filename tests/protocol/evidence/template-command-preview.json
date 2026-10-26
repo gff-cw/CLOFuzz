@@ -1,0 +1,28 @@
+{
+  "validation": {
+    "protocol": "local_bacnet_template",
+    "messages": 3,
+    "fields": 29,
+    "semantic_states": 2,
+    "validated": true,
+    "runtime": true,
+    "scope": "BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is with optional limits and ReadProperty with optional array index; application/context tag walking and invoke correlation.",
+    "example_validation": "protocol envelope and length consistency; not live service conformance"
+  },
+  "command": [
+    "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz",
+    "--protocol-spec",
+    "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/template-campaign/model/protocol_ir.json",
+    "--state-spec",
+    "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/template-campaign/model/state_ir.json",
+    "-i",
+    "tests/protocol/evidence/template-campaign/model/seeds",
+    "-o",
+    "/tmp/template-campaign-preview",
+    "-N",
+    "udp://127.0.0.1/47818",
+    "--",
+    "../bacnet-stack/build-protocol-integration/server",
+    "123"
+  ]
+}

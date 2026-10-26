@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "loader_cases": 83,
+  "random_models": 250,
+  "random_wire_iterations": 25000,
+  "runtime_checks": 100096,
+  "failures": [],
+  "evidence": "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/runtime-results.json"
+}

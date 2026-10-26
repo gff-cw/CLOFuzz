@@ -43,33 +43,42 @@ AFLNet scheduling. The default instrumentation is StateAFL's own New PM plugin.
 See [the source audit](LLVM18_MIGRATION_AUDIT.md) and
 [the measured test report](LLVM18_TEST_REPORT.md) for scope and evidence.
 
+Use the existing system LLVM 18.1.3 toolchain. No separate LLVM download,
+versioned executable name, or manual installation into `/usr/lib/llvm-18` is
+required. Check that the normal commands on PATH match:
+
 ```bash
-sudo apt-get update
-sudo apt-get install build-essential clang-18 llvm-18-dev llvm-18-tools \
-  cmake libgraphviz-dev binutils git python3
+command -v clang clang++ llvm-config opt llvm-dis cmake
+clang --version
+clang++ --version
+llvm-config --version
+opt --version
 
-# Run inside this checkout. The three submodule revisions are pinned.
+# Run inside this checkout. The three source dependency revisions are pinned.
 git submodule update --init --recursive
-llvm-config-18 --version
-clang-18 --version
-clang++-18 --version
-opt-18 --version
-
-# Build the base tools first, then the compiler wrapper, plugin and runtimes.
 make clean
-make -j2 CC=clang-18
-make -C llvm_mode clean
-make -C llvm_mode -j2 LLVM_CONFIG=llvm-config-18
+make -j2
+make -C llvm_mode -j2
 ```
 
-`LLVM_CONFIG` may also name `llvm-config` if it reports 18.x. The LLVM build
-selects `clang`/`clang++` from its `--bindir`. `CC`/`CXX` select the compilers used
-for building StateAFL; `CLANG`/`CLANGXX` select the wrapper's compiled-in defaults
-when those paths need to be overridden. At target compilation time, the original
-`AFL_CC`/`AFL_CXX` overrides still take priority. `AFL_PATH` still locates the
-plugin and runtime objects. Explicit `-O0` through `-O3` and `-g0` are honored;
-without explicit flags, the wrapper retains its original `-O3 -g` defaults.
-`AFL_DONT_OPTIMIZE`, ASAN/MSAN, hardening and the other original options remain.
+The defaults are `CC=clang`, `CXX=clang++`, `LLVM_CONFIG=llvm-config`,
+`CLANG=clang`, and `CLANGXX=clang++`, resolved through PATH. The LLVM build checks
+that the selected Clang commands and LLVM configuration have matching major
+versions. It obtains the required header and linker flags from the system
+`llvm-config`; a package-managed path such as `/usr/lib/llvm-18` in those flags
+is the system package layout, not a separately downloaded toolchain.
+
+`CC`/`CXX` still allow explicit build compiler overrides; `CLANG`/`CLANGXX`
+override the wrapper's default target compiler commands. At target compilation
+time, the original `AFL_CC`/`AFL_CXX` overrides take priority. `AFL_PATH` still
+locates the plugin and runtime objects. Explicit `-O0` through `-O3` and `-g0`
+are honored; without explicit flags, the wrapper retains its original `-O3 -g`
+defaults. `AFL_DONT_OPTIMIZE`, ASAN/MSAN, hardening and the other original options remain.
+
+Other build dependencies are a C/C++ development environment, CMake, Graphviz
+development headers, binutils, git, and Python 3. This machine already provides
+them. Do not delete a system package directory targeted by `/usr/bin/clang` or
+`/usr/bin/llvm-config`: that would remove the working system toolchain.
 
 The dependency libraries are rebuilt from source in `llvm_mode/.build`; the old
 tracked archives are not used. A small patch to the pinned TLSH C wrapper adds
@@ -92,7 +101,7 @@ afl-clang-fast -O2 -g tests/llvm18/network_server.c -o /tmp/stateafl-server
 
 # Obtain LLVM IR and verify it independently with the matching LLVM version.
 afl-clang-fast -O1 -g0 -S -emit-llvm tests/llvm18/state_fixture.c -o /tmp/stateafl.ll
-opt-18 -passes=verify -disable-output /tmp/stateafl.ll
+opt -passes=verify -disable-output /tmp/stateafl.ll
 ```
 
 For configure/CMake projects use `CC=$STATEAFL/afl-clang-fast` and
@@ -310,3 +319,67 @@ StateAFL uses the [Trend Micro Locality Sensitive Hash (TLSH) library](https://g
 
 * **memcpy**: Copyright (c) 1990, 1993 The Regents of the University of California. This code is derived from software contributed to Berkeley by Chris Torek. Released under terms and conditions of [BSD License](https://opensource.org/licenses/BSD-3-Clause).
 
+
+
+## Optional protocol description mutation (ICP-IR v1)
+
+Start with the [editable protocol templates and step-by-step workflow](protocols/templates/README.md).
+Create a description package with `python3 tools/init_protocol_spec.py --base bacnet_ip --output-dir my-specs/bacnet_ip`,
+edit its YAML, then select it using `python3 tools/run_protocol_campaign.py --spec-dir my-specs/bacnet_ip -- <afl-fuzz arguments>`.
+This entry validates and recompiles the selected YAML before launching StateAFL, avoiding stale IR.
+
+The existing LLVM 18 instrumentation, coverage feedback, inferred memory states,
+queue selection and AFL operators remain in use. With no new options, the legacy
+mutation path remains active. The new runtime currently supports a bounded
+BACnet/IP Who-Is / ReadProperty scope; the other five protocol directories are
+validated static models, not implemented runtime codecs.
+
+```bash
+python3 -m pip install -r tools/requirements-protocol.txt
+python3 tools/proto_spec_compiler.py \
+  --protocol protocols/bacnet_ip/protocol_spec.yaml \
+  --state protocols/bacnet_ip/state_transition.yaml \
+  --output-dir protocols/bacnet_ip
+make -j4
+make -C llvm_mode -j4
+bash tests/protocol/run_all.sh
+```
+
+Example, after building the instrumented local BACnet server:
+
+```bash
+BACNET_IFACE=lo BACNET_IP_PORT=47818 setarch "$(uname -m)" -R ./afl-fuzz \
+  -d -i ../bacnet-stack/inputs -o /tmp/stateafl-bacnet \
+  -N udp://127.0.0.1/47818 -D 200000 -E -K -q 3 -s 3 -m none -t 5000 \
+  --protocol-spec protocols/bacnet_ip/protocol_ir.json \
+  --state-spec protocols/bacnet_ip/state_ir.json \
+  --mutation-mode hybrid --mutation-layers head,content,sequence \
+  -- ../bacnet-stack/build-protocol-integration/server 123
+```
+
+Use a fresh output directory. For valid-only comparisons, use the four valid
+seeds selected by `tests/protocol/integration.py`; the user's original input
+folder also contains deliberate invalid controls. The 200 ms startup delay
+accounts for this Debug instrumented target; UDP connect does not wait for its
+listener. StateAFL's original ASLR requirement applies to the fuzzer and its
+children. `--protocol-fallback` explicitly permits logged raw fallback for
+rejected candidates; model loading failures always stop with a diagnostic.
+
+Modes: `valid`, `near_valid`, `invalid`, `raw`, `hybrid`; hybrid defaults to 70%
+structured scheduling (`--protocol-ratio 0..100`). Near-valid and invalid currently
+both preserve one explicit BVLC length violation. Content mutation projects the
+existing AFL candidate into described fields. Protocol semantic states have a
+separate namespace from inferred memory states.
+
+See [architecture](docs/architecture.md), [description language](docs/protocol-description-language.md),
+[scope and sources](docs/references.md), [actual BACnet results](docs/bacnet-integration-test.md)
+and [implementation review](docs/implementation-review.md).
+
+
+The [six-protocol description index](protocols/README.md) lists complete fixtures within each declared profile.
+See the [template audit](docs/template-audit.md), [protocol model audit](docs/protocol-model-audit.md)
+and [repeated BACnet controls](docs/bacnet-controlled-results.md). Run
+`python3 tests/protocol/controlled_experiments.py --output /tmp/bacnet-comparison --repeats 3 --seconds 20`
+for repeated comparisons and independent YAML-to-wire controls. `--random-seed` controls the internal RNG;
+`--protocol-save-candidates` explicitly enables bounded actual-send capture (default zero).
+Export the six packages with `python3 tools/export_protocol_bundle.py --output deliverables/industrial-protocol-descriptions.zip`.

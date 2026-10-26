@@ -1,0 +1,34 @@
+start_time        : 1792933696
+last_update       : 1792933741
+fuzzer_pid        : 42834
+cycles_done       : 0
+execs_done        : 185
+execs_per_sec     : 4.20
+paths_total       : 7
+paths_favored     : 4
+paths_found       : 3
+paths_imported    : 0
+max_depth         : 2
+cur_path          : 0
+pending_favs      : 4
+pending_total     : 7
+variable_paths    : 7
+stability         : 96.93%
+bitmap_cvg        : 3.09%
+unique_crashes    : 0
+unique_hangs      : 0
+last_path         : 1792933737
+last_crash        : 0
+last_hang         : 0
+execs_since_crash : 185
+exec_timeout      : 1000
+afl_banner        : server
+afl_version       : 2.56b
+target_mode       : default
+command_line      : /home/weicresec/Desktop/workspace/stateafl/afl-fuzz -d -i /home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/final-source-smoke/in -o /home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/final-source-smoke/all/out -N udp://127.0.0.1/51038 -D 200000 -W 10 -w 1000 -r 10 -E -K -q 3 -s 3 -m none -t 1000 --protocol-spec /home/weicresec/Desktop/workspace/stateafl/protocols/bacnet_ip/protocol_ir.json --state-spec /home/weicresec/Desktop/workspace/stateafl/protocols/bacnet_ip/state_ir.json --mutation-mode valid --mutation-layers head,content,sequence -- /home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server 123
+slowest_exec_ms   : 255
+protocol_mode     : valid
+protocol_structured: 13
+protocol_raw      : 0
+protocol_rejected : 3
+peak_rss_mb       : 14

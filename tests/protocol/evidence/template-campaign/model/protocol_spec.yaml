@@ -1,0 +1,922 @@
+# Instantiated from protocols/templates using bacnet_ip.
+# Edit this YAML, then recompile both files; do not hand-edit IR.
+format_version: 1
+protocol_id: local_bacnet_template
+name: BACnet/IP
+version: BACnet Stack 1.5.0 / ASHRAE 135
+scope: BVLC Original-Unicast-NPDU; routed NPDU address parsing; unsegmented Who-Is
+  with optional limits and ReadProperty with optional array index; application/context
+  tag walking and invoke correlation.
+transport: udp
+framing: datagram
+codec: bacnet
+support:
+  runtime: true
+  level: runtime scoped codec
+  excluded:
+  - segmented APDUs
+  - BACnet/SC
+  - other services runtime encoding
+  - BBMD/foreign-device lifecycle
+sources:
+- id: wire
+  url: https://github.com/bacnet-stack/bacnet-stack/tree/bacnet-stack-1.5.0
+  basis: implementation
+  sections: src/bacnet/{npdu,bacdcode,rp}.c; datalink/bvlc.c; apps/server/main.c
+- id: official
+  url: https://www.ashrae.org/technical-resources/standards-and-guidelines/titles-purposes-and-scopes
+  basis: implementation
+  sections: ASHRAE 135 catalogue identity only; wire semantics verified against local
+    BACnet Stack 1.5.0
+messages:
+- id: who_is
+  example: 810a000801001008
+  direction: request
+  weight: 2
+  match: who_is
+  blocks:
+  - id: HEAD
+    fields:
+    - bvlc_type
+    - bvlc_function
+    - bvlc_length
+    - npdu_version
+    - npdu_control
+    - apdu_type
+    - service
+  - id: CONTENT
+    fields:
+    - limits
+  fields:
+  - id: bvlc_type
+    block: HEAD
+    path: bvlc.type
+    locator: bvlc.type
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 129
+    min: 129
+    max: 129
+    values:
+    - 129
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: bvlc_function
+    block: HEAD
+    path: bvlc.function
+    locator: bvlc.function
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 10
+    min: 10
+    max: 10
+    values:
+    - 10
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: bvlc_length
+    block: HEAD
+    path: bvlc.length
+    locator: bvlc.length
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: npdu_version
+    block: HEAD
+    path: npdu.version
+    locator: npdu.version
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: npdu_control
+    block: HEAD
+    path: npdu.control
+    locator: npdu.control
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: conditional
+    default: 0
+    min: 0
+    max: 255
+    values:
+    - 0
+    - 4
+    - 32
+    - 8
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Destination DNET/DLEN/DADR and source SNET/SLEN/SADR appear when NPDU
+      control bits 5 and 3 are set; hop count follows addresses only for destination;
+      reject network-layer bit 7 in runtime APDU scope.
+    structure_model:
+      id: npdu_addresses
+      kind: sequence
+      children:
+      - id: dnet
+        kind: field
+        type: uint16-big
+        condition: control bit5 set
+      - id: dlen
+        kind: field
+        type: uint8
+        condition: control bit5 set
+      - id: dadr
+        kind: repeat
+        children:
+        - id: address_octet
+          kind: field
+          type: uint8
+        min: 0
+        max: 255
+        condition: DLEN octets when control bit5 set
+      - id: snet
+        kind: field
+        type: uint16-big
+        condition: control bit3 set
+      - id: slen
+        kind: field
+        type: uint8
+        condition: control bit3 set
+      - id: sadr
+        kind: repeat
+        children:
+        - id: address_octet
+          kind: field
+          type: uint8
+        min: 1
+        max: 255
+        condition: SLEN octets when control bit3 set
+      - id: hop_count
+        kind: field
+        type: uint8
+        condition: control bit5 set
+      encoding: BACnet-NPDU
+  - id: apdu_type
+    block: HEAD
+    path: apdu.type
+    locator: apdu.type
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 16
+    min: 16
+    max: 16
+    values:
+    - 16
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: service
+    block: HEAD
+    path: apdu.service
+    locator: apdu.service
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 8
+    min: 8
+    max: 8
+    values:
+    - 8
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: limits
+    block: CONTENT
+    path: apdu.content
+    locator: apdu.content
+    type: bacnet_tags
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Optional context [0] low and [1] high device-instance limits (0..4194303),
+      both absent or both present.
+    structure_model:
+      id: device_limits
+      kind: choice
+      children:
+      - id: absent
+        kind: field
+        type: empty
+        condition: both limits absent
+      - id: range
+        kind: sequence
+        children:
+        - id: low
+          kind: field
+          type: context-unsigned
+          tag: 0
+          min: 0
+          max: 4194303
+        - id: high
+          kind: field
+          type: context-unsigned
+          tag: 1
+          min: 0
+          max: 4194303
+        condition: both present; low <= high <= 4194303
+      encoding: BACnet-LVT
+  dependencies:
+  - op: length_of
+    target: bvlc_length
+    source: $message
+  notes: ''
+- id: read_property
+  example: 810a001101000005010c0c0200007b194d
+  direction: request
+  weight: 2
+  match: read_property
+  blocks:
+  - id: HEAD
+    fields:
+    - bvlc_type
+    - bvlc_function
+    - bvlc_length
+    - npdu_version
+    - npdu_control
+    - apdu_type
+    - max_apdu
+    - invoke_id
+    - service
+  - id: CONTENT
+    fields:
+    - object_id
+    - property_id
+    - array_index
+  fields:
+  - id: bvlc_type
+    block: HEAD
+    path: bvlc.type
+    locator: bvlc.type
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 129
+    min: 129
+    max: 129
+    values:
+    - 129
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: bvlc_function
+    block: HEAD
+    path: bvlc.function
+    locator: bvlc.function
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 10
+    min: 10
+    max: 10
+    values:
+    - 10
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: bvlc_length
+    block: HEAD
+    path: bvlc.length
+    locator: bvlc.length
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: npdu_version
+    block: HEAD
+    path: npdu.version
+    locator: npdu.version
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: npdu_control
+    block: HEAD
+    path: npdu.control
+    locator: npdu.control
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: conditional
+    default: 0
+    min: 0
+    max: 255
+    values:
+    - 0
+    - 4
+    - 32
+    - 8
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Destination DNET/DLEN/DADR and source SNET/SLEN/SADR appear when NPDU
+      control bits 5 and 3 are set; hop count follows addresses only for destination;
+      reject network-layer bit 7 in runtime APDU scope.
+    structure_model:
+      id: npdu_addresses
+      kind: sequence
+      children:
+      - id: dnet
+        kind: field
+        type: uint16-big
+        condition: control bit5 set
+      - id: dlen
+        kind: field
+        type: uint8
+        condition: control bit5 set
+      - id: dadr
+        kind: repeat
+        children:
+        - id: address_octet
+          kind: field
+          type: uint8
+        min: 0
+        max: 255
+        condition: DLEN octets when control bit5 set
+      - id: snet
+        kind: field
+        type: uint16-big
+        condition: control bit3 set
+      - id: slen
+        kind: field
+        type: uint8
+        condition: control bit3 set
+      - id: sadr
+        kind: repeat
+        children:
+        - id: address_octet
+          kind: field
+          type: uint8
+        min: 1
+        max: 255
+        condition: SLEN octets when control bit3 set
+      - id: hop_count
+        kind: field
+        type: uint8
+        condition: control bit5 set
+      encoding: BACnet-NPDU
+  - id: apdu_type
+    block: HEAD
+    path: apdu.type
+    locator: apdu.type
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: max_apdu
+    block: HEAD
+    path: apdu.max_apdu
+    locator: apdu.max_apdu
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 5
+    min: 5
+    max: 5
+    values:
+    - 5
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: invoke_id
+    block: HEAD
+    path: apdu.invoke
+    locator: apdu.invoke
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: service
+    block: HEAD
+    path: apdu.service
+    locator: apdu.service
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 12
+    min: 12
+    max: 12
+    values:
+    - 12
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: object_id
+    block: CONTENT
+    path: bacnet.object
+    locator: bacnet.object
+    type: uint32
+    width: 4
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 33554555
+    min: 0
+    max: 4294967295
+    values:
+    - 33554555
+    - 33555666
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: BACnet context tag 0; 10-bit object type and 22-bit instance.
+  - id: property_id
+    block: CONTENT
+    path: bacnet.property
+    locator: bacnet.property
+    type: uint8
+    width: 1
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 77
+    min: 0
+    max: 255
+    values:
+    - 75
+    - 76
+    - 77
+    - 79
+    - 112
+    - 120
+    - 121
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: array_index
+    block: CONTENT
+    path: bacnet.array
+    locator: bacnet.array
+    type: uint8
+    width: 1
+    endian: big
+    role: content
+    mutability: conditional
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Optional context tag 2 unsigned array index; decoder uses actual tag
+      width.
+  dependencies:
+  - op: length_of
+    target: bvlc_length
+    source: $message
+  notes: ''
+- id: read_property_ack
+  example: 810a0014010030010c0c0200007b194d3e75003f
+  direction: response
+  weight: 2
+  match: read_property_ack
+  blocks:
+  - id: HEAD
+    fields:
+    - bvlc_type
+    - bvlc_function
+    - bvlc_length
+    - npdu_version
+    - npdu_control
+    - apdu_type
+    - invoke_id
+    - service
+  - id: CONTENT
+    fields:
+    - value
+  fields:
+  - id: bvlc_type
+    block: HEAD
+    path: bvlc.type
+    locator: bvlc.type
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 129
+    min: 129
+    max: 129
+    values:
+    - 129
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: bvlc_function
+    block: HEAD
+    path: bvlc.function
+    locator: bvlc.function
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 10
+    min: 10
+    max: 10
+    values:
+    - 10
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: bvlc_length
+    block: HEAD
+    path: bvlc.length
+    locator: bvlc.length
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: npdu_version
+    block: HEAD
+    path: npdu.version
+    locator: npdu.version
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: npdu_control
+    block: HEAD
+    path: npdu.control
+    locator: npdu.control
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: conditional
+    default: 0
+    min: 0
+    max: 255
+    values:
+    - 0
+    - 4
+    - 32
+    - 8
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Destination DNET/DLEN/DADR and source SNET/SLEN/SADR appear when NPDU
+      control bits 5 and 3 are set; hop count follows addresses only for destination;
+      reject network-layer bit 7 in runtime APDU scope.
+    structure_model:
+      id: npdu_addresses
+      kind: sequence
+      children:
+      - id: dnet
+        kind: field
+        type: uint16-big
+        condition: control bit5 set
+      - id: dlen
+        kind: field
+        type: uint8
+        condition: control bit5 set
+      - id: dadr
+        kind: repeat
+        children:
+        - id: address_octet
+          kind: field
+          type: uint8
+        min: 0
+        max: 255
+        condition: DLEN octets when control bit5 set
+      - id: snet
+        kind: field
+        type: uint16-big
+        condition: control bit3 set
+      - id: slen
+        kind: field
+        type: uint8
+        condition: control bit3 set
+      - id: sadr
+        kind: repeat
+        children:
+        - id: address_octet
+          kind: field
+          type: uint8
+        min: 1
+        max: 255
+        condition: SLEN octets when control bit3 set
+      - id: hop_count
+        kind: field
+        type: uint8
+        condition: control bit5 set
+      encoding: BACnet-NPDU
+  - id: apdu_type
+    block: HEAD
+    path: apdu.type
+    locator: apdu.type
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 48
+    min: 48
+    max: 48
+    values:
+    - 48
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: invoke_id
+    block: HEAD
+    path: apdu.invoke
+    locator: apdu.invoke
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 255
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: service
+    block: HEAD
+    path: apdu.service
+    locator: apdu.service
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 12
+    min: 12
+    max: 12
+    values:
+    - 12
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: value
+    block: CONTENT
+    path: apdu.content
+    locator: apdu.content
+    type: bacnet_tags
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 4096
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Context [3] opening/closing tags enclose application tags; BACnet LVT
+      is not ASN.1 BER.
+    structure_model:
+      id: read_property_ack
+      kind: sequence
+      children:
+      - id: object_identifier
+        kind: field
+        type: context-object-id
+        tag: 0
+      - id: property_identifier
+        kind: field
+        type: context-unsigned
+        tag: 1
+      - id: array_index
+        kind: field
+        type: context-unsigned
+        tag: 2
+        condition: optional array index
+      - id: property_value
+        kind: tlv
+        children:
+        - id: application_value
+          kind: field
+          type: BACnet-application-tags
+        tag: 3
+      encoding: BACnet-opening-closing-tags
+  dependencies:
+  - op: length_of
+    target: bvlc_length
+    source: $message
+  - op: correlate_request_response
+    target: invoke_id
+    source: invoke_id
+    message: read_property
+    scope: transaction
+  notes: Example is structural only; live server response is captured in integration
+    evidence.

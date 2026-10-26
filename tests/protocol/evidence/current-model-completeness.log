@@ -1,0 +1,13 @@
+test_all_declared_complete_fixtures_decode_without_trailing_bytes (__main__.ModelCompletenessTests.test_all_declared_complete_fixtures_decode_without_trailing_bytes) ... ok
+test_connected_enip_has_directional_ids_and_external_forward_open_precondition (__main__.ModelCompletenessTests.test_connected_enip_has_directional_ids_and_external_forward_open_precondition) ... ok
+test_deep_checks_reject_corrupt_inner_lengths_and_counts (__main__.ModelCompletenessTests.test_deep_checks_reject_corrupt_inner_lengths_and_counts) ... ok
+test_only_supported_bacnet_requests_have_runtime_encoders (__main__.ModelCompletenessTests.test_only_supported_bacnet_requests_have_runtime_encoders) ... ok
+test_partial_coil_quantity_and_padding (__main__.ModelCompletenessTests.test_partial_coil_quantity_and_padding) ... ok
+test_regeneration_preserves_all_committed_model_artifacts (__main__.ModelCompletenessTests.test_regeneration_preserves_all_committed_model_artifacts) ... ok
+test_requests_declare_a_reply_or_document_no_reply (__main__.ModelCompletenessTests.test_requests_declare_a_reply_or_document_no_reply) ... ok
+test_response_driven_connection_states (__main__.ModelCompletenessTests.test_response_driven_connection_states) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 24.458s
+
+OK

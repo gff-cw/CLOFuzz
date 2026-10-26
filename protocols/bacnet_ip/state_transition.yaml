@@ -1,0 +1,68 @@
+format_version: 1
+protocol_id: bacnet_ip
+initial: ready
+states:
+- id: ready
+  meaning: UDP endpoint ready; requests independent
+- id: pending
+  meaning: Confirmed request outstanding, scoped by invoke ID
+transitions:
+- from: ready
+  to: ready
+  message: who_is
+  response: i_am
+  guard: valid Who-Is
+  actions: []
+- from: ready
+  to: pending
+  message: read_property
+  response: read_property_ack
+  guard: request sent
+  actions:
+  - cache invoke_id
+- from: pending
+  to: ready
+  message: read_property_ack
+  response: ''
+  guard: matching invoke ID
+  actions:
+  - clear transaction
+- from: pending
+  to: pending
+  message: read_property
+  response: read_property_ack
+  guard: additional independent invoke
+  actions: []
+- from: ready
+  to: ready
+  message: i_am
+  response: ''
+  guard: unsolicited or matching Who-Is device range
+  actions: []
+- from: pending
+  to: ready
+  message: read_property_error
+  response: ''
+  guard: matching outstanding invoke ID
+  actions:
+  - clear selected invoke context
+- from: pending
+  to: ready
+  message: reject
+  response: ''
+  guard: matching outstanding invoke ID
+  actions:
+  - clear selected invoke context
+- from: pending
+  to: ready
+  message: abort
+  response: ''
+  guard: matching outstanding invoke ID
+  actions:
+  - clear selected invoke context
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

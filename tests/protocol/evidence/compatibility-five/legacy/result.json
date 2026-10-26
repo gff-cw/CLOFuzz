@@ -1,0 +1,165 @@
+{
+  "mode": "legacy",
+  "passed": false,
+  "checks": {
+    "ready_reached": true,
+    "clean_sigint_stop": false,
+    "fuzzer_aslr_disabled": true,
+    "executions_continue": true,
+    "coverage_nonzero": false,
+    "queue_matches_stats": true,
+    "replays_present_and_framed": true,
+    "memory_states_present": false,
+    "memory_graph_matches_paths": false,
+    "calibration_present": false,
+    "no_crashes": true,
+    "no_hangs": true,
+    "legacy_has_no_protocol_outputs": true
+  },
+  "command": [
+    "setarch",
+    "x86_64",
+    "-R",
+    "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz",
+    "-d",
+    "-i",
+    "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-five/in",
+    "-o",
+    "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-five/legacy/out",
+    "-N",
+    "udp://127.0.0.1/41663",
+    "-D",
+    "10000",
+    "-W",
+    "10",
+    "-w",
+    "1000",
+    "-r",
+    "10",
+    "-E",
+    "-K",
+    "-q",
+    "3",
+    "-s",
+    "3",
+    "-m",
+    "none",
+    "-t",
+    "1000",
+    "--",
+    "/home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server",
+    "123"
+  ],
+  "exit_code": 1,
+  "timing": {
+    "ready_elapsed_seconds": null,
+    "sigint_sent": false,
+    "total_elapsed_seconds": 2.215,
+    "seconds_after_ready": null
+  },
+  "stats": {
+    "start_time": "1792931312",
+    "last_update": "1792931315",
+    "fuzzer_pid": "33419",
+    "cycles_done": "0",
+    "execs_done": "80",
+    "execs_per_sec": "0.00",
+    "paths_total": "4",
+    "paths_favored": "1",
+    "paths_found": "0",
+    "paths_imported": "0",
+    "max_depth": "1",
+    "cur_path": "0",
+    "pending_favs": "0",
+    "pending_total": "4",
+    "variable_paths": "4",
+    "stability": "0.00%",
+    "bitmap_cvg": "0.00%",
+    "unique_crashes": "0",
+    "unique_hangs": "0",
+    "last_path": "0",
+    "last_crash": "0",
+    "last_hang": "0",
+    "execs_since_crash": "80",
+    "exec_timeout": "1000",
+    "afl_banner": "server",
+    "afl_version": "2.56b",
+    "target_mode": "default",
+    "command_line": "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz -d -i /home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-five/in -o /home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-five/legacy/out -N udp://127.0.0.1/41663 -D 10000 -W 10 -w 1000 -r 10 -E -K -q 3 -s 3 -m none -t 1000 -- /home/weicresec/Desktop/workspace/bacnet-stack/build-protocol-integration/server 123",
+    "slowest_exec_ms": "35",
+    "peak_rss_mb": "not available while afl is running"
+  },
+  "queue_count": 4,
+  "replayable_queue": {
+    "files": 4,
+    "framing_valid": 4,
+    "all_messages_structural": 4,
+    "messages": 4,
+    "structural_messages": 4,
+    "examples": [
+      {
+        "file": "id:000000,orig:seed01_whois.replay",
+        "bytes": 12,
+        "framing": "LE32-length-prefixed",
+        "message_count": 1,
+        "lengths": [
+          8
+        ],
+        "structural_messages": 1
+      },
+      {
+        "file": "id:000001,orig:seed03_read_objectname.replay",
+        "bytes": 21,
+        "framing": "LE32-length-prefixed",
+        "message_count": 1,
+        "lengths": [
+          17
+        ],
+        "structural_messages": 1
+      },
+      {
+        "file": "id:000002,orig:seed04_read_vendorname.replay",
+        "bytes": 21,
+        "framing": "LE32-length-prefixed",
+        "message_count": 1,
+        "lengths": [
+          17
+        ],
+        "structural_messages": 1
+      },
+      {
+        "file": "id:000003,orig:seed05_read_objectlist.replay",
+        "bytes": 23,
+        "framing": "LE32-length-prefixed",
+        "message_count": 1,
+        "lengths": [
+          19
+        ],
+        "structural_messages": 1
+      }
+    ],
+    "errors": [],
+    "structural_file_ratio": 1.0,
+    "structural_message_ratio": 1.0
+  },
+  "protocol_stats": null,
+  "protocol_log": {
+    "path": "/home/weicresec/Desktop/workspace/stateafl/tests/protocol/evidence/compatibility-five/legacy/out/protocol_mutations.jsonl",
+    "events": {},
+    "layers": {},
+    "intentional_violations": {},
+    "invalid_json_lines": []
+  },
+  "ratios": {
+    "structured_run_share": null,
+    "rejection_share_of_attempts": null,
+    "mutation_share_of_log_candidates": null
+  },
+  "memory_state_feedback": {
+    "inferred_state_ids": [],
+    "state_sequences": [],
+    "state_paths": [],
+    "graph_edges": [],
+    "calibrated_radii": []
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "format_version": 1,
+  "initial": "stopped",
+  "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",
+  "ir_version": 1,
+  "limits": {
+    "max_bytes": 1048576,
+    "max_messages": 32,
+    "max_repeat": 4
+  },
+  "protocol_id": "iec60870_5_104",
+  "states": [
+    {
+      "id": "stopped",
+      "meaning": "Data transfer stopped"
+    },
+    {
+      "id": "starting",
+      "meaning": "STARTDT confirmation pending"
+    },
+    {
+      "id": "active",
+      "meaning": "STARTDT confirmed"
+    },
+    {
+      "id": "stopping",
+      "meaning": "STOPDT confirmation pending"
+    },
+    {
+      "id": "interrogating",
+      "meaning": "Activation sent; confirmation pending"
+    },
+    {
+      "id": "interrogation_data",
+      "meaning": "Positive activation confirmation; data/termination pending"
+    }
+  ],
+  "transitions": [
+    {
+      "actions": [],
+      "from": "stopped",
+      "guard": "TCP connected",
+      "message": "start_act",
+      "response": "start_con",
+      "to": "starting"
+    },
+    {
+      "actions": [],
+      "from": "starting",
+      "guard": "matching STARTDT",
+      "message": "start_con",
+      "response": "",
+      "to": "active"
+    },
+    {
+      "actions": [],
+      "from": "active",
+      "guard": "",
+      "message": "stop_act",
+      "response": "stop_con",
+      "to": "stopping"
+    },
+    {
+      "actions": [],
+      "from": "stopping",
+      "guard": "",
+      "message": "stop_con",
+      "response": "",
+      "to": "stopped"
+    },
+    {
+      "actions": [],
+      "from": "active",
+      "guard": "acknowledge received I frames",
+      "message": "s_ack",
+      "response": "",
+      "to": "active"
+    },
+    {
+      "actions": [],
+      "from": "active",
+      "guard": "TESTFR keepalive",
+      "message": "test_act",
+      "response": "test_con",
+      "to": "active"
+    },
+    {
+      "actions": [],
+      "from": "active",
+      "guard": "TESTFR keepalive",
+      "message": "test_con",
+      "response": "",
+      "to": "active"
+    },
+    {
+      "actions": [
+        "increment local N(S)"
+      ],
+      "from": "active",
+      "guard": "send window available",
+      "message": "interrogation",
+      "response": "interrogation_confirmation",
+      "to": "interrogating"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "positive activation confirmation; matching CA/QOI",
+      "message": "interrogation_confirmation",
+      "response": "",
+      "to": "interrogation_data"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "negative activation confirmation",
+      "message": "interrogation_negative",
+      "response": "",
+      "to": "active"
+    },
+    {
+      "actions": [],
+      "from": "interrogation_data",
+      "guard": "matching CA/QOI; all preceding I frames acknowledged",
+      "message": "interrogation_termination",
+      "response": "",
+      "to": "active"
+    },
+    {
+      "actions": [],
+      "from": "stopped",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_act",
+      "response": "test_con",
+      "to": "stopped"
+    },
+    {
+      "actions": [],
+      "from": "stopped",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_con",
+      "response": "",
+      "to": "stopped"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_act",
+      "response": "test_con",
+      "to": "interrogating"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_con",
+      "response": "",
+      "to": "interrogating"
+    },
+    {
+      "actions": [],
+      "from": "interrogation_data",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_act",
+      "response": "test_con",
+      "to": "interrogation_data"
+    },
+    {
+      "actions": [],
+      "from": "interrogation_data",
+      "guard": "TESTFR does not depend on transfer phase",
+      "message": "test_con",
+      "response": "",
+      "to": "interrogation_data"
+    }
+  ]
+}

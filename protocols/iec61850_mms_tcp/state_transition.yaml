@@ -1,0 +1,120 @@
+format_version: 1
+protocol_id: iec61850_mms_tcp
+initial: tcp
+states:
+- id: tcp
+  meaning: TCP connected
+- id: cotp_pending
+  meaning: CR sent; CC required
+- id: cotp
+  meaning: COTP TP0 established
+- id: association_pending
+  meaning: AARQ/embedded-initiate sent
+- id: associated
+  meaning: AARE accepted and initiate response negotiated
+- id: concluding
+  meaning: MMS conclude response pending
+- id: concluded
+  meaning: MMS conclude accepted; association release remains
+- id: releasing
+  meaning: ACSE/session release response pending
+- id: closed
+  meaning: Association and transport released
+transitions:
+- from: tcp
+  to: cotp_pending
+  message: cotp_cr
+  response: cotp_cc
+  guard: ''
+  actions: []
+- from: cotp_pending
+  to: cotp
+  message: cotp_cc
+  response: ''
+  guard: matching transport reference
+  actions: []
+- from: cotp
+  to: association_pending
+  message: associate
+  response: associate_response
+  guard: ''
+  actions: []
+- from: association_pending
+  to: associated
+  message: associate_response
+  response: ''
+  guard: AARE result accepted and valid initiate response
+  actions:
+  - cache negotiated limits
+- from: associated
+  to: associated
+  message: get_name_list
+  response: get_name_list_response
+  guard: unique invoke ID within negotiated outstanding limit
+  actions:
+  - cache invoke context
+- from: associated
+  to: associated
+  message: read
+  response: read_response
+  guard: unique invoke ID within negotiated outstanding limit
+  actions:
+  - cache invoke context
+- from: associated
+  to: associated
+  message: write
+  response: write_response
+  guard: unique invoke ID within negotiated outstanding limit
+  actions:
+  - cache invoke context
+- from: associated
+  to: associated
+  message: get_name_list_response
+  response: ''
+  guard: matching pending invoke ID
+  actions:
+  - clear invoke context
+- from: associated
+  to: associated
+  message: read_response
+  response: ''
+  guard: matching pending invoke ID
+  actions:
+  - clear invoke context
+- from: associated
+  to: associated
+  message: write_response
+  response: ''
+  guard: matching pending invoke ID
+  actions:
+  - clear invoke context
+- from: associated
+  to: concluding
+  message: conclude
+  response: conclude_response
+  guard: no pending confirmed services
+  actions: []
+- from: concluding
+  to: concluded
+  message: conclude_response
+  response: ''
+  guard: conclude accepted
+  actions: []
+- from: concluded
+  to: releasing
+  message: release
+  response: release_response
+  guard: ''
+  actions: []
+- from: releasing
+  to: closed
+  message: release_response
+  response: ''
+  guard: session disconnect and ACSE release complete
+  actions: []
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

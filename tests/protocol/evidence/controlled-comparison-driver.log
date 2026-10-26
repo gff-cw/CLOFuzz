@@ -1,0 +1,30 @@
+START repeat-01/legacy: seed=20261025 seconds=20.0 UDP=55533
+END repeat-01/legacy: passed=True fuzz_execs=81 bitmap_bytes=2052 states=2
+START repeat-01/head: seed=20261025 seconds=20.0 UDP=43379
+END repeat-01/head: passed=True fuzz_execs=81 bitmap_bytes=2022 states=2
+START repeat-01/head_content: seed=20261025 seconds=20.0 UDP=53842
+END repeat-01/head_content: passed=True fuzz_execs=80 bitmap_bytes=2021 states=2
+START repeat-01/all: seed=20261025 seconds=20.0 UDP=34577
+END repeat-01/all: passed=True fuzz_execs=80 bitmap_bytes=2022 states=2
+START repeat-01/hybrid: seed=20261025 seconds=20.0 UDP=56745
+END repeat-01/hybrid: passed=True fuzz_execs=82 bitmap_bytes=2032 states=2
+START repeat-02/head: seed=20261026 seconds=20.0 UDP=37094
+END repeat-02/head: passed=True fuzz_execs=83 bitmap_bytes=2024 states=2
+START repeat-02/head_content: seed=20261026 seconds=20.0 UDP=54086
+END repeat-02/head_content: passed=True fuzz_execs=82 bitmap_bytes=2035 states=2
+START repeat-02/all: seed=20261026 seconds=20.0 UDP=58812
+END repeat-02/all: passed=True fuzz_execs=81 bitmap_bytes=2022 states=2
+START repeat-02/hybrid: seed=20261026 seconds=20.0 UDP=38824
+END repeat-02/hybrid: passed=True fuzz_execs=82 bitmap_bytes=2030 states=2
+START repeat-02/legacy: seed=20261026 seconds=20.0 UDP=36009
+END repeat-02/legacy: passed=True fuzz_execs=81 bitmap_bytes=2092 states=2
+START repeat-03/head_content: seed=20261027 seconds=20.0 UDP=48097
+END repeat-03/head_content: passed=True fuzz_execs=82 bitmap_bytes=2023 states=2
+START repeat-03/all: seed=20261027 seconds=20.0 UDP=41787
+END repeat-03/all: passed=True fuzz_execs=81 bitmap_bytes=2035 states=2
+START repeat-03/hybrid: seed=20261027 seconds=20.0 UDP=58450
+END repeat-03/hybrid: passed=True fuzz_execs=81 bitmap_bytes=2025 states=2
+START repeat-03/legacy: seed=20261027 seconds=20.0 UDP=43099
+END repeat-03/legacy: passed=True fuzz_execs=83 bitmap_bytes=2043 states=2
+START repeat-03/head: seed=20261027 seconds=20.0 UDP=53672
+END repeat-03/head: passed=True fuzz_execs=82 bitmap_bytes=2022 states=2

@@ -53,6 +53,7 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <termios.h>
 #include <dlfcn.h>
 #include <sched.h>
@@ -68,6 +69,7 @@
 #include <sys/file.h>
 
 #include "aflnet.h"
+#include "protocol_runtime.h"
 #include <graphviz/gvc.h>
 #include <math.h>
 
@@ -112,6 +114,20 @@ EXP_ST u8 *in_dir,                    /* Input directory with test cases  */
           *orig_cmdline;              /* Original command line            */
 
 EXP_ST u32 exec_tmout = EXEC_TIMEOUT; /* Configurable exec timeout (ms)   */
+/* Protocol semantic context never enters the StateAFL memory-state namespace. */
+static proto_engine *protocol_engine;
+static const char *protocol_spec_path, *protocol_state_path;
+static int protocol_mode = PROTO_HYBRID, protocol_layers = 7;
+static unsigned protocol_ratio = 70;
+static u8 protocol_options_given, protocol_fallback, protocol_structured_run;
+static FILE *protocol_log;
+static u8 protocol_base[MAX_FILE], protocol_wire[MAX_FILE];
+static size_t protocol_base_len;
+static size_t protocol_surrounding_records;
+static u64 protocol_raw_runs, protocol_structured_runs, protocol_rejections;
+static u8 fixed_random_seed, experiment_active;
+static u32 experiment_seed, protocol_candidate_limit, protocol_candidates_saved;
+static u8 *protocol_candidate_dir;
 static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
 
 EXP_ST u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
@@ -1466,6 +1482,7 @@ void wait_for_state_sequence(void) {
 int send_over_network()
 {
   int n;
+  u32 complete_messages = 0;
   u8 likely_buggy = 0;
   struct sockaddr_in serv_addr;
   struct sockaddr_in local_serv_addr;
@@ -1477,6 +1494,7 @@ int send_over_network()
   usleep(server_wait_usecs);
 
   //Clear the response buffer and reset the response buffer size
+  if (protocol_engine) proto_session_begin(protocol_engine);
   if (response_buf) {
     ck_free(response_buf);
     response_buf = NULL;
@@ -1561,6 +1579,7 @@ int send_over_network()
   }
 
   //retrieve early server response if needed
+  messages_sent = 0;
   if (net_recv(sockfd, timeout, poll_wait_msecs_total, &response_buf, &response_buf_size)) goto HANDLE_RESPONSES;
 
   //write the request messages
@@ -1571,6 +1590,16 @@ int send_over_network()
 
     usleep(send_delay_us);
 
+    if (protocol_engine && protocol_structured_run) {
+      char error[256];
+      if (proto_before_send(protocol_engine, (u8 *)kl_val(it)->mdata,
+                            kl_val(it)->msize, error, sizeof(error)) < 0) {
+        /* Deliberately invalid packets must reach the target unchanged. */
+        if (kl_val(it)->protocol_structured &&
+            (protocol_mode == PROTO_VALID || protocol_mode == PROTO_HYBRID))
+          FATAL("Protocol session dependency: %s", error);
+      }
+    }
     n = net_send(sockfd, timeout, kl_val(it)->mdata, kl_val(it)->msize);
     messages_sent++;
 
@@ -1581,6 +1610,7 @@ int send_over_network()
     if (n != kl_val(it)->msize) {
       goto HANDLE_RESPONSES;
     }
+    complete_messages++;
 
     //retrieve server response
     u32 prev_buf_size = response_buf_size;
@@ -1590,6 +1620,9 @@ int send_over_network()
 
     //Update accumulated response buffer size
     response_bytes[messages_sent - 1] = response_buf_size;
+    if (protocol_engine && response_buf_size > prev_buf_size)
+      proto_after_response(protocol_engine, (u8 *)response_buf + prev_buf_size,
+                           response_buf_size - prev_buf_size);
 
     //set likely_buggy flag if AFLNet does not receive any feedback from the server
     //it could be a signal of a potentiall server crash, like the case of CVE-2019-7314
@@ -1619,6 +1652,24 @@ HANDLE_RESPONSES:
   }
 
   close(sockfd);
+
+  /* Explicit, bounded experiment tracing: save the exact complete datagrams
+     after session bindings, including raw controls, only after calibration. */
+  if (experiment_active && protocol_candidate_dir && complete_messages &&
+      protocol_candidates_saved < protocol_candidate_limit) {
+    u8 *sample = alloc_printf("%s/%06u.replay", protocol_candidate_dir, protocol_candidates_saved);
+    save_kl_messages_to_file(kl_messages, sample, 1, complete_messages);
+    ck_free(sample);
+    u8 *metadata = alloc_printf("%s/%06u.json", protocol_candidate_dir, protocol_candidates_saved);
+    FILE *record = fopen((char *)metadata, "w");
+    if (!record) PFATAL("Cannot write experiment candidate metadata");
+    fprintf(record, "{\"structured\":%s,\"sent_messages\":%u,\"execution_counter\":%llu,\"forkserver\":\"%s\"}\n",
+            protocol_structured_run ? "true" : "false", complete_messages, total_execs,
+            current_fsrv == stateafl_fsrv ? "state" : "coverage");
+    if (fclose(record)) PFATAL("Cannot close experiment candidate metadata");
+    ck_free(metadata);
+    protocol_candidates_saved++;
+  }
 
   if (likely_buggy && false_negative_reduction) return 0;
 
@@ -1668,7 +1719,7 @@ static u64 get_cur_time_us(void) {
 
 static inline u32 UR(u32 limit) {
 
-  if (unlikely(!rand_cnt--)) {
+  if (!fixed_random_seed && unlikely(!rand_cnt--)) {
 
     u32 seed[2];
 
@@ -3029,15 +3080,17 @@ region_t* extract_requests_generic(unsigned char* buf, unsigned int buf_size, un
 
   while(byte_count < buf_size) {
 
-    if(byte_count + 4 >= buf_size) {
+    if(buf_size - byte_count < 4) {
       PFATAL("AFLNet - Erroreous message length in input file");
     }
 
-    unsigned int next_message_len = *((unsigned int *)(void *)&buf[byte_count]);
+    unsigned int next_message_len = 0;
+    for (unsigned j = 0; j < 4; j++)
+      next_message_len |= (u32)buf[byte_count + j] << (8 * j);
 
     byte_count += sizeof(unsigned int);
 
-    if(byte_count + next_message_len > buf_size) {
+    if(!next_message_len || next_message_len > buf_size - byte_count) {
       PFATAL("AFLNet - Erroneous message length in input file (2)");
     }
 
@@ -4694,56 +4747,33 @@ static void link_or_copy(u8* old_path, u8* new_path) {
 
 
 static u32 convert_from_replay_to_raw(u8* old_path, u8* new_path) {
-
-  FILE * sfd, * dfd;
-  char * buf = NULL;
-  unsigned int size;
-  u32 len = 0;
-
-  //unsigned int packet_count = 0;
-
-  sfd = fopen(old_path, "rb");
-  if (sfd == NULL) PFATAL("Unable to open '%s'", old_path);
-
-  dfd = fopen(new_path, "wb");
-  if (dfd == NULL) PFATAL("Unable to create '%s'", new_path);
-
-
-  while(!feof(sfd)) {
-
-    if (buf) {ck_free(buf); buf = NULL;}
-
-    clearerr(sfd);
-    if (fread(&size, sizeof(unsigned int), 1, sfd) > 0) {
-
-      //packet_count++;
-      //fprintf(stderr,"\nSize of the current packet %d is  %d\n", packet_count, size);
-      buf = (char *)ck_alloc(size);
-
-      clearerr(sfd);
-      fread(buf, size, 1, sfd);
-
-      if(feof(sfd) || ferror(sfd)) { PFATAL("AFLNet - Unable to read input file"); }
-
-      clearerr(dfd);
-      fwrite(buf, size, 1, dfd);
-
-      len += size;
-
-      if(feof(dfd) || ferror(dfd)) { PFATAL("AFLNet - Unable to write input file in output dir"); }
-    }
-    else { if(ferror(sfd)) PFATAL("AFLNet - Unable to read message len from input file"); }
+  FILE *src = fopen(old_path, "rb");
+  if (!src) PFATAL("Unable to open '%s'", old_path);
+  FILE *dst = fopen(new_path, "wb");
+  if (!dst) PFATAL("Unable to create '%s'", new_path);
+  u32 total = 0;
+  u8 prefix[4], *data = NULL;
+  for (;;) {
+    size_t got = fread(prefix, 1, 4, src);
+    if (!got && feof(src)) break;
+    if (got != 4) FATAL("Truncated replayable length in '%s'", old_path);
+    u32 length = 0;
+    for (unsigned j = 0; j < 4; j++) length |= (u32)prefix[j] << (8 * j);
+    if (!length || length > MAX_FILE - total)
+      FATAL("Invalid replayable message length in '%s'", old_path);
+    data = ck_realloc(data, length);
+    if (fread(data, 1, length, src) != length)
+      FATAL("Truncated replayable message in '%s'", old_path);
+    if (fwrite(data, 1, length, dst) != length)
+      PFATAL("Unable to write '%s'", new_path);
+    total += length;
   }
-
-
-  ck_free(buf);
-  fclose(sfd);
-  fclose(dfd);
-
-  return len;
-
+  if (ferror(src)) PFATAL("Unable to read '%s'", old_path);
+  ck_free(data);
+  fclose(src);
+  if (fclose(dst)) PFATAL("Unable to close '%s'", new_path);
+  return total;
 }
-
 
 static void nuke_resume_dir(void);
 
@@ -5285,6 +5315,19 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
               persistent_mode || deferred_mode) ? "" : "default",
              orig_cmdline, slowest_exec_ms);
              /* ignore errors */
+
+  if (fixed_random_seed) fprintf(f, "random_seed       : %u\n", experiment_seed);
+  if (protocol_candidate_limit) fprintf(f, "saved_candidates  : %u\n", protocol_candidates_saved);
+  if (protocol_engine) {
+    fprintf(f, "protocol_mode     : %s\nprotocol_structured: %llu\n"
+               "protocol_raw      : %llu\nprotocol_rejected : %llu\n",
+            protocol_mode == PROTO_VALID ? "valid" : protocol_mode == PROTO_NEAR_VALID ? "near_valid" :
+            protocol_mode == PROTO_INVALID ? "invalid" : protocol_mode == PROTO_RAW ? "raw" : "hybrid",
+            protocol_structured_runs, protocol_raw_runs, protocol_rejections);
+    u8 *stats_path = alloc_printf("%s/protocol_stats.json", out_dir);
+    proto_write_stats(protocol_engine, (char *)stats_path);
+    ck_free(stats_path);
+  }
 
   /* Get rss value from the children
      We must have killed the forkserver process and called waitpid
@@ -6336,7 +6379,24 @@ static void show_init_stats(void) {
   if (dumb_mode && !getenv("AFL_HANG_TMOUT"))
     hang_tmout = MIN(EXEC_TIMEOUT, exec_tmout * 2 + 100);
 
+  if (fixed_random_seed || protocol_candidate_limit) {
+    u8 *path = alloc_printf("%s/experiment_baseline.json", out_dir);
+    FILE *baseline = fopen((char *)path, "w");
+    if (!baseline) PFATAL("Cannot write experiment baseline");
+    fprintf(baseline, "{\"execs_done\":%llu,\"paths_total\":%u,\"coverage_edges\":%u,\"memory_states\":%u,\"protocol_structured\":%llu,\"protocol_raw\":%llu,\"protocol_rejected\":%llu,\"timestamp_ms\":%llu}\n",
+            total_execs, queued_paths, count_non_255_bytes(virgin_bits), state_ids_count,
+            protocol_structured_runs, protocol_raw_runs, protocol_rejections, get_cur_time());
+    if (fclose(baseline)) PFATAL("Cannot close experiment baseline");
+    ck_free(path);
+    if (protocol_engine) {
+      path = alloc_printf("%s/experiment_protocol_baseline.json", out_dir);
+      proto_write_stats(protocol_engine, (char *)path);
+      ck_free(path);
+    }
+  }
+  experiment_active = 1;
   OKF("All set and ready to roll!");
+  fflush(stdout);
 
 }
 
@@ -6344,9 +6404,89 @@ static void show_init_stats(void) {
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
 
+static uint32_t protocol_random(uint32_t limit) { return limit ? UR(limit) : 0; }
+
+/* Snapshot only M2. Existing memory-state selection and M1/M3 reuse still own
+   the surrounding sequence. Record prefixes never enter AFL's wire buffer. */
+static void protocol_capture(kliter_t(lms) *first, kliter_t(lms) *last) {
+  size_t whole = 0;
+  for (kliter_t(lms) *it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it))
+    whole += 4 + kl_val(it)->msize;
+  protocol_base_len = 0;
+  for (; first != last; first = kl_next(first)) {
+    message_t *m = kl_val(first);
+    size_t n = m->msize;
+    if (!n || protocol_base_len > MAX_FILE - 4 ||
+        n > MAX_FILE - 4 - protocol_base_len)
+      FATAL("Protocol seed exceeds replayable MAX_FILE limit");
+    for (unsigned j = 0; j < 4; j++)
+      protocol_base[protocol_base_len + j] = (u32)n >> (8 * j);
+    memcpy(protocol_base + protocol_base_len + 4, m->mdata, n);
+    protocol_base_len += n + 4;
+  }
+  protocol_surrounding_records = whole - protocol_base_len;
+}
+
+/* Return explicit message regions while projecting a structured candidate into
+   the existing M2 replacement path. Caller owns regions; wire buffer is reused. */
+static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count) {
+  const u8 *records;
+  size_t length, checked, p = 0, off = 0;
+  char error[256];
+  int choices[3], n = 0;
+  for (int bit = 1; bit <= 4; bit <<= 1)
+    if (protocol_layers & bit) choices[n++] = bit;
+  int layer = choices[UR(n)];
+  int mode = protocol_mode == PROTO_HYBRID ? PROTO_VALID : protocol_mode;
+  if (proto_mutate(protocol_engine, protocol_base, protocol_base_len,
+                   *wire, *wire_len, mode, layer, protocol_random,
+                   &records, &length, error, sizeof(error)) < 0) {
+    protocol_rejections++;
+    if (protocol_fallback && protocol_log)
+      fputs("{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"structured_candidate_rejected\"}\n", protocol_log);
+    return NULL;
+  }
+  if (proto_records_validate(records, length, &checked, error, sizeof(error)) < 0)
+    FATAL("Protocol serializer contract: %s", error);
+  if (protocol_surrounding_records > MAX_FILE - length) {
+    protocol_rejections++;
+    if (protocol_log)
+      fputs("{\"event\":\"integration_rejected\",\"reason\":\"full_sequence_MAX_FILE\"}\n", protocol_log);
+    if (protocol_fallback && protocol_log)
+      fputs("{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"full_sequence_MAX_FILE\"}\n", protocol_log);
+    return NULL;
+  }
+  region_t *regions = ck_alloc(checked * sizeof(region_t));
+  *count = 0;
+  while (p < length) {
+    u32 z = 0;
+    for (unsigned j = 0; j < 4; j++) z |= (u32)records[p + j] << (8 * j);
+    p += 4;
+    regions[*count].start_byte = off;
+    regions[*count].end_byte = off + z - 1;
+    regions[*count].modifiable = 1;
+    memcpy(protocol_wire + off, records + p, z);
+    p += z; off += z; (*count)++;
+  }
+  *wire = protocol_wire; *wire_len = off;
+  protocol_structured_run = 1;
+  protocol_structured_runs++;
+  return regions;
+}
+
 EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   u8 fault;
+  region_t *protocol_regions = NULL;
+  u32 protocol_count = 0;
+  protocol_structured_run = 0;
+
+  if (protocol_engine && protocol_mode != PROTO_RAW &&
+      (protocol_mode != PROTO_HYBRID || UR(100) < protocol_ratio)) {
+    protocol_regions = protocol_prepare(&out_buf, &len, &protocol_count);
+    if (!protocol_regions && !protocol_fallback) return 0;
+  }
+  if (protocol_engine && !protocol_regions) protocol_raw_runs++;
 
   if (post_handler) {
 
@@ -6361,7 +6501,9 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   // parse the out_buf into messages
   u32 region_count;
-  region_t *regions = (*extract_requests)(out_buf, len, &region_count);
+  region_t *regions;
+  if (protocol_regions) { regions = protocol_regions; region_count = protocol_count; }
+  else regions = (*extract_requests)(out_buf, len, &region_count);
   if (!region_count) PFATAL("AFLNet Region count cannot be Zero");
 
   // update kl_messages linked list
@@ -6373,7 +6515,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   for (i = 0; i < region_count; i++) {
     u32 len;
     //Identify region size
-    if (i == max_seed_region_count) {
+    if (!protocol_regions && i == max_seed_region_count) {
       len = regions[region_count - 1].end_byte - regions[i].start_byte + 1;
     } else {
       len = regions[i].end_byte - regions[i].start_byte + 1;
@@ -6383,6 +6525,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
     message_t *m = (message_t *) ck_alloc(sizeof(message_t));
     m->mdata = (char *) ck_alloc(len);
     m->msize = len;
+    m->protocol_structured = protocol_regions != NULL;
     if (m->mdata == NULL) PFATAL("Unable to allocate memory region to store new message");
     memcpy(m->mdata, &out_buf[regions[i].start_byte], len);
 
@@ -6396,7 +6539,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
       M2_next = kl_end(kl_messages);
     }
 
-    if (i == max_seed_region_count) break;
+    if (!protocol_regions && i == max_seed_region_count) break;
   }
   ck_free(regions);
 
@@ -7066,6 +7209,7 @@ AFLNET_REGIONS_SELECTION:;
   }
 
   u32 in_buf_size = 0;
+  if (protocol_engine) protocol_capture(it, M2_next);
   while (it != M2_next) {
     in_buf = (u8 *) ck_realloc (in_buf, in_buf_size + kl_val(it)->msize);
     if (!in_buf) PFATAL("AFLNet cannot allocate memory for in_buf");
@@ -9370,6 +9514,16 @@ static void usage(u8* argv0) {
        "  -q algo       - state selection algorithm (See aflnet.h for all available options)\n"
        "  -s algo       - seed selection algorithm (See aflnet.h for all available options)\n\n"
 
+       "Optional protocol description mutation (ICP-IR v1):\n\n"
+       "  --protocol-spec file  - compiled protocol_ir.json\n"
+       "  --state-spec file     - compiled state_ir.json (separate semantic states)\n"
+       "  --mutation-mode mode  - valid, near_valid, invalid, raw, hybrid (default hybrid)\n"
+       "  --mutation-layers set - head | head,content | head,content,sequence (default all)\n"
+       "  --protocol-ratio pct  - structured share in hybrid mode, 0..100 (default 70)\n"
+       "  --protocol-fallback   - explicitly allow raw fallback on rejected candidates\n\n"
+       "  --random-seed n       - fixed uint32 mutation RNG seed for repeated experiments\n"
+       "  --protocol-save-candidates n - save up to n sent sequences after calibration (default 0)\n\n"
+
        "Other stuff:\n\n"
 
        "  -T text       - text banner to show on the screen\n"
@@ -10091,9 +10245,60 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   srandom(tv.tv_sec ^ tv.tv_usec ^ getpid());
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:r:w:e:P:KEq:s:RFc:l:u:U:")) > 0)
+  static const struct option protocol_options[] = {
+    {"protocol-spec", required_argument, NULL, 1000},
+    {"state-spec", required_argument, NULL, 1001},
+    {"mutation-mode", required_argument, NULL, 1002},
+    {"mutation-layers", required_argument, NULL, 1003},
+    {"protocol-ratio", required_argument, NULL, 1004},
+    {"protocol-fallback", no_argument, NULL, 1005},
+    {"random-seed", required_argument, NULL, 1006},
+    {"protocol-save-candidates", required_argument, NULL, 1007},
+    {NULL, 0, NULL, 0}
+  };
+  while ((opt = getopt_long(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:r:w:e:P:KEq:s:RFc:l:u:U:", protocol_options, NULL)) > 0)
 
     switch (opt) {
+
+      case 1000:
+        if (protocol_spec_path) FATAL("Multiple --protocol-spec options");
+        protocol_spec_path = optarg; break;
+      case 1001:
+        if (protocol_state_path) FATAL("Multiple --state-spec options");
+        protocol_state_path = optarg; break;
+      case 1002:
+        protocol_options_given = 1;
+        protocol_mode = proto_mode_parse(optarg);
+        if (protocol_mode < 0) FATAL("Unknown --mutation-mode %s", optarg);
+        break;
+      case 1003:
+        protocol_options_given = 1;
+        protocol_layers = proto_layers_parse(optarg);
+        if (protocol_layers < 0) FATAL("Invalid --mutation-layers %s", optarg);
+        break;
+      case 1004: {
+        char *end; errno = 0;
+        unsigned long ratio = strtoul(optarg, &end, 10);
+        if (errno || !*optarg || *end || *optarg == '-' || ratio > 100)
+          FATAL("--protocol-ratio requires an integer in 0..100");
+        protocol_options_given = 1; protocol_ratio = ratio; break;
+      }
+      case 1005: protocol_options_given = 1; protocol_fallback = 1; break;
+      case 1006: {
+        char *end; errno = 0;
+        unsigned long long seed = strtoull(optarg, &end, 10);
+        if (fixed_random_seed || errno || !*optarg || *end || *optarg == '-' || seed > 0xffffffffULL)
+          FATAL("--random-seed requires one uint32 integer in 0..4294967295");
+        fixed_random_seed = 1; experiment_seed = seed;
+        srandom(experiment_seed); break;
+      }
+      case 1007: {
+        char *end; errno = 0;
+        unsigned long count = strtoul(optarg, &end, 10);
+        if (errno || !*optarg || *end || *optarg == '-' || count > 1000000)
+          FATAL("--protocol-save-candidates requires an integer in 0..1000000");
+        protocol_candidate_limit = count; break;
+      }
 
       case 'i': /* input dir */
 
@@ -10426,6 +10631,19 @@ int main(int argc, char** argv) {
   //AFLNet - Check for required arguments
   if (!use_net) FATAL("Please specify network information of the server under test (e.g., tcp://127.0.0.1/8554)");
 
+  if (!!protocol_spec_path != !!protocol_state_path ||
+      (protocol_options_given && !protocol_spec_path))
+    FATAL("Protocol mutation requires both --protocol-spec and --state-spec");
+  if (protocol_spec_path) {
+    char error[256];
+    protocol_engine = proto_load(protocol_spec_path, protocol_state_path, error, sizeof(error));
+    if (!protocol_engine) FATAL("Protocol model: %s", error);
+    if (net_protocol != PRO_UDP)
+      FATAL("The enabled BACnet/IP runtime model requires UDP transport");
+    if (protocol_selected)
+      FATAL("Use generic replayable framing with --protocol-spec; omit legacy -P");
+  }
+
   //if (!protocol_selected) FATAL("Please specify the protocol to be tested using the -P option");
 
   setup_signal_handlers();
@@ -10482,12 +10700,26 @@ int main(int argc, char** argv) {
   check_cpu_governor();
 
   setup_post();
+  if (protocol_engine && post_handler)
+    FATAL("Protocol mutation and AFL_POST_LIBRARY cannot share message boundaries");
   setup_shm();
   init_count_class16();
 
   setup_ipsm();
 
   setup_dirs_fds();
+  if (protocol_candidate_limit) {
+    protocol_candidate_dir = alloc_printf("%s/protocol-candidates", out_dir);
+    if (mkdir((char *)protocol_candidate_dir, 0700)) PFATAL("Cannot create protocol candidate directory");
+  }
+  if (protocol_engine) {
+    u8 *log_path = alloc_printf("%s/protocol_mutations.jsonl", out_dir);
+    protocol_log = fopen((char *)log_path, "w");
+    if (!protocol_log) PFATAL("Cannot create protocol mutation log");
+    setvbuf(protocol_log, NULL, _IOLBF, 0);
+    proto_set_log(protocol_engine, protocol_log);
+    ck_free(log_path);
+  }
   read_testcases();
   load_auto();
 
@@ -10719,6 +10951,10 @@ stop_fuzzing:
   ck_free(wd_vanilla);
 
   destroy_ipsm();
+
+  if (protocol_log) fclose(protocol_log);
+  proto_free(protocol_engine);
+  ck_free(protocol_candidate_dir);
 
   alloc_report();
 

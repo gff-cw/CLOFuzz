@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "profiles": 6,
+  "complete_message_fixtures": 71,
+  "declared_fields": 641,
+  "python_test_counts": {
+    "compiler": 86,
+    "cli": 11,
+    "templates": 14,
+    "deep_model_completeness": 8,
+    "experiment_analysis": 10,
+    "deterministic_bundle": 1
+  },
+  "runtime": {
+    "loader_cases": 83,
+    "random_models": 250,
+    "random_wire": 25000,
+    "sanitizers": [
+      "address",
+      "undefined",
+      "leak"
+    ]
+  },
+  "performance": {
+    "runs": 15,
+    "repeats_per_mode": 3,
+    "seconds_per_run_after_calibration": 20,
+    "passed": true,
+    "summary": "controlled-comparison/summary.json"
+  },
+  "functional": {
+    "passed": true,
+    "summary": "controlled-functional-stable/summary.json",
+    "saved_each": 24,
+    "conditions": "Invoke33 vs77; valid vs length+1; missing dependency refuses startup; 15s and uniform500ms startup"
+  },
+  "inference": "Higher sampled profile structural conformity; no coverage gain established (legacy median31 > hybrid9 > all1 bitmap locations).",
+  "evidence_limits": "Explicit bounded protocol profiles; only BACnet Who-Is/ReadProperty online C encoders; no whole-standard or statistical-significance claim."
+}

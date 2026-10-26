@@ -13,6 +13,11 @@
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
 
+# Default to the system Clang command, while honoring environment/CLI overrides.
+ifeq "$(origin CC)" "default"
+  CC = clang
+endif
+
 PROGNAME    = afl
 VERSION     = $(shell grep '^\#define VERSION ' config.h | cut -d '"' -f2)
 
@@ -69,8 +74,8 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $@.c -o $@ $(LDFLAGS)
 	ln -sf afl-as as
 
-afl-fuzz: afl-fuzz.c $(COMM_HDR) aflnet.o aflnet.h | test_x86
-	$(CC) $(CFLAGS) $@.c aflnet.o -o $@ $(LDFLAGS)
+afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h $(COMM_HDR) aflnet.o aflnet.h | test_x86
+	$(CC) $(CFLAGS) $@.c protocol_runtime.c aflnet.o -o $@ $(LDFLAGS)
 
 afl-replay: afl-replay.c $(COMM_HDR) aflnet.o aflnet.h | test_x86
 	$(CC) $(CFLAGS) $@.c aflnet.o -o $@ $(LDFLAGS)

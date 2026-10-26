@@ -1,0 +1,131 @@
+{
+  "type": "object",
+  "properties": {
+    "format_version": {
+      "const": 1
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+    },
+    "initial": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+          },
+          "meaning": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "id",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+          },
+          "message": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$"
+          },
+          "response": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "guard": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Static human-readable condition. Runtime selects an edge by current state and message only."
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "minItems": 0,
+            "maxItems": 128,
+            "description": "Static human-readable annotations. Runtime actions must be represented by supported message dependencies."
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "message",
+          "response",
+          "guard",
+          "actions"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 256
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "max_messages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "max_repeat": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      },
+      "required": [
+        "max_messages",
+        "max_repeat",
+        "max_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "invalid_strategy": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "Static description. Current runtime invalid/near_valid modes use a fixed BVLC length violation, not this string."
+    }
+  },
+  "required": [
+    "format_version",
+    "protocol_id",
+    "initial",
+    "states",
+    "transitions",
+    "limits",
+    "invalid_strategy"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
