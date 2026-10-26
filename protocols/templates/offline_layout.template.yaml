@@ -1,0 +1,67 @@
+# This is a fictional record layout, not an industrial protocol profile.
+# It is interpreted by tools/offline_protocol_decoder.py, not by afl-fuzz.
+format: stateafl.offline-layout
+version: 1
+description: Fictional length-delimited records showing reusable decoding nodes.
+root:
+  id: packet
+  kind: struct
+  fields:
+    - id: magic
+      kind: bytes
+      length: 2
+      expected_hex: '4758'
+    - id: version
+      kind: uint
+      width: 1
+      byte_order: big
+      expected: 1
+    - id: flags
+      kind: bits
+      width: 1
+      byte_order: big
+      fields:
+        - {id: enabled, lsb: 0, width: 1}
+        - {id: reserved, lsb: 1, width: 7, expected: 0}
+    - id: count
+      kind: uint
+      width: 1
+      byte_order: big
+      min: 0
+      max: 16
+    - id: records
+      kind: repeat
+      count: {ref: count}
+      max_items: 16
+      item:
+        id: record
+        kind: struct
+        fields:
+          - id: tag
+            kind: uint
+            width: 1
+            byte_order: big
+            values: [1, 2]
+          - id: size
+            kind: uint
+            width: 2
+            byte_order: little
+            max: 256
+          - id: payload
+            kind: bounded
+            length: {ref: size}
+            body:
+              id: body
+              kind: choice
+              selector: {ref: tag}
+              cases:
+                '1':
+                  id: text
+                  kind: bytes
+                  length: {ref: size}
+                  encoding: utf8
+                '2':
+                  id: data
+                  kind: bytes
+                  length: {ref: size}
+                  encoding: hex

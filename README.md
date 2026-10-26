@@ -321,6 +321,24 @@ StateAFL uses the [Trend Micro Locality Sensitive Hash (TLSH) library](https://g
 
 
 
+## Generic offline descriptions and state observations
+
+A protocol-independent [layout interpreter and decoder](docs/generic-offline-decoder.md)
+reads existing binary files using struct, scalar, bits, choice, repeat and
+bounded-container nodes. Its [editable template](protocols/templates/offline_layout.template.yaml)
+uses a separate versioned format and requires no per-protocol native codec.
+A [local field editor](docs/generic-offline-editor.md) applies explicit scalar,
+bit-field and equal-length content edits, then checks the complete layout and
+preserves unedited bits. It provides no automatic selection or target execution.
+The [dual-state model](docs/dual-state-observation-model.md) and
+[offline relation analyzer](docs/offline-state-relation.md) keep protocol evidence
+separate from memory-cluster labels and require explicit shared observation boundaries.
+
+These offline modules have been written and statically reviewed; they have not
+been executed or tested in this change. The six existing profiles have not been
+migrated. The online decoder and mutation runtime below still use their existing
+scoped codecs; this change does not replace them.
+
 ## Optional protocol description mutation (ICP-IR v1)
 
 Start with the [editable protocol templates and step-by-step workflow](protocols/templates/README.md).

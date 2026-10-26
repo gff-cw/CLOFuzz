@@ -1,5 +1,9 @@
 # 统一描述模板 → 具体协议描述 → 加载定向变异
 
+新增 [offline_layout.template.yaml](offline_layout.template.yaml) 用于[通用离线解码器](../../docs/generic-offline-decoder.md)。它按结构树执行，不依赖协议专用 codec；其格式与下列旧模板不同，不能传给现有在线 compiler/runtime。
+
+[offline_edits.template.json](offline_edits.template.json) 用于[本地字段变换器](../../docs/generic-offline-editor.md)：填写原样本与布局摘要，显式指定叶字段值；不自动选择操作或驱动目标。
+
 这里是用户填写协议描述的起点。JSON Schema 是格式检查规则；本目录的带注释 YAML 才是可复制、填写的模板。
 
 - [protocol_spec.template.yaml](protocol_spec.template.yaml)：消息、HEAD/CONTENT、字段、取值策略、长度/跨消息依赖、协议来源。
