@@ -323,6 +323,12 @@ StateAFL uses the [Trend Micro Locality Sensitive Hash (TLSH) library](https://g
 
 ## Generic offline descriptions and state observations
 
+Native C [local-file inspection](docs/native-inspection.md) is linked into the
+afl-fuzz source entry point and a standalone afl-protocol-inspect build target.
+The --inspect-layout/--inspect-input and --inspect-observations modes return
+before target setup and require no Python. These additions have not been built
+or run in this change; the generic directed mutation engine is not implemented.
+
 A protocol-independent [layout interpreter and decoder](docs/generic-offline-decoder.md)
 reads existing binary files using struct, scalar, bits, choice, repeat and
 bounded-container nodes. Its [editable template](protocols/templates/offline_layout.template.yaml)

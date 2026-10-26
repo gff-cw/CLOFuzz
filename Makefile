@@ -29,7 +29,7 @@ MISC_PATH   = $(PREFIX)/share/afl
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
-PROGS       = afl-gcc afl-fuzz afl-replay aflnet-replay afl-showmap afl-tmin afl-gotcpu afl-analyze
+PROGS       = afl-gcc afl-fuzz afl-replay aflnet-replay afl-showmap afl-tmin afl-gotcpu afl-analyze afl-protocol-inspect
 SH_PROGS    = afl-plot afl-cmin afl-whatsup
 
 CFLAGS     ?= -O3 -funroll-loops
@@ -75,8 +75,14 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	ln -sf afl-as as
 
 PROTOCOL_CODECS = $(wildcard protocol_codec_*.c)
-afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_codecs.h $(PROTOCOL_CODECS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
-	$(CC) $(CFLAGS) $@.c protocol_runtime.c $(PROTOCOL_CODECS) aflnet.o -o $@ $(LDFLAGS)
+NATIVE_INSPECT_SOURCES = native_json.c native_layout.c native_observation.c native_inspect.c
+NATIVE_INSPECT_HEADERS = native_json.h native_inspect.h
+afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_codecs.h $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
+	$(CC) $(CFLAGS) $@.c protocol_runtime.c $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
+
+# Standard-library-only local inspector; no instrumentation or x86 checks needed.
+afl-protocol-inspect: afl-protocol-inspect.c $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
+	$(CC) $(CFLAGS) $< $(NATIVE_INSPECT_SOURCES) -o $@
 
 afl-replay: afl-replay.c $(COMM_HDR) aflnet.o aflnet.h | test_x86
 	$(CC) $(CFLAGS) $@.c aflnet.o -o $@ $(LDFLAGS)

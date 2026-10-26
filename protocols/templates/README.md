@@ -1,5 +1,7 @@
 # 统一描述模板 → 具体协议描述 → 加载定向变异
 
+[native_layout.template.json](native_layout.template.json) 和 [native_observations.template.json](native_observations.template.json) 用于 [C 原生本地检查](../../docs/native-inspection.md)。前者是虚构结构示例，后者需填写实际摘要及作用域；均不启动目标，不等于旧在线 codec 描述。
+
 新增 [offline_layout.template.yaml](offline_layout.template.yaml) 用于[通用离线解码器](../../docs/generic-offline-decoder.md)。它按结构树执行，不依赖协议专用 codec；其格式与下列旧模板不同，不能传给现有在线 compiler/runtime。
 
 [offline_edits.template.json](offline_edits.template.json) 用于[本地字段变换器](../../docs/generic-offline-editor.md)：填写原样本与布局摘要，显式指定叶字段值；不自动选择操作或驱动目标。

@@ -70,6 +70,7 @@
 
 #include "aflnet.h"
 #include "protocol_runtime.h"
+#include "native_inspect.h"
 #include <graphviz/gvc.h>
 #include <math.h>
 
@@ -9538,6 +9539,11 @@ static void usage(u8* argv0) {
        "  --random-seed n       - fixed uint32 mutation RNG seed for repeated experiments\n"
        "  --protocol-save-candidates n - save up to n sent sequences after calibration (default 0)\n\n"
 
+       "Native local-file inspection (must be the first argument):\n\n"
+       "  --inspect-layout file --inspect-input file - decode and validate existing bytes\n"
+       "  --inspect-observations file - inspect declared protocol/memory observations\n"
+       "  --inspect-help        - show local inspection syntax; no target is started\n\n"
+
        "Other stuff:\n\n"
 
        "  -T text       - text banner to show on the screen\n"
@@ -10240,6 +10246,10 @@ static void save_cmdline(u32 argc, char** argv) {
 /* Main entry point */
 
 int main(int argc, char** argv) {
+
+  /* Finish passive inspection before RNG, option parsing, SHM or target setup. */
+  int inspection_result = native_inspection_dispatch(argc, argv, stdout, stderr);
+  if (inspection_result >= 0) return inspection_result;
 
   s32 opt;
   u64 prev_queued = 0;

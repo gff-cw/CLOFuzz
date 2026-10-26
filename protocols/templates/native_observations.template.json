@@ -1,0 +1,18 @@
+{
+  "format": "stateafl.offline-observations",
+  "version": 1,
+  "events": [
+    {
+      "run_id": "replace_with_actual_run_identity",
+      "session_id": "replace_with_actual_session_scope",
+      "session_epoch": 0,
+      "event_index": 0,
+      "model_sha256": "REPLACE_WITH_ACTUAL_MODEL_SHA256",
+      "kind": "session_start",
+      "protocol": {
+        "status": "unobserved", "states": [], "source": "none",
+        "correlation": "missing", "complete": false
+      }
+    }
+  ]
+}
