@@ -1,7 +1,7 @@
 {
   "path": "deliverables/industrial-protocol-descriptions.zip",
-  "sha256": "d540abbc57301b44f641dd9078c501b5b613b4bdf57d297f8f78998071dbf352",
-  "files": 95,
+  "sha256": "fd5c35445c3a250744ad4093e8369a8c760475e5c1bf61d1c05520ba304690e5",
+  "files": 96,
   "profiles": [
     {
       "protocol_id": "bacnet_ip",

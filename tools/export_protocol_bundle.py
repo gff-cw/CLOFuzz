@@ -35,7 +35,7 @@ def build_bundle(destination):
     for directory in (ROOT/'protocols/schema',ROOT/'protocols/templates'):
         for path in sorted(directory.rglob('*')):
             if path.is_file():files[str(path.relative_to(ROOT))]=path.read_bytes()
-    for name in ('README.md','docs/protocol-model-audit.md','docs/template-audit.md',
+    for name in ('README.md','protocols/README.md','docs/protocol-model-audit.md','docs/template-audit.md',
                  'docs/protocol-description-language.md','docs/architecture.md','docs/references.md',
                  'docs/bacnet-controlled-results.md','docs/controlled-experiment-design.md',
                  'tools/generate_protocol_models.py','tools/protocol_model_details.py',

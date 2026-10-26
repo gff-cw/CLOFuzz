@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -17,6 +18,7 @@ class BundleTests(unittest.TestCase):
             result=build_bundle(first);build_bundle(second)
             self.assertEqual(first.read_bytes(),second.read_bytes())
             with zipfile.ZipFile(first) as archive:
+                self.assertIn('protocols/README.md',archive.namelist())
                 manifest=json.loads(archive.read('MANIFEST.json'))
                 self.assertEqual(len(manifest['profiles']),6)
                 self.assertTrue(all(p['all_fixtures_complete'] for p in manifest['profiles']))
@@ -27,5 +29,9 @@ class BundleTests(unittest.TestCase):
                     for filename in ('protocol_spec.yaml','state_transition.yaml','protocol_ir.json','state_ir.json','evidence.yaml','validation.json'):
                         self.assertIn('protocols/'+profile['protocol_id']+'/'+filename,archive.namelist())
             self.assertEqual(hashlib.sha256(first.read_bytes()).hexdigest(),result['sha256'])
+            extracted=Path(directory)/'extracted'
+            with zipfile.ZipFile(first) as archive:archive.extractall(extracted)
+            completed=subprocess.run([sys.executable,'tests/protocol/test_model_completeness.py'],cwd=extracted,capture_output=True,text=True,timeout=90)
+            self.assertEqual(completed.returncode,0,completed.stdout+completed.stderr)
 
 if __name__=='__main__':unittest.main(verbosity=2)

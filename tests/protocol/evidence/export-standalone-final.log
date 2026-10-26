@@ -1,0 +1,6 @@
+test_complete_packages_manifest_and_reproducible_zip (test_export_bundle.BundleTests.test_complete_packages_manifest_and_reproducible_zip) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 38.771s
+
+OK
