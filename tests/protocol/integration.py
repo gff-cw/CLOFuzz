@@ -27,6 +27,18 @@ SEEDS = ("seed01_whois.replay", "seed03_read_objectname.replay",
          "seed04_read_vendorname.replay", "seed05_read_objectlist.replay")
 
 
+def validate_execution_budget(parser, args):
+    if not 0 < args.exec_timeout_ms <= 0xffffffff:
+        parser.error("--exec-timeout-ms must be a positive uint32 value")
+    if args.exec_timeout_ms < 5:
+        parser.error("--exec-timeout-ms must be at least 5 ms, as required by afl-fuzz")
+    if not 0 <= args.startup_usecs <= 0xffffffff:
+        parser.error("--startup-usecs must be a nonnegative uint32 value")
+    if args.startup_usecs >= args.exec_timeout_ms * 1000:
+        parser.error("--startup-usecs must be less than --exec-timeout-ms * 1000; "
+                     "the execution timeout includes startup and response/exit handling")
+
+
 def read_stats(path):
     result = {}
     if path.exists():
@@ -169,7 +181,7 @@ def run_campaign(args, work, corpus, name, env):
     command = ["setarch", os.uname().machine, "-R", str(ROOT / "afl-fuzz"), "-d",
                "-i", str(corpus), "-o", str(folder / "out"),
                "-N", f"udp://127.0.0.1/{port}", "-D", str(args.startup_usecs), "-W", "10", "-w", "1000",
-               "-r", "10", "-E", "-K", "-q", "3", "-s", "3", "-m", "none", "-t", "1000"]
+               "-r", "10", "-E", "-K", "-q", "3", "-s", "3", "-m", "none", "-t", str(args.exec_timeout_ms)]
     if MODES[name]:
         mode, layers = MODES[name]
         command = command[:3] + [sys.executable, str(ROOT / "tools/run_protocol_campaign.py"),
@@ -225,12 +237,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seconds", type=float, default=15)
-    parser.add_argument("--startup-usecs", type=int, default=200000)
+    parser.add_argument("--startup-usecs", type=int, default=1000000,
+                        help="server startup wait in microseconds (default: %(default)s)")
+    parser.add_argument("--exec-timeout-ms", type=int, default=5000,
+                        help="total per-execution timeout, including startup, in milliseconds (default: %(default)s)")
     parser.add_argument("--ready-timeout", type=float, default=300)
     parser.add_argument("--server", type=Path, default=WORKSPACE / "bacnet-stack/build-protocol-integration/server")
     parser.add_argument("--modes", default=",".join(MODES))
     parser.add_argument("--spec-dir", type=Path, default=ROOT / "protocols/bacnet_ip")
     args = parser.parse_args()
+    validate_execution_budget(parser, args)
     args.server = args.server.resolve()
     args.spec_dir = args.spec_dir.resolve()
     work = args.output.resolve()
@@ -260,7 +276,8 @@ def main():
                 "afl_fuzz_sha256": hashlib.sha256((ROOT / "afl-fuzz").read_bytes()).hexdigest(),
                 "protocol_ir_sha256": hashlib.sha256((args.spec_dir / "protocol_ir.json").read_bytes()).hexdigest(),
                 "state_ir_sha256": hashlib.sha256((args.spec_dir / "state_ir.json").read_bytes()).hexdigest(),
-                "corpus": corpus_metadata, "seconds_after_ready": args.seconds, "modes": modes}
+                "corpus": corpus_metadata, "seconds_after_ready": args.seconds, "modes": modes,
+                "startup_usecs": args.startup_usecs, "exec_timeout_ms": args.exec_timeout_ms}
     (work / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     results = []
     for name in modes:

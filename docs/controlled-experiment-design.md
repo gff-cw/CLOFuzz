@@ -19,6 +19,18 @@ driver checks that the actual fuzzer binary advertises `--random-seed` and
 `../bacnet-stack/build-protocol-integration/server`; `--server` and `--spec-dir`
 select other local builds/model packages.
 
+Both this driver and `tests/protocol/integration.py` default to
+`--startup-usecs 1000000 --exec-timeout-ms 5000`. The first value is the wait
+before sending a request; the second maps to StateAFL's `-t` and covers the
+entire execution, including startup, network polling and target shutdown/state
+analysis. The driver rejects negative startup waits, nonpositive timeouts,
+timeouts below StateAFL's 5 ms minimum, values outside uint32, and startup waits
+greater than or equal to the total timeout. A valid numeric budget still needs
+enough spare time for the target on the current machine. Keep both settings
+identical across comparison modes and inspect calibration, actual responses and
+IPSM before using a run as performance evidence. Both budgets are recorded in
+the top-level metadata and exact launch commands.
+
 ## Performance comparison
 
 The default experiment has 15 sequential runs: five modes, each repeated three
@@ -133,8 +145,13 @@ fixture/log. A nonzero driver exit preserves all completed evidence and the
 failed checks; it does not erase inconvenient runs.
 
 
-For the final one-seed functional reproduction on this machine, use
-`--controls-only --control-seconds 15 --startup-usecs 500000`.
+For a new one-seed functional reproduction on this machine, use
+`--controls-only --control-seconds 15 --startup-usecs 1000000 --exec-timeout-ms 5000`.
 An intermediate repetition with 200 ms startup failed calibration in two controls;
 those logs are retained. The 500 ms functional rerun passed all wire assertions.
 The completed 15-run performance table used 200 ms uniformly and is a separate comparison.
+The new defaults do not change those historical results. A later diagnostic
+reproduced empty IPSM at 200 ms: requests were sent before the server bound its
+UDP socket. With the same server and original Vendor_Name seed, a 1 s startup
+wait and 5 s total timeout produced TLSH calibration and memory-state edge
+`0 -> 1`. This verifies startup/feedback readiness, not a coverage improvement.

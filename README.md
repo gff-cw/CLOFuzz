@@ -371,7 +371,7 @@ Example, after building the instrumented local BACnet server:
 ```bash
 BACNET_IFACE=lo BACNET_IP_PORT=47818 setarch "$(uname -m)" -R ./afl-fuzz \
   -d -i ../bacnet-stack/inputs -o /tmp/stateafl-bacnet \
-  -N udp://127.0.0.1/47818 -D 200000 -E -K -q 3 -s 3 -m none -t 5000 \
+  -N udp://127.0.0.1/47818 -D 1000000 -E -K -q 3 -s 3 -m none -t 5000 \
   --protocol-spec protocols/bacnet_ip/protocol_ir.json \
   --state-spec protocols/bacnet_ip/state_ir.json \
   --mutation-mode hybrid --mutation-layers head,content,sequence \
@@ -380,10 +380,12 @@ BACNET_IFACE=lo BACNET_IP_PORT=47818 setarch "$(uname -m)" -R ./afl-fuzz \
 
 Use a fresh output directory. For valid-only comparisons, use the four valid
 seeds selected by `tests/protocol/integration.py`; the user's original input
-folder also contains deliberate invalid controls. The 200 ms startup delay
-accounts for this Debug instrumented target; UDP connect does not wait for its
-listener. StateAFL's original ASLR requirement applies to the fuzzer and its
-children. `--protocol-fallback` explicitly permits logged raw fallback for
+folder also contains deliberate invalid controls. The 1 s startup wait accounts
+for the instrumented Debug target on this machine; the earlier 200 ms wait can
+send requests before the UDP listener is bound. The 5 s execution timeout includes
+startup, network polling and target shutdown. The comparison drivers expose these
+as `--startup-usecs` and `--exec-timeout-ms`. StateAFL's original ASLR requirement
+applies to the fuzzer and its children. `--protocol-fallback` explicitly permits logged raw fallback for
 rejected candidates; model loading failures always stop with a diagnostic.
 
 Modes: `valid`, `near_valid`, `invalid`, `raw`, `hybrid`; hybrid defaults to 70%

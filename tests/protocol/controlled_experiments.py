@@ -20,7 +20,8 @@ import subprocess
 import sys
 import time
 
-from integration import MODES, ROOT, SEEDS, WORKSPACE, read_stats, report_campaign, valid_request
+from integration import (MODES, ROOT, SEEDS, WORKSPACE, read_stats, report_campaign,
+                         valid_request, validate_execution_budget)
 from validate_bacnet import replay_records
 
 
@@ -218,7 +219,7 @@ def run_campaign(args, work, corpus, name, model, random_seed, env, *, mutation_
     active.update(BACNET_IFACE="lo", BACNET_IP_PORT=str(port))
     fuzz = ["-d", "-i", str(corpus), "-o", str(folder / "out"), "-N", f"udp://127.0.0.1/{port}",
             "-D", str(args.startup_usecs), "-W", "10", "-w", "1000", "-r", "10", "-E", "-K",
-            "-q", "3", "-s", "3", "-m", "none", "-t", "1000", "--random-seed", str(random_seed)]
+            "-q", "3", "-s", "3", "-m", "none", "-t", str(args.exec_timeout_ms), "--random-seed", str(random_seed)]
     command = ["setarch", os.uname().machine, "-R"]
     if MODES[name]:
         mode, layers = MODES[name]
@@ -477,7 +478,10 @@ def main():
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--seconds", type=float, default=15)
     parser.add_argument("--seed-base", type=int, default=20261025)
-    parser.add_argument("--startup-usecs", type=int, default=200000)
+    parser.add_argument("--startup-usecs", type=int, default=1000000,
+                        help="server startup wait in microseconds (default: %(default)s)")
+    parser.add_argument("--exec-timeout-ms", type=int, default=5000,
+                        help="total per-execution timeout, including startup, in milliseconds (default: %(default)s)")
     parser.add_argument("--ready-timeout", type=float, default=300)
     parser.add_argument("--control-seconds", type=float, default=8)
     parser.add_argument("--candidate-limit", type=int, default=24)
@@ -490,13 +494,14 @@ def main():
     group.add_argument("--skip-controls", action="store_true")
     group.add_argument("--controls-only", action="store_true")
     args = parser.parse_args()
+    validate_execution_budget(parser, args)
     modes = args.modes.split(",")
     if not modes or len(modes) != len(set(modes)) or any(mode not in MODES for mode in modes):
         parser.error("--modes must contain distinct supported mode names")
     if args.repeats < 3 or any(not math.isfinite(value) or value <= 0
                                for value in (args.seconds, args.control_seconds, args.ready_timeout)):
         parser.error("use at least 3 repeats and positive finite durations")
-    if not 1 <= args.candidate_limit <= 0xffffffff or not 0 <= args.performance_candidates <= 0xffffffff or args.startup_usecs < 0:
+    if not 1 <= args.candidate_limit <= 0xffffffff or not 0 <= args.performance_candidates <= 0xffffffff:
         parser.error("use at least 3 repeats, positive durations, and a positive candidate limit")
     if not 0 <= args.seed_base <= 0xffffffff or args.seed_base + args.repeats - 1 > 0xffffffff:
         parser.error("paired random seeds must fit uint32")
@@ -519,6 +524,7 @@ def main():
     metadata = {"preflight": confirmation, "source": source_manifest(), "model": manifest(model),
                 "seeds": manifest(corpus), "repeats": args.repeats, "seconds_after_ready": args.seconds,
                 "seed_base": args.seed_base, "modes": modes, "sequential_execution": True,
+                "startup_usecs": args.startup_usecs, "exec_timeout_ms": args.exec_timeout_ms,
                 "performance_candidate_limit": args.performance_candidates,
                 "schedule": [{"repeat": repeat + 1, "random_seed": args.seed_base + repeat,
                               "modes": run_order(modes, repeat)} for repeat in range(args.repeats)]}
