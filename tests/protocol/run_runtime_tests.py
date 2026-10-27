@@ -190,6 +190,9 @@ def main():
             dict(op='bind_from_response', target='object_id', source='object_id',
                  message='read_property_ack'),
         ])
+        transactional['messages'][2]['dependencies'] = [
+            d for d in transactional['messages'][2]['dependencies']
+            if d['op'] != 'correlate_request_response']
         pp.write_text(json.dumps(transactional))
         completed = subprocess.run([str(binary), 'binding_transaction', str(pp), str(sp)],
                                    env=env, capture_output=True, text=True, timeout=20)

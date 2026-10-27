@@ -1498,6 +1498,15 @@ static int receive_network_responses(int sockfd, struct timeval timeout,
   return result;
 }
 
+static u8 protocol_message_in_current_m2(kliter_t(lms) *message) {
+  kliter_t(lms) *it = M2_prev ? kl_next(M2_prev) : kl_begin(kl_messages);
+  while (it != M2_next) {
+    if (it == message) return 1;
+    it = kl_next(it);
+  }
+  return 0;
+}
+
 /* Send (mutated) messages in order to the server under test */
 int send_over_network()
 {
@@ -1611,9 +1620,7 @@ int send_over_network()
 
     usleep(send_delay_us);
 
-    if (protocol_engine && protocol_structured_run &&
-        !(kl_val(it)->protocol_structured &&
-          (protocol_mode == PROTO_NEAR_VALID || protocol_mode == PROTO_INVALID))) {
+    if (protocol_engine && protocol_structured_run) {
       char error[256];
       if (proto_before_send(protocol_engine, (u8 *)kl_val(it)->mdata,
                             kl_val(it)->msize, error, sizeof(error)) < 0) {
@@ -1638,7 +1645,8 @@ int send_over_network()
       goto HANDLE_RESPONSES;
     }
     complete_messages++;
-    if (kl_val(it)->protocol_structured) protocol_structured_sent++;
+    if (kl_val(it)->protocol_structured && protocol_message_in_current_m2(it))
+      protocol_structured_sent++;
 
     //retrieve server response
     u32 prev_buf_size = response_buf_size;

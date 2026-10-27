@@ -36,7 +36,8 @@ int proto_records_validate(const uint8_t *records, size_t length, size_t *count,
 void proto_session_begin(proto_engine *engine);
 /* Bind a supported request atomically. Failure preserves both caller bytes
  * and session state; success commits bindings and records the pending request.
- * Intentionally malformed requests must be sent without invoking this API. */
+ * Callers may ignore rejection for deliberately malformed requests and send
+ * their original bytes; valid sibling requests still establish bindings. */
 int proto_before_send(proto_engine *engine, uint8_t *wire, size_t length,
                       char *error, size_t cap);
 void proto_after_response(proto_engine *engine, const uint8_t *wire, size_t length);

@@ -108,6 +108,8 @@ static void binding_transaction_tests(const char *p,const char *s){
   b[3]++;uint8_t invalid[sizeof(b)];memcpy(invalid,b,sizeof(b));
   CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))<0);
   CHECK(!memcmp(b,invalid,sizeof(b)));
+  memcpy(b,rp,sizeof(b));
+  CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))==0 && b[8]==2);
   proto_session_begin(e);memcpy(b,rp,sizeof(b));
   CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))<0);
   CHECK(!memcmp(b,rp,sizeof(b)));

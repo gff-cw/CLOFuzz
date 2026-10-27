@@ -27,7 +27,8 @@ typedef struct {
 
 /* Zero-initialize once per campaign. State IDs are exact opaque StateAFL IDs;
  * LRU eviction discards learning, never combines distinct states. No heap use.
- * Invalid arguments/masks return 0. RNG must obey the proto_random contract. */
+ * choose returns 0 for invalid arguments/masks; weights returns -1.
+ * RNG must obey the proto_random contract. */
 int proto_schedule_choose(proto_schedule *schedule, uint32_t state_id,
                           int layers, proto_random rng);
 /* Exactly one observation per chosen candidate, after save_if_interesting.
