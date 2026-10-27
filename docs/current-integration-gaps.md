@@ -15,4 +15,4 @@
 
 [BACnet记录](bacnet-adaptive-results.md) 支持短预算下的有限联动和状态0学习，不证明非零状态学习或六协议普遍收益。[历史在线验证](online-directed-integration.md) 不能代替上述缺口的专项验证。
 
-本轮只完成[离线描述检查完整性修复](description-check-integrity.md)、测试源码和说明。上述生产问题全部未修改，不把本次局部改动认定为完整项目改进完成。
+提交 `df4e42c` 只完成[离线描述检查完整性修复](description-check-integrity.md)、测试源码和说明。后续另有[C 消息文件读写修复](message-file-safety.md)，限定种子读取、序列化边界和文件错误处理。上表状态定位、序列一致性与调度问题仍未修改，不把这些局部改动认定为完整项目改进完成。

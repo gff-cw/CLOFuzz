@@ -3,6 +3,8 @@ afl-analyze
 afl-protocol-inspect
 /tests/native-inspection/test-native-inspection
 /tests/native-inspection/test-native-inspection-sanitized
+/tests/protocol/test-message-files
+/tests/protocol/test-message-files-sanitized
 afl-as
 afl-clang
 afl-clang++

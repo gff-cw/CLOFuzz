@@ -93,7 +93,13 @@ int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf
 
 // kl_messages manipulating functions
 
-/* Construct a new linked list to store all messages from a list of regions */
+/* Read consecutive messages using the ordered region lengths, without seeking
+ * to start_byte. fname is required; regions is required when region_count>0.
+ * Each region requires 0 <= start_byte <= end_byte and length <= MAX_ALLOC.
+ * Filename and regions are borrowed and must remain stable during the call.
+ * Exact reads and a successful close are required; invalid input or I/O errors
+ * use the existing fatal-error contract. Remaining file bytes are ignored.
+ * On success, the caller owns the returned list and uses delete_kl_messages. */
 klist_t(lms) *construct_kl_messages(u8* fname, region_t *regions, u32 region_count);
 
 /* Free all items and delete kl_messages */
@@ -102,7 +108,13 @@ void delete_kl_messages(klist_t(lms) *kl_messages);
 /* Get the last message in the linked list. As kl_messages->tail points to an empty item, we cannot use it to get the last message */
 kliter_t(lms) *get_last_message(klist_t(lms) *kl_messages);
 
-/* Save a list of messages to a file. If replay_enabled is set, the file will be structured for replaying. Otherwise, just save the raw data */
+/* Save at most max_count messages as raw bytes or LE32 length-prefixed records.
+ * The list, messages and fname are borrowed and must remain stable during the
+ * call. Validate only the selected prefix, including positive message lengths,
+ * non-NULL payloads and a total no greater than MAX_ALLOC, before opening the
+ * destination. Empty lists or max_count == 0 produce an empty file and return 0.
+ * Returns serialized byte count; invalid metadata or I/O errors are fatal.
+ * A write/close failure may leave a partial file; this is not atomic replacement. */
 u32 save_kl_messages_to_file(klist_t(lms) *kl_messages, u8 *fname, u8 replay_enabled, u32 max_count);
 
 /* Convert back a linked list of messages to regions to maintain the message sequence structure as much as possible */

@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1506,29 +1507,59 @@ unsigned int* extract_response_codes_ipp(unsigned char* buf, unsigned int buf_si
 
 klist_t(lms) *construct_kl_messages(u8* fname, region_t *regions, u32 region_count)
 {
-  FILE *fseed = NULL;
+  FILE *fseed;
+  u32 i;
+
+  if (!fname || (region_count && !regions))
+    FATAL("Missing seed filename or regions");
+
+  /* Validate lengths before signed arithmetic or allocation. Regions retain
+     their original sequential-read semantics; start_byte is not a seek. */
+  for (i = 0; i < region_count; i++) {
+    if (regions[i].start_byte < 0 || regions[i].end_byte < regions[i].start_byte)
+      FATAL("Invalid seed region %u", i);
+    u32 len = (u32)regions[i].end_byte - (u32)regions[i].start_byte + 1;
+    if (len > MAX_ALLOC) FATAL("Seed region %u exceeds allocation limit", i);
+  }
+
   fseed = fopen(fname, "rb");
   if (fseed == NULL) PFATAL("Cannot open seed file %s", fname);
 
   klist_t(lms) *kl_messages = kl_init(lms);
-  u32 i;
 
   for (i = 0; i < region_count; i++) {
-    //Identify region size
-    u32 len = regions[i].end_byte - regions[i].start_byte + 1;
+    u32 len = (u32)regions[i].end_byte - (u32)regions[i].start_byte + 1;
 
     //Create a new message
     message_t *m = (message_t *) ck_alloc(sizeof(message_t));
     m->mdata = (char *) ck_alloc(len);
     m->msize = len;
-    if (m->mdata == NULL) PFATAL("Unable to allocate memory region to store new message");
-    fread(m->mdata, 1, len, fseed);
+    size_t received = fread(m->mdata, 1, len, fseed);
+    int read_error = ferror(fseed);
+    int saved_errno = errno;
+    if (read_error || received != len) {
+      ck_free(m->mdata);
+      ck_free(m);
+      delete_kl_messages(kl_messages);
+      (void)fclose(fseed);
+      if (read_error) {
+        errno = saved_errno ? saved_errno : EIO;
+        PFATAL("Cannot read seed file %s", fname);
+      }
+      FATAL("Short read from seed file %s at region %u (%zu of %u bytes)",
+            fname, i, received, len);
+    }
 
     //Insert the message to the linked list
     *kl_pushp(lms, kl_messages) = m;
   }
 
-  if (fseed != NULL) fclose(fseed);
+  if (fclose(fseed)) {
+    int saved_errno = errno;
+    delete_kl_messages(kl_messages);
+    errno = saved_errno;
+    PFATAL("Cannot close seed file %s", fname);
+  }
   return kl_messages;
 }
 
@@ -1563,41 +1594,68 @@ kliter_t(lms) *get_last_message(klist_t(lms) *kl_messages)
 
 u32 save_kl_messages_to_file(klist_t(lms) *kl_messages, u8 *fname, u8 replay_enabled, u32 max_count)
 {
-  u8 *mem = NULL;
-  u32 len = 0, message_size = 0;
+  u8 *mem;
+  u32 len = 0, offset = 0, message_count = 0;
+  u32 prefix_size = replay_enabled ? 4 : 0;
   kliter_t(lms) *it;
 
-  s32 fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-  if (fd < 0) PFATAL("Unable to create file '%s'", fname);
+  if (!kl_messages || !fname) FATAL("Missing message list or output filename");
 
-  u32 message_count = 0;
-  //Iterate through all messages in the linked list
+  /* Preflight only the selected prefix. Reject invalid metadata and sums
+     before allocation or truncating an existing destination. */
   for (it = kl_begin(kl_messages); it != kl_end(kl_messages) && message_count < max_count; it = kl_next(it)) {
-    message_size = kl_val(it)->msize;
-    if (replay_enabled) {
-		  mem = (u8 *)ck_realloc(mem, 4 + len + message_size);
-
-      //Save packet size first
-      for (unsigned j = 0; j < 4; j++) mem[len + j] = message_size >> (8 * j);
-
-      //Save packet content
-      memcpy(&mem[len + 4], kl_val(it)->mdata, message_size);
-      len = 4 + len + message_size;
-    } else {
-      mem = (u8 *)ck_realloc(mem, len + message_size);
-
-      //Save packet content
-      memcpy(&mem[len], kl_val(it)->mdata, message_size);
-      len = len + message_size;
-    }
+    message_t *m = kl_val(it);
+    if (!m || m->msize <= 0 || !m->mdata)
+      FATAL("Invalid message %u in selected prefix", message_count);
+    u32 message_size = (u32)m->msize;
+    if (prefix_size > MAX_ALLOC - len || message_size > MAX_ALLOC - len - prefix_size)
+      FATAL("Serialized messages exceed allocation limit");
+    len += prefix_size + message_size;
     message_count++;
   }
 
-  //Write everything to file & close the file
-  ck_write(fd, mem, len, fname);
-  close(fd);
+  mem = (u8 *)ck_alloc(len);
+  message_count = 0;
+  for (it = kl_begin(kl_messages); it != kl_end(kl_messages) && message_count < max_count; it = kl_next(it)) {
+    u32 message_size = (u32)kl_val(it)->msize;
+    if (replay_enabled) {
+      for (unsigned j = 0; j < 4; j++) mem[offset + j] = message_size >> (8 * j);
+      offset += 4;
+    }
+    memcpy(mem + offset, kl_val(it)->mdata, message_size);
+    offset += message_size;
+    message_count++;
+  }
 
-  //Free the temporary buffer
+  s32 fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  if (fd < 0) {
+    int saved_errno = errno;
+    ck_free(mem);
+    errno = saved_errno;
+    PFATAL("Unable to create file '%s'", fname);
+  }
+
+  offset = 0;
+  while (offset < len) {
+    ssize_t written = write(fd, mem + offset, len - offset);
+    if (written < 0 && errno == EINTR) continue;
+    if (written <= 0) {
+      int saved_errno = written < 0 ? errno : EIO;
+      (void)close(fd);
+      ck_free(mem);
+      errno = saved_errno;
+      PFATAL("Unable to write message file '%s'", fname);
+    }
+    offset += (u32)written;
+  }
+
+  if (close(fd)) {
+    int saved_errno = errno;
+    ck_free(mem);
+    errno = saved_errno;
+    PFATAL("Unable to close message file '%s'", fname);
+  }
+
   ck_free(mem);
 
   return len;
