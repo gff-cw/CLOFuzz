@@ -1,0 +1,1 @@
+{"policy":"adaptive","capacity":64,"window_limit":1024,"max_reward":24,"observations":123,"rewarded":2,"queue_events":2,"memory_events":1,"crash_events":0,"hang_events":0,"coverage_events":2,"new_tuples":2,"new_buckets":20,"evictions":0,"states":[{"state_id":0,"attempts":[41,42,40],"rewards":[0,8,3],"weights":[16,17,16]}]}

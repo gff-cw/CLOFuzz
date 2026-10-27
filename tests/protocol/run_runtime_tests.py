@@ -39,6 +39,7 @@ def main():
                    '-Wno-unused-parameter', '-fsanitize=address,undefined',
                    '-fno-omit-frame-pointer', '-g', '-I.', 'protocol_runtime.c',
                    *(f'protocol_codec_{codec}.c' for codec in CODECS),
+                   'generic_runtime.c', 'generic_wire.c', 'native_json.c',
                    'tests/protocol/test_runtime.c', '-o', str(binary)]
         subprocess.run(command, cwd=ROOT, env=env, check=True)
         result['compiler'] = subprocess.check_output([args.compiler, '--version'], text=True).splitlines()[0]
@@ -238,6 +239,8 @@ def main():
                 result['dependency_harnesses'].append({'name': name, **json.loads(completed.stdout)})
     result['source_sha256'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                                for path in [ROOT/'protocol_runtime.c', ROOT/'protocol_runtime.h', ROOT/'protocol_codecs.h',
+                                            ROOT/'generic_runtime.c', ROOT/'generic_runtime.h',
+                                            ROOT/'generic_wire.c', ROOT/'generic_wire.h', ROOT/'native_json.c', ROOT/'native_json.h',
                                             *(ROOT/f'protocol_codec_{codec}.c' for codec in CODECS),
                                             ROOT/'tests/protocol/test_runtime.c']}
     result['supported_scope'] = {

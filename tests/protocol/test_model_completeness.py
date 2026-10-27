@@ -428,14 +428,21 @@ class ModelCompletenessTests(unittest.TestCase):
 
     def test_regeneration_preserves_all_committed_model_artifacts(self):
         import generate_protocol_models as generator
+        import build_generic_wire_profiles as generic_generator
         oldroot=generator.ROOT
+        old_generic_root=generic_generator.ROOT
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 generator.ROOT=Path(tmp);generator.main()
+                generic_generator.ROOT=Path(tmp)/'protocols'
+                for name in generic_generator.CHOICES:
+                    generic_generator.generate(name)
                 for path in sorted((ROOT/'protocols').glob('*/protocol_spec.yaml')):
                     for original in path.parent.rglob('*'):
                         if original.is_file():self.assertEqual(original.read_bytes(),(Path(tmp)/'protocols'/path.parent.name/original.relative_to(path.parent)).read_bytes(),str(original))
-        finally:generator.ROOT=oldroot
+        finally:
+            generator.ROOT=oldroot
+            generic_generator.ROOT=old_generic_root
 
 
 if __name__=='__main__':unittest.main(verbosity=2)

@@ -1,0 +1,37 @@
+start_time        : 1793108268
+last_update       : 1793108281
+fuzzer_pid        : 133499
+cycles_done       : 0
+execs_done        : 112
+execs_per_sec     : 8.54
+paths_total       : 3
+paths_favored     : 1
+paths_found       : 2
+paths_imported    : 0
+max_depth         : 2
+cur_path          : 0
+pending_favs      : 1
+pending_total     : 3
+variable_paths    : 0
+stability         : 100.00%
+bitmap_cvg        : 0.07%
+unique_crashes    : 0
+unique_hangs      : 0
+last_path         : 1793108271
+last_crash        : 0
+last_hang         : 0
+execs_since_crash : 112
+exec_timeout      : 1000
+afl_banner        : fixture-server
+afl_version       : 2.56b
+target_mode       : default
+command_line      : /home/weicresec/Desktop/workspace/stateafl/afl-fuzz -d -i /tmp/stateafl-generic-acceptance-final/in -o /tmp/stateafl-generic-acceptance-final/out -N udp://127.0.0.1/49782 -D 50000 -W 10 -w 1000 -r 10 -K -m none -t 1000 --random-seed 20261027 --generic-spec /home/weicresec/Desktop/workspace/stateafl/tests/generic-wire/fictional_protocol.json --mutation-mode valid --mutation-layers head,content,sequence --protocol-schedule adaptive --protocol-save-candidates 128 -E -q 3 -s 3 -- /tmp/stateafl-generic-acceptance-final/fixture-server 49782 /tmp/stateafl-generic-acceptance-final/wire.jsonl
+slowest_exec_ms   : 157
+random_seed       : 20261027
+saved_candidates  : 100
+protocol_mode     : valid
+protocol_structured: 80
+protocol_raw      : 0
+protocol_rejected : 43
+protocol_schedule : adaptive
+peak_rss_mb       : 9

@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "utc": "2026-10-27T04:05:14.911483+00:00",
+  "utc": "2026-10-27T13:37:42.500091+00:00",
   "sanitizers": [
     "address",
     "undefined",
@@ -459,6 +459,9 @@
     "protocol_codec_mms.c",
     "protocol_codec_enip.c",
     "protocol_codec_opcua.c",
+    "generic_runtime.c",
+    "generic_wire.c",
+    "native_json.c",
     "tests/protocol/test_runtime.c",
     "-o",
     "<temporary-binary>"
@@ -529,9 +532,15 @@
     }
   ],
   "source_sha256": {
-    "protocol_runtime.c": "ed6a2d6a71e5540a6c7eed62f9ecf4b25a296799e5dbd8a02a09fff0990ed260",
-    "protocol_runtime.h": "8095b1d71d4dfffe5a45563c07f6fd051c19dc320e258751019b97b9276fbd47",
+    "protocol_runtime.c": "98227132a3040f49c2245613d0829e8fea996aae76f905b1311a2913114a5cd8",
+    "protocol_runtime.h": "97463c58cf0976d8f3836fa1797ebf60573321a1a55e789ea681226fa5c1bd2b",
     "protocol_codecs.h": "64247e740f3b196fa8c203409360968f0f422ad81359bfbdac5b3e2a72ca966b",
+    "generic_runtime.c": "8955f323503aec69d6017de92aeba6dfcda8a0be8bdf43bf4154bf6af2aa1ba5",
+    "generic_runtime.h": "bdede741c9acae01a34d416396f64fccb04c7a82e4b703d37b9812c0fca690fd",
+    "generic_wire.c": "774bc09f613178a7a8a3cb4891f32b90b1f7aaf245430f4917162c4b525beccd",
+    "generic_wire.h": "5ed0941a4d5bb573e9c34cf67821f5ed407b9817407f8c0aabdb3584ad021239",
+    "native_json.c": "ba715681ae21f5632d9210f69444a09c435d3aef35451af92caad167363ea08e",
+    "native_json.h": "861ca244be22102ccb8b56d69f6306ff194dc4c4cb43c285c0259bf37e1488de",
     "protocol_codec_modbus.c": "e52b3098067a5605cce7f84ef2196c3ac704fbf1b7d74b1c5c68750e8c5fe6bb",
     "protocol_codec_iec104.c": "eed0661f7ccaa7b741371863757822b742171bd7a7c6151cd86ac7d062f31bde",
     "protocol_codec_mms.c": "4b0671a9e740d823224930eaa855231869b6b177c38c40ae120b97dd1c2efaa2",

@@ -11,6 +11,8 @@ enum proto_mode { PROTO_VALID, PROTO_NEAR_VALID, PROTO_INVALID, PROTO_RAW, PROTO
 enum proto_layer { PROTO_HEAD=1, PROTO_CONTENT=2, PROTO_SEQUENCE=4 };
 /* All failures return -1 with a diagnostic, never an implicit raw fallback. */
 proto_engine *proto_load(const char *protocol_ir, const char *state_ir, char *error, size_t cap);
+/* Load one description-driven generic-wire package. No codec names are used. */
+proto_engine *proto_load_generic(const char *description, char *error, size_t cap);
 void proto_free(proto_engine *engine);
 int proto_mode_parse(const char *name);
 int proto_layers_parse(const char *name);

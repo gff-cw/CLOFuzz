@@ -42,12 +42,19 @@ def build_bundle(destination):
                  'tools/native_protocol_codecs.py','protocol_codecs.h',
                  'protocol_codec_modbus.c','protocol_codec_iec104.c','protocol_codec_mms.c',
                  'protocol_codec_enip.c','protocol_codec_opcua.c',
+                 'generic_wire.c','generic_wire.h','generic_runtime.c','generic_runtime.h',
+                 'native_json.c','native_json.h',
+                 'tools/build_generic_wire_profiles.py','tools/check_generic_wire_profiles.py',
+                 'docs/generic-wire-language.md','docs/generic-wire-profile-scope.md',
                  'tests/protocol/test_model_completeness.py','tools/proto_spec_compiler.py',
                  'tools/init_protocol_spec.py','tools/run_protocol_campaign.py','tools/requirements-protocol.txt'):
         files[name]=(ROOT/name).read_bytes()
     files['BUNDLE-README.md']=('''# Industrial protocol description bundle
 
 Six scoped ICP-IR v1 packages, editable templates, schemas, deterministic generators and offline validators.
+The generic_wire.json files are a separate description-driven migration with
+14/71 fixture message grammars. Only the one-register Modbus FC03 pair is
+enabled online; see docs/generic-wire-profile-scope.md for the missing rules.
 Complete fixture means complete wire message inside the declared profile, not all services of each standard.
 See protocols/README.md for the twelve YAML entry files and actual runtime support.
 
@@ -62,6 +69,7 @@ MANIFEST.json contains SHA-256 of every bundled content file.
     manifest=dict(bundle_version=1,format='ICP-IR v1',profiles=packages,
         completeness='Complete messages within each explicitly declared profile; not whole-standard coverage.',
         runtime_scope='Six bounded C codecs; see each profile for supported services and external prerequisites.',
+        generic_scope='Description-driven C grammar; 14 fixture messages, five offline-only profiles and one scoped online Modbus FC03 pair.',
         files={name:hashlib.sha256(data).hexdigest() for name,data in sorted(files.items())})
     files['MANIFEST.json']=(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode()
     output=io.BytesIO()

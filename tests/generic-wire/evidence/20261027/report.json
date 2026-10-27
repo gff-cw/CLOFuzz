@@ -1,0 +1,141 @@
+{
+  "checks": {
+    "generic_engine": true,
+    "all_three_layers_executed": true,
+    "saved_candidates_show_all_three_edits": true,
+    "all_received_packets_valid": true,
+    "no_raw_mutation": true,
+    "coverage_feedback_received": true,
+    "feedback_attribution_matches": true,
+    "memory_feedback_received": true
+  },
+  "passed": true,
+  "state_aware": true,
+  "seed": 20261027,
+  "seconds": 12.0,
+  "received_packets": 142,
+  "structured_samples": 100,
+  "baseline": {
+    "execs_done": 13,
+    "paths_total": 1,
+    "coverage_edges": 41,
+    "memory_states": 2,
+    "protocol_structured": 0,
+    "protocol_raw": 0,
+    "protocol_rejected": 0,
+    "timestamp_ms": 1793108269649
+  },
+  "protocol": {
+    "attempts": 123,
+    "structured_success": 80,
+    "rejected": 43,
+    "HEAD": 41,
+    "CONTENT": 20,
+    "SEQUENCE": 19,
+    "responses": 0,
+    "correlated_responses": 0,
+    "protocol_semantic_state": "ready",
+    "engine": "generic-wire"
+  },
+  "schedule": {
+    "policy": "adaptive",
+    "capacity": 64,
+    "window_limit": 1024,
+    "max_reward": 24,
+    "observations": 123,
+    "rewarded": 2,
+    "queue_events": 2,
+    "memory_events": 1,
+    "crash_events": 0,
+    "hang_events": 0,
+    "coverage_events": 2,
+    "new_tuples": 2,
+    "new_buckets": 20,
+    "evictions": 0,
+    "states": [
+      {
+        "state_id": 0,
+        "attempts": [
+          41,
+          42,
+          40
+        ],
+        "rewards": [
+          0,
+          8,
+          3
+        ],
+        "weights": [
+          16,
+          17,
+          16
+        ]
+      }
+    ]
+  },
+  "build": [
+    "/home/weicresec/Desktop/workspace/stateafl/afl-clang-fast",
+    "-O1",
+    "-g",
+    "-Wall",
+    "-Wextra",
+    "tests/generic-wire/fixture_udp_server.c",
+    "-o",
+    "/tmp/stateafl-generic-acceptance-final/fixture-server"
+  ],
+  "command": [
+    "setarch",
+    "x86_64",
+    "-R",
+    "/home/weicresec/Desktop/workspace/stateafl/afl-fuzz",
+    "-d",
+    "-i",
+    "/tmp/stateafl-generic-acceptance-final/in",
+    "-o",
+    "/tmp/stateafl-generic-acceptance-final/out",
+    "-N",
+    "udp://127.0.0.1/49782",
+    "-D",
+    "50000",
+    "-W",
+    "10",
+    "-w",
+    "1000",
+    "-r",
+    "10",
+    "-K",
+    "-m",
+    "none",
+    "-t",
+    "1000",
+    "--random-seed",
+    "20261027",
+    "--generic-spec",
+    "/home/weicresec/Desktop/workspace/stateafl/tests/generic-wire/fictional_protocol.json",
+    "--mutation-mode",
+    "valid",
+    "--mutation-layers",
+    "head,content,sequence",
+    "--protocol-schedule",
+    "adaptive",
+    "--protocol-save-candidates",
+    "128",
+    "-E",
+    "-q",
+    "3",
+    "-s",
+    "3",
+    "--",
+    "/tmp/stateafl-generic-acceptance-final/fixture-server",
+    "49782",
+    "/tmp/stateafl-generic-acceptance-final/wire.jsonl"
+  ],
+  "source_sha256": {
+    "afl-fuzz.c": "2064a7485ecfda6af42bded3e5186aeaf5b02363a36580b92dee1b4ca5a7e32f",
+    "generic_wire.c": "774bc09f613178a7a8a3cb4891f32b90b1f7aaf245430f4917162c4b525beccd",
+    "generic_runtime.c": "8955f323503aec69d6017de92aeba6dfcda8a0be8bdf43bf4154bf6af2aa1ba5",
+    "tests/generic-wire/fixture_udp_server.c": "d98f827d763f87c9d9800b41d30ee18f574fbbcc1357ca4f391ac8af47ab5a2b",
+    "tests/generic-wire/fictional_protocol.json": "6b881cd7716dea196efe7d9630d64d7270bbd6be5d62326c0b9ab08d25613bf3"
+  },
+  "limitation": "Loopback fictional protocol integration acceptance; no industrial conformance or comparative coverage claim."
+}

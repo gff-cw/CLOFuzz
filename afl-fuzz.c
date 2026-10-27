@@ -118,7 +118,7 @@ EXP_ST u8 *in_dir,                    /* Input directory with test cases  */
 EXP_ST u32 exec_tmout = EXEC_TIMEOUT; /* Configurable exec timeout (ms)   */
 /* Protocol semantic context never enters the StateAFL memory-state namespace. */
 static proto_engine *protocol_engine;
-static const char *protocol_spec_path, *protocol_state_path;
+static const char *protocol_spec_path, *protocol_state_path, *generic_spec_path;
 static int protocol_mode = PROTO_HYBRID, protocol_layers = 7;
 static unsigned protocol_ratio = 70;
 static u8 protocol_options_given, protocol_fallback, protocol_structured_run;
@@ -9634,9 +9634,10 @@ static void usage(u8* argv0) {
        "  -q algo       - state selection algorithm (See aflnet.h for all available options)\n"
        "  -s algo       - seed selection algorithm (See aflnet.h for all available options)\n\n"
 
-       "Optional protocol description mutation (ICP-IR v1):\n\n"
+       "Optional protocol description mutation:\n\n"
        "  --protocol-spec file  - compiled protocol_ir.json\n"
        "  --state-spec file     - compiled state_ir.json (separate semantic states)\n"
+       "  --generic-spec file   - one description-driven C wire package (no codec)\n"
        "  --mutation-mode mode  - valid, near_valid, invalid, raw, hybrid (default hybrid)\n"
        "  --mutation-layers set - head | head,content | head,content,sequence (default all)\n"
        "  --protocol-ratio pct  - structured share in hybrid mode, 0..100 (default 70)\n"
@@ -10385,6 +10386,7 @@ int main(int argc, char** argv) {
     {"random-seed", required_argument, NULL, 1006},
     {"protocol-save-candidates", required_argument, NULL, 1007},
     {"protocol-schedule", required_argument, NULL, 1008},
+    {"generic-spec", required_argument, NULL, 1009},
     {NULL, 0, NULL, 0}
   };
   while ((opt = getopt_long(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:r:w:e:P:KEq:s:RFc:l:u:U:", protocol_options, NULL)) > 0)
@@ -10397,6 +10399,9 @@ int main(int argc, char** argv) {
       case 1001:
         if (protocol_state_path) FATAL("Multiple --state-spec options");
         protocol_state_path = optarg; break;
+      case 1009:
+        if (generic_spec_path) FATAL("Multiple --generic-spec options");
+        generic_spec_path = optarg; break;
       case 1002:
         protocol_options_given = 1;
         protocol_mode = proto_mode_parse(optarg);
@@ -10769,9 +10774,11 @@ int main(int argc, char** argv) {
   //AFLNet - Check for required arguments
   if (!use_net) FATAL("Please specify network information of the server under test (e.g., tcp://127.0.0.1/8554)");
 
+  if (generic_spec_path && (protocol_spec_path || protocol_state_path))
+    FATAL("Use --generic-spec alone, or the legacy --protocol-spec/--state-spec pair");
   if (!!protocol_spec_path != !!protocol_state_path ||
-      (protocol_options_given && !protocol_spec_path))
-    FATAL("Protocol mutation requires both --protocol-spec and --state-spec");
+      (protocol_options_given && !protocol_spec_path && !generic_spec_path))
+    FATAL("Protocol mutation requires both --protocol-spec and --state-spec, or --generic-spec");
   if (protocol_adaptive && protocol_mode == PROTO_RAW)
     FATAL("--protocol-schedule adaptive requires a structured mutation mode");
   if (protocol_spec_path) {
@@ -10782,6 +10789,16 @@ int main(int argc, char** argv) {
       FATAL("The enabled protocol runtime model requires %s transport",proto_transport(protocol_engine));
     if (protocol_selected)
       FATAL("Use generic replayable framing with --protocol-spec; omit legacy -P");
+  }
+  if (generic_spec_path) {
+    char error[256];
+    if (protocol_mode == PROTO_NEAR_VALID || protocol_mode == PROTO_INVALID)
+      FATAL("--generic-spec supports valid, hybrid and raw modes only");
+    protocol_engine = proto_load_generic(generic_spec_path, error, sizeof(error));
+    if (!protocol_engine) FATAL("Generic protocol description: %s", error);
+    if ((net_protocol == PRO_UDP) != !strcmp(proto_transport(protocol_engine),"udp"))
+      FATAL("The generic protocol description requires %s transport",proto_transport(protocol_engine));
+    if (protocol_selected) FATAL("Use generic replayable framing with --generic-spec; omit legacy -P");
   }
 
   //if (!protocol_selected) FATAL("Please specify the protocol to be tested using the -P option");

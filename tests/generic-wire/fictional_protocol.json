@@ -1,0 +1,31 @@
+{
+  "format": "stateafl.generic-wire",
+  "version": 1,
+  "protocol_id": "fictional_seventh",
+  "online": true,
+  "transport": "udp",
+  "framing": {"kind": "datagram"},
+  "messages": [
+    {
+      "id": "pulse",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "a700050100015566",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {"id": "magic", "kind": "uint", "width": 1, "byte_order": "big", "role": "fixed", "expected": 167, "min": 167, "max": 167},
+          {"id": "body_length", "kind": "uint", "width": 2, "byte_order": "big", "role": "derived", "min": 0, "max": 65535, "derived": {"op": "size_of", "target": "$message", "add": -3}},
+          {"id": "opcode", "kind": "uint", "width": 1, "byte_order": "big", "role": "fixed", "expected": 1, "min": 1, "max": 1},
+          {"id": "serial", "kind": "uint", "width": 2, "byte_order": "big", "role": "head", "min": 1, "max": 65535, "values": [1, 2, 3]},
+          {"id": "payload", "kind": "bytes", "length": "rest", "role": "content", "min": 1, "max": 8}
+        ]
+      }
+    }
+  ],
+  "states": {
+    "initial": "ready",
+    "transitions": [{"from": "ready", "message": "pulse", "to": "ready"}]
+  },
+  "limits": {"max_messages": 32, "max_repeat": 4, "max_bytes": 1048576}
+}

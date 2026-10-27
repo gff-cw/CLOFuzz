@@ -2,6 +2,7 @@
  * changes to instrumentation, memory hashing, queue selection or feedback. */
 #include "protocol_runtime.h"
 #include "protocol_codecs.h"
+#include "generic_runtime.h"
 #include "config.h"
 #include "alloc-inl.h"
 #include <stdlib.h>
@@ -140,6 +141,7 @@ typedef struct {char id[64];pf f[FMAX];pd d[DMAX];int nf,nd,weight,response;uint
 typedef struct {int from,to,message,response;} pt;
 typedef struct {size_t offset,size,wire_offset;int model;} pr;
 struct proto_engine {
+  gr_engine *generic;
   int codec,simulating,prefix_state,prefix_valid;
   pm m[PMAX];int nm,ns,nt,initial,max_messages,max_repeat,canonical[PMAX];size_t max_bytes;
   char state[SMAX][64];pt tr[TMAX];FILE *log;
@@ -431,11 +433,17 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
 malformed:fail(err,cap,"invalid IR field, reference, type, width or limit");
 bad:json_free(&p);json_free(&s);proto_free(e);return NULL;
 }
-void proto_free(proto_engine *e){if(!e)return;for(int i=0;i<e->nm;i++)ck_free(e->m[i].example);ck_free(e);}
+proto_engine *proto_load_generic(const char *path, char *err, size_t cap){
+  proto_engine *e=ck_alloc(sizeof(*e));
+  e->generic=gr_load(path,err,cap);
+  if(!e->generic){ck_free(e);return NULL;}
+  return e;
+}
+void proto_free(proto_engine *e){if(!e)return;gr_free(e->generic);for(int i=0;i<e->nm;i++)ck_free(e->m[i].example);ck_free(e);}
 int proto_mode_parse(const char *s){const char *names[]={"valid","near_valid","invalid","raw","hybrid"};if(s)for(int i=0;i<5;i++)if(!strcmp(s,names[i]))return i;return -1;}
 int proto_layers_parse(const char *s){if(!s)return -1;if(!strcmp(s,"head"))return 1;if(!strcmp(s,"head,content"))return 3;if(!strcmp(s,"head,content,sequence"))return 7;return -1;}
-void proto_set_log(proto_engine *e,FILE *f){if(e)e->log=f;}
-const char *proto_transport(const proto_engine *e){return e && e->codec?"tcp":"udp";}
+void proto_set_log(proto_engine *e,FILE *f){if(e){e->log=f;gr_set_log(e->generic,f);}}
+const char *proto_transport(const proto_engine *e){return e&&e->generic?gr_transport(e->generic):e&&e->codec?"tcp":"udp";}
 
 int proto_records_validate(const uint8_t *b,size_t n,size_t *count,char *err,size_t cap){
   if(!count)return fail(err,cap,"missing replayable count output");*count=0;if(!b || !n || n>MAX_FILE)return fail(err,cap,"empty or oversized replayable input");size_t p=0;
@@ -492,7 +500,7 @@ static int repair(proto_engine *e,int mi,uint8_t *b,size_t n,char *err,size_t ca
   if(v.kind==0 && b[v.service]==12){size_t o,w;for(int x=0;x<2;x++){const char *loc=x?"bacnet.property":"bacnet.object";if(proto_bacnet_field(b,n,loc,&o,&w,err,cap)!=1 || (x?(w<1||w>4):w!=4))return fail(err,cap,"ReadProperty required context tag missing");}}
   return 0;
 }
-void proto_session_begin(proto_engine *e){if(!e)return;memset(e->cached,0,sizeof(e->cached));memset(e->cache,0,sizeof(e->cache));memset(e->outstanding,0,sizeof(e->outstanding));memset(e->pending,0,sizeof(e->pending));e->semantic_state=e->initial;e->ua_sequence=0;if(!e->simulating)e->receive_size=0;}
+void proto_session_begin(proto_engine *e){if(!e)return;if(e->generic){gr_session_begin(e->generic);return;}memset(e->cached,0,sizeof(e->cached));memset(e->cache,0,sizeof(e->cache));memset(e->outstanding,0,sizeof(e->outstanding));memset(e->pending,0,sizeof(e->pending));e->semantic_state=e->initial;e->ua_sequence=0;if(!e->simulating)e->receive_size=0;}
 static void remember(proto_engine *e,int mi,uint8_t *b,size_t n){
   char err[128];for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi]){
     for(int f=0;f<e->m[model].nf;f++){size_t o,w;pf *p=&e->m[model].f[f];
@@ -515,6 +523,7 @@ static int bind_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t
   return 0;
 }
 int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
+  if(e&&e->generic)return gr_before_send(e->generic,b,n,err,cap);
   if(err && cap)err[0]=0;
   if(!e || !b || !n || n>WMAX)return fail(err,cap,"missing engine/wire or unsupported request size");
   uint8_t *bound=ck_alloc(n);memcpy(bound,b,n);
@@ -560,6 +569,7 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
   if(mi>=0){remember(e,mi,(uint8_t*)b,n);for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->tr[t].message==mi){e->semantic_state=e->tr[t].to;break;}}
 }
 void proto_after_response(proto_engine *e,const uint8_t *b,size_t n){
+  if(e&&e->generic){gr_after_response(e->generic,b,n);return;}
   if(!e || !b || !n)return;
   if(!e->codec){size_t p=0;while(n-p>=4){size_t z=getint(b+p+2,2,0);if(z<4 || z>n-p)break;response_frame(e,b+p,z);p+=z;}return;}
   if(n>MAX_FILE-e->receive_size){e->receive_size=0;if(e->log)fputs("{\"event\":\"response_rejected\",\"reason\":\"receive_limit\"}\n",e->log);return;}
@@ -578,6 +588,7 @@ static int semantic_step(proto_engine *e,int state,int model){
   }return -1;
 }
 int proto_set_prefix(proto_engine *e,const uint8_t *b,size_t n,char *err,size_t cap){
+  if(e&&e->generic)return gr_set_prefix(e->generic,b,n,err,cap);
   if(!e)return fail(err,cap,"missing protocol engine");e->prefix_state=e->initial;e->prefix_valid=0;
   size_t count;if(n && proto_records_validate(b,n,&count,err,cap)<0)return -1;
   size_t p=0;while(p<n){size_t z=getint(b+p,4,1);p+=4;int m=model_for(e,b+p,z,0);if(m<0 || (e->prefix_state=semantic_step(e,e->prefix_state,m))<0)return fail(err,cap,"M1 prefix outside semantic model");p+=z;}
@@ -609,6 +620,7 @@ static int who_is_content(const uint8_t *b,size_t n,const char *locator){
          v.kind==1 && b[v.service]==8;
 }
 int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint8_t *candidate,size_t cn,int mode,int layer,proto_random rng,const uint8_t **out,size_t *olen,char *err,size_t cap){
+  if(e&&e->generic)return gr_mutate(e->generic,records,length,candidate,cn,mode,layer,rng,out,olen,err,cap);
   if(out)*out=NULL;if(olen)*olen=0;
   if(!e || !rng || !out || !olen || (!candidate && cn))return fail(err,cap,"missing mutation engine, random callback, candidate or output");
   session_snapshot live;save_session(e,&live);
@@ -706,4 +718,4 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   restore_session(e,&live);return 0;
 bad:e->errors++;if(e->log)fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%d,\"reason\":\"%s\",\"parse_or_constraint_failed\":true,\"serialize_failed\":false}\n",layer,err && cap?err:"error");restore_session(e,&live);return -1;
 }
-void proto_write_stats(proto_engine *e,const char *path){if(!e || !path)return;FILE *f=fopen(path,"w");if(!f)return;fprintf(f,"{\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"responses\":%llu,\"correlated_responses\":%llu,\"protocol_semantic_state\":\"%s\"}\n",(unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,(unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],(unsigned long long)e->responses,(unsigned long long)e->correlated,e->state[e->semantic_state]);fclose(f);}
+void proto_write_stats(proto_engine *e,const char *path){if(e&&e->generic){gr_write_stats(e->generic,path);return;}if(!e || !path)return;FILE *f=fopen(path,"w");if(!f)return;fprintf(f,"{\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"responses\":%llu,\"correlated_responses\":%llu,\"protocol_semantic_state\":\"%s\"}\n",(unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,(unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],(unsigned long long)e->responses,(unsigned long long)e->correlated,e->state[e->semantic_state]);fclose(f);}

@@ -1,0 +1,246 @@
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":19,"new_tuples":2,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":17,"new_tuples":0,"new_buckets":20}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate bytes outside bounds"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"CONTENT","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"reorder requires two requests"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":4,"reason":"cannot delete only request"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"rejected","layer_id":2,"reason":"candidate lacks bytes"}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":2,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"SEQUENCE","messages_before":1,"messages_after":2,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":4,"discoveries":0,"new_tuples":0,"new_buckets":0}
+{"event":"mutation","layer":"HEAD","messages_before":1,"messages_after":1,"derived_repaired":true}
+{"event":"layer_feedback","memory_state_id":0,"layer_id":1,"discoveries":0,"new_tuples":0,"new_buckets":0}

@@ -13,7 +13,7 @@ clang -std=gnu11 -O1 -g -Wno-pointer-sign -Wno-unused-result \
   -DAFL_PATH='"."' -DBIN_PATH='"/usr/bin"' -DDOC_PATH='"docs"' \
   -fsanitize=address,undefined -fno-omit-frame-pointer -I. \
   tests/protocol/test_feedback.c protocol_runtime.c protocol_schedule.c \
-  protocol_codec_*.c native_json.c native_layout.c native_observation.c native_inspect.c \
+  protocol_codec_*.c generic_wire.c generic_runtime.c native_json.c native_layout.c native_observation.c native_inspect.c \
   aflnet.c -ldl -lgvc -lcgraph -lm -o "$protocol_test_output/feedback-test" \
   > "$protocol_test_output/feedback-build.log" 2>&1
 "$protocol_test_output/feedback-test" > "$protocol_test_output/feedback.log" 2>&1

@@ -11,6 +11,13 @@ StateAFL automatically infers the current protocol state of the server. At compi
 
 StateAFL has been implemented on top of the codebase of [AFL](http://lcamtuf.coredump.cx/afl/) and [AFLnet](https://github.com/aflnet/aflnet). To fuzz a server, it should be compiled using `afl-clang-fast` (using the modified version that is included in this project, not the one from AFL), to perform a compiler pass for instrumenting the target.
 
+The optional [description-driven C mutation engine](docs/generic-wire-language.md)
+loads a JSON wire grammar with `--generic-spec`, applies HEAD/CONTENT/SEQUENCE
+mutation and connects to coverage and memory-state feedback. New protocols
+within its grammar can be added without a new C codec. The [six industrial
+protocol migration subsets](docs/generic-wire-profile-scope.md) have explicit
+limits; five are currently offline-only.
+
 
 # Reference
 

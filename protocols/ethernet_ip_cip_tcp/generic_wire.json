@@ -1,0 +1,263 @@
+{
+  "format": "stateafl.generic-wire",
+  "version": 1,
+  "protocol_id": "ethernet_ip_cip_tcp",
+  "transport": "tcp",
+  "framing": {
+    "offset": 2,
+    "width": 2,
+    "byte_order": "little",
+    "add": 24,
+    "kind": "length_field"
+  },
+  "online": false,
+  "messages": [
+    {
+      "id": "register",
+      "direction": "request",
+      "weight": 2,
+      "example_hex": "65000400000000000000000001000000000000000000000001000000",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "command",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 101,
+            "max": 101,
+            "expected": 101
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "derived",
+            "min": 0,
+            "max": 65535,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -24
+            }
+          },
+          {
+            "id": "session",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          },
+          {
+            "id": "status",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          },
+          {
+            "id": "context",
+            "kind": "uint",
+            "width": 8,
+            "byte_order": "little",
+            "role": "head",
+            "min": 0,
+            "max": 18446744073709551615
+          },
+          {
+            "id": "options",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          },
+          {
+            "id": "protocol_version",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 1,
+            "max": 1,
+            "expected": 1
+          },
+          {
+            "id": "option_flags",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "register_response",
+      "direction": "response",
+      "weight": 2,
+      "example_hex": "65000400010000000000000001000000000000000000000001000000",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "command",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 101,
+            "max": 101,
+            "expected": 101
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "derived",
+            "min": 0,
+            "max": 65535,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -24
+            }
+          },
+          {
+            "id": "session",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "content",
+            "min": 1,
+            "max": 4294967295
+          },
+          {
+            "id": "status",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          },
+          {
+            "id": "context",
+            "kind": "uint",
+            "width": 8,
+            "byte_order": "little",
+            "role": "content",
+            "min": 0,
+            "max": 18446744073709551615
+          },
+          {
+            "id": "options",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          },
+          {
+            "id": "protocol_version",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 1,
+            "max": 1,
+            "expected": 1
+          },
+          {
+            "id": "option_flags",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "little",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "context",
+          "request": "register",
+          "source": "context"
+        }
+      ]
+    }
+  ],
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576
+  },
+  "states": {
+    "initial": "unregistered",
+    "transitions": [
+      {
+        "from": "unregistered",
+        "message": "register",
+        "to": "registered",
+        "response": "register_response"
+      }
+    ]
+  },
+  "unsupported": [
+    {
+      "message": "unregister",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "send_rr",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "send_rr_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "send_rr_error",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "send_unit",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "send_unit_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "register_error",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "invalid_session",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    }
+  ],
+  "limitations": [
+    "RegisterSession pair only; session binding, CPF, CIP EPATH and ForwardOpen absent."
+  ]
+}

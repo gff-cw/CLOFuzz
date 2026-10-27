@@ -1,0 +1,241 @@
+{
+  "format": "stateafl.generic-wire",
+  "version": 1,
+  "protocol_id": "iec61850_mms_tcp",
+  "transport": "tcp",
+  "framing": {
+    "offset": 2,
+    "width": 2,
+    "byte_order": "big",
+    "add": 0,
+    "kind": "length_field"
+  },
+  "online": false,
+  "messages": [
+    {
+      "id": "cotp_cr",
+      "direction": "request",
+      "weight": 2,
+      "example_hex": "0300001611e00000000100c0010dc2020001c1020001",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "fixed_0",
+            "kind": "bytes",
+            "length": 2,
+            "role": "fixed",
+            "expected_hex": "0300"
+          },
+          {
+            "id": "tpkt_length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "min": 0,
+            "max": 65535,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": 0
+            }
+          },
+          {
+            "id": "cotp_li",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "min": 0,
+            "max": 255,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -5
+            }
+          },
+          {
+            "id": "fixed_5",
+            "kind": "bytes",
+            "length": 1,
+            "role": "fixed",
+            "expected_hex": "e0"
+          },
+          {
+            "id": "destination_reference",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head",
+            "min": 0,
+            "max": 65535
+          },
+          {
+            "id": "source_reference",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head",
+            "min": 0,
+            "max": 65535
+          },
+          {
+            "id": "fixed_10",
+            "kind": "bytes",
+            "length": 12,
+            "role": "fixed",
+            "expected_hex": "00c0010dc2020001c1020001"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cotp_cc",
+      "direction": "response",
+      "weight": 2,
+      "example_hex": "0300001611d00001000100c0010dc2020001c1020001",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "fixed_0",
+            "kind": "bytes",
+            "length": 2,
+            "role": "fixed",
+            "expected_hex": "0300"
+          },
+          {
+            "id": "tpkt_length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "min": 0,
+            "max": 65535,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": 0
+            }
+          },
+          {
+            "id": "cotp_li",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "min": 0,
+            "max": 255,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -5
+            }
+          },
+          {
+            "id": "fixed_5",
+            "kind": "bytes",
+            "length": 1,
+            "role": "fixed",
+            "expected_hex": "d0"
+          },
+          {
+            "id": "destination_reference",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head",
+            "min": 0,
+            "max": 65535
+          },
+          {
+            "id": "source_reference",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head",
+            "min": 0,
+            "max": 65535
+          },
+          {
+            "id": "fixed_10",
+            "kind": "bytes",
+            "length": 12,
+            "role": "fixed",
+            "expected_hex": "00c0010dc2020001c1020001"
+          }
+        ]
+      }
+    }
+  ],
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576
+  },
+  "states": {
+    "initial": "disconnected",
+    "transitions": [
+      {
+        "from": "disconnected",
+        "message": "cotp_cr",
+        "to": "transport_connected",
+        "response": "cotp_cc"
+      }
+    ]
+  },
+  "unsupported": [
+    {
+      "message": "associate",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "associate_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "get_name_list",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "get_name_list_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "read",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "read_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "conclude",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "conclude_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "release",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "release_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    }
+  ],
+  "limitations": [
+    "TPKT/COTP CR/CC only, no MMS service; session, presentation, ACSE and BER rules absent."
+  ]
+}

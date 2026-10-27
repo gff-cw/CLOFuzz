@@ -24,6 +24,9 @@ class BundleTests(unittest.TestCase):
                 self.assertTrue(all(p['runtime'] for p in manifest['profiles']))
                 self.assertTrue(all(p['all_fixtures_complete'] for p in manifest['profiles']))
                 for filename in ('tools/native_protocol_codecs.py','protocol_codecs.h',
+                                 'tools/build_generic_wire_profiles.py','tools/check_generic_wire_profiles.py',
+                                 'generic_wire.c','generic_wire.h','generic_runtime.c','generic_runtime.h',
+                                 'native_json.c','native_json.h','docs/generic-wire-profile-scope.md',
                                  *(f'protocol_codec_{codec}.c' for codec in ('modbus','iec104','mms','enip','opcua'))):
                     self.assertIn(filename,archive.namelist())
                 for name,digest in manifest['files'].items():

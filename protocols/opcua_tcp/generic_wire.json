@@ -1,0 +1,230 @@
+{
+  "format": "stateafl.generic-wire",
+  "version": 1,
+  "protocol_id": "opcua_tcp",
+  "transport": "tcp",
+  "framing": {
+    "offset": 4,
+    "width": 4,
+    "byte_order": "little",
+    "add": 0,
+    "kind": "length_field"
+  },
+  "online": false,
+  "messages": [
+    {
+      "id": "hello",
+      "direction": "request",
+      "weight": 2,
+      "example_hex": "48454c46380000000000000000000100000001000000000000000000180000006f70632e7463703a2f2f3132372e302e302e313a34383430",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "fixed_0",
+            "kind": "bytes",
+            "length": 4,
+            "role": "fixed",
+            "expected_hex": "48454c46"
+          },
+          {
+            "id": "message_size",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "derived",
+            "min": 0,
+            "max": 4294967295,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": 0
+            }
+          },
+          {
+            "id": "protocol_version",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "head",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "receive_buffer",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "head",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "send_buffer",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "head",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "max_message_size",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "head",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "max_chunk_count",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "head",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "fixed_28",
+            "kind": "bytes",
+            "length": 28,
+            "role": "fixed",
+            "expected_hex": "180000006f70632e7463703a2f2f3132372e302e302e313a34383430"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ack",
+      "direction": "response",
+      "weight": 2,
+      "example_hex": "41434b461c0000000000000000000100000001000000000000000000",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "fixed_0",
+            "kind": "bytes",
+            "length": 4,
+            "role": "fixed",
+            "expected_hex": "41434b46"
+          },
+          {
+            "id": "message_size",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "derived",
+            "min": 0,
+            "max": 4294967295,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": 0
+            }
+          },
+          {
+            "id": "protocol_version",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "content",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "receive_buffer",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "content",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "send_buffer",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "content",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "max_message_size",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "content",
+            "min": 0,
+            "max": 4294967295
+          },
+          {
+            "id": "max_chunk_count",
+            "kind": "uint",
+            "width": 4,
+            "byte_order": "little",
+            "role": "content",
+            "min": 0,
+            "max": 4294967295
+          }
+        ]
+      }
+    }
+  ],
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576
+  },
+  "states": {
+    "initial": "disconnected",
+    "transitions": [
+      {
+        "from": "disconnected",
+        "message": "hello",
+        "to": "acknowledged",
+        "response": "ack"
+      }
+    ]
+  },
+  "unsupported": [
+    {
+      "message": "error",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "reverse_hello",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "open_channel",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "open_channel_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "message",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "message_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "service_fault",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "close_channel",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    }
+  ],
+  "limitations": [
+    "Fixed endpoint HEL/ACK only; dynamic UA Binary, services, chunks and token binding absent."
+  ]
+}

@@ -12,6 +12,7 @@ import yaml
 ROOT=Path(__file__).resolve().parents[2]
 CODEC_SOURCES=[str(ROOT/f'protocol_codec_{codec}.c')
                for codec in ('modbus','iec104','mms','enip','opcua')]
+GENERIC_SOURCES=[str(ROOT/name) for name in ('generic_runtime.c','generic_wire.c','native_json.c')]
 sys.path.insert(0,str(ROOT/'tools'))
 from init_protocol_spec import PROFILES, instantiate
 from proto_spec_compiler import SpecError, compile_spec, load, validate
@@ -65,7 +66,7 @@ class TemplateTests(unittest.TestCase):
         root=Path(cls.compilation.name)
         source=root/'check.c';source.write_text(HARNESS)
         cls.binary=root/'check'
-        subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I',str(ROOT),str(source),str(ROOT/'protocol_runtime.c'),*CODEC_SOURCES,'-o',str(cls.binary)],check=True,capture_output=True)
+        subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I',str(ROOT),str(source),str(ROOT/'protocol_runtime.c'),*CODEC_SOURCES,*GENERIC_SOURCES,'-o',str(cls.binary)],check=True,capture_output=True)
 
     @classmethod
     def tearDownClass(cls):cls.compilation.cleanup()

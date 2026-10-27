@@ -15,6 +15,22 @@ class CLITests(unittest.TestCase):
     def test_pair(self):self.rejected(['--protocol-spec','x'],'requires both')
     def test_missing_models(self):self.rejected(['--mutation-mode','valid'],'requires both')
     def test_unknown_mode(self):self.rejected(['--mutation-mode','other'],'Unknown --mutation-mode')
+    def test_generic_spec_conflicts_with_legacy_models(self):
+        self.rejected(['--generic-spec','tests/generic-wire/fictional_protocol.json',
+                       '--protocol-spec','unused'],'Use --generic-spec alone')
+    def test_generic_spec_rejects_unimplemented_modes(self):
+        for mode in ('near_valid','invalid'):
+            with self.subTest(mode=mode):
+                self.rejected(['--generic-spec','tests/generic-wire/fictional_protocol.json',
+                               '--mutation-mode',mode],'supports valid, hybrid and raw')
+    def test_generic_transport(self):
+        self.rejected(['--generic-spec','tests/generic-wire/fictional_protocol.json'],
+                      'requires udp transport',transport='tcp')
+    def test_generic_offline_descriptions_fail_before_target_start(self):
+        for profile in ('bacnet_ip','iec60870_5_104','iec61850_mms_tcp','ethernet_ip_cip_tcp','opcua_tcp'):
+            with self.subTest(profile=profile):
+                self.rejected(['--generic-spec',f'protocols/{profile}/generic_wire.json'],
+                              'offline-only',transport='udp' if profile=='bacnet_ip' else 'tcp')
     def test_bad_layers(self):self.rejected(['--mutation-layers','content'],'Invalid --mutation-layers')
     def test_schedule_requires_models(self):
         self.rejected(['--protocol-schedule','adaptive'],'requires both')

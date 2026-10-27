@@ -1,0 +1,280 @@
+{
+  "format": "stateafl.generic-wire",
+  "version": 1,
+  "protocol_id": "modbus_tcp",
+  "transport": "tcp",
+  "framing": {
+    "offset": 4,
+    "width": 2,
+    "byte_order": "big",
+    "add": 6,
+    "kind": "length_field"
+  },
+  "online": true,
+  "messages": [
+    {
+      "id": "read_holding",
+      "direction": "request",
+      "weight": 2,
+      "example_hex": "000100000006010300000001",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head",
+            "min": 0,
+            "max": 65535
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "min": 0,
+            "max": 65535,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head",
+            "min": 0,
+            "max": 255
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "min": 3,
+            "max": 3,
+            "expected": 3
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 0,
+            "max": 65535
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "min": 1,
+            "max": 1,
+            "expected": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "read_response",
+      "direction": "response",
+      "weight": 2,
+      "example_hex": "0001000000050103020001",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 0,
+            "max": 65535
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "min": 0,
+            "max": 0,
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "min": 0,
+            "max": 65535,
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 0,
+            "max": 255
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "min": 3,
+            "max": 3,
+            "expected": 3
+          },
+          {
+            "id": "byte_count",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "min": 2,
+            "max": 2,
+            "expected": 2
+          },
+          {
+            "id": "data",
+            "kind": "bytes",
+            "length": 2,
+            "role": "content",
+            "min": 2,
+            "max": 2
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "read_holding",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "read_holding",
+          "source": "unit"
+        }
+      ]
+    }
+  ],
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576
+  },
+  "states": {
+    "initial": "ready",
+    "transitions": [
+      {
+        "from": "ready",
+        "message": "read_holding",
+        "to": "ready",
+        "response": "read_response"
+      }
+    ]
+  },
+  "unsupported": [
+    {
+      "message": "read_coils",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "read_discrete",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "read_input",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_coil",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_register",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_coils",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_registers",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "exception",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_coils_partial",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "read_coils_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "read_discrete_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "read_input_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_coil_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_register_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_coils_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_coils_partial_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    },
+    {
+      "message": "write_registers_response",
+      "reason": "Needs grammar or state rule absent from generic-wire v1."
+    }
+  ],
+  "limitations": [
+    "Only FC03 one-register request/response; exceptions, other functions and concurrent transactions are absent."
+  ]
+}

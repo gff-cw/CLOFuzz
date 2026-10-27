@@ -81,7 +81,7 @@ class Runtime(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory(prefix='stateafl-multicodec-')
         cls.directory = Path(cls.tmp.name)
         binary = cls.directory / 'runtime.so'
-        sources = ['protocol_runtime.c'] + [f'protocol_codec_{codec}.c'
+        sources = ['protocol_runtime.c', 'generic_runtime.c', 'generic_wire.c', 'native_json.c'] + [f'protocol_codec_{codec}.c'
                   for codec in ('modbus', 'iec104', 'mms', 'enip', 'opcua')]
         subprocess.run([os.environ.get('CC', 'clang'), '-shared', '-fPIC', '-std=gnu11',
                         '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter', '-I.',

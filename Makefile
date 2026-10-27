@@ -75,6 +75,8 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	ln -sf afl-as as
 
 PROTOCOL_CODECS = $(wildcard protocol_codec_*.c)
+GENERIC_WIRE_SOURCES = generic_wire.c generic_runtime.c
+GENERIC_WIRE_HEADERS = generic_wire.h generic_runtime.h
 NATIVE_INSPECT_SOURCES = native_json.c native_layout.c native_observation.c native_inspect.c
 NATIVE_INSPECT_HEADERS = native_json.h native_inspect.h
 NATIVE_INSPECT_TEST_SOURCE = tests/native-inspection/test_native_inspection.c
@@ -86,12 +88,16 @@ MESSAGE_FILE_TEST_SOURCE = tests/protocol/test_message_files.c
 MESSAGE_FILE_TEST_BINARY = tests/protocol/test-message-files
 MESSAGE_FILE_TEST_SANITIZED = tests/protocol/test-message-files-sanitized
 MESSAGE_FILE_TEST_HEADERS = aflnet.h klist.h khash.h $(COMM_HDR)
-afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
-	$(CC) $(CFLAGS) $@.c protocol_runtime.c protocol_schedule.c $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
+afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(GENERIC_WIRE_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
+	$(CC) $(CFLAGS) $@.c protocol_runtime.c protocol_schedule.c $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
 
 # Standard-library-only local inspector; no instrumentation or x86 checks needed.
 afl-protocol-inspect: afl-protocol-inspect.c $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
 	$(CC) $(CFLAGS) $< $(NATIVE_INSPECT_SOURCES) -o $@
+
+.PHONY: check-generic-wire
+check-generic-wire:
+	bash tests/generic-wire/run_all.sh
 
 # Opt-in local fixture/API checks; neither all nor afl-fuzz runs these targets.
 .PHONY: native-inspection-tests native-inspection-tests-sanitized check-native-inspection check-native-inspection-sanitized
