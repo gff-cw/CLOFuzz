@@ -5,6 +5,10 @@
 执行构建、sanitizer 回归及本地目标验证。下面分别记录实际通过的检查与尚未验证
 的工业目标能力；历史结果不替代当前源码的回归。
 
+后续静态审查确认了[当前未解决的集成缺口](current-integration-gaps.md)，包括非零
+状态变异入口、消息/内存边界及完整序列一致性。下面的历史通过记录不证明这些
+问题已经解决，也不能作为完整融合的验收结论。另见[离线记录完整性修复](description-check-integrity.md)。
+
 ## 真实响应与发送绑定
 
 `receive_network_responses` 包装 `net_recv`，将每次追加的响应字节精确一次交给
@@ -57,7 +61,8 @@ min(8, 1 + floor(log2(new_tuples))) + (new_buckets > 0 ? 1 : 0)，单候选覆�
 覆盖采集挂在原has_new_bits路径，仅对完整发送后的当前执行开启，仅观察一次。
 测量在原位图被AFL消费之前；之后普通入队和位图保存仍走原代码。StateAFL状态分析
 和calibrate_case重放不会重复计数；timeout/crash专用virgin map、部分发送和拒绝
-候选不记作正常结构化覆盖反馈。新bucket会驱动层奖励，即使它未造成新queue entry。
+候选不记作正常结构化覆盖反馈。新bucket参与覆盖奖励，但生产路径仍沿用
+has_new_bits后的保留流程；独立计数不代表独立的队列或内存状态探索通道。
 这直接联动AFL分类覆盖反馈，不等同按源代码边编号计数。
 
 ```mermaid

@@ -10,6 +10,8 @@ import jsonschema
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+MAX_DESCRIPTION_BYTES = 1 << 20
+SOURCE_HASH_FILES = ("protocol_spec.yaml", "state_transition.yaml")
 PROFILES = ("modbus_tcp", "iec60870_5_104", "iec61850_mms_tcp",
             "ethernet_ip_cip_tcp", "opcua_tcp")
 
@@ -36,8 +38,9 @@ DocumentLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, m
 
 
 def read_document(path):
-    raw = path.read_bytes()
-    if len(raw) > 2**20:
+    with path.open("rb") as stream:
+        raw = stream.read(MAX_DESCRIPTION_BYTES + 1)
+    if len(raw) > MAX_DESCRIPTION_BYTES:
         raise DescriptionError(f"{path.name}: exceeds 1 MiB")
     data = yaml.load(raw.decode("utf-8"), Loader=DocumentLoader)
     budget = [65536]
@@ -77,9 +80,27 @@ def index(items, key, label):
     return result
 
 
+def source_hash_binding(validation, input_sha256):
+    """Compare declared source bytes, without authenticating prior validation."""
+    if "source_sha256" not in validation:
+        return "absent"
+    hashes = validation["source_sha256"]
+    require(isinstance(hashes, dict) and set(hashes) == set(SOURCE_HASH_FILES),
+            "validation.source_sha256 must contain exactly protocol_spec.yaml and state_transition.yaml")
+    for filename in SOURCE_HASH_FILES:
+        digest = hashes[filename]
+        require(isinstance(digest, str) and len(digest) == 64
+                and all(character in "0123456789abcdefABCDEF" for character in digest),
+                f"validation.source_sha256.{filename}: expected a 64-digit hexadecimal SHA256")
+        require(digest.lower() == input_sha256[filename],
+                f"validation.source_sha256.{filename}: source hash mismatch")
+    return "matched"
+
+
 def check_package(directory):
     directory = Path(directory)
-    report = dict(path=str(directory), status="failed", input_sha256={})
+    report = dict(path=str(directory), status="failed", input_sha256={},
+                  source_hash_binding="unchecked")
     try:
         documents = {}
         for filename in ("protocol_spec.yaml", "state_transition.yaml", "evidence.yaml", "validation.json"):
@@ -121,6 +142,7 @@ def check_package(directory):
         require(actual == expected, "field_sources must exactly cover and match declared fields")
         require(evidence.get("scope") == protocol["scope"] == validation.get("scope"), "scope mismatch")
         require(evidence.get("validation") == validation, "evidence validation snapshot differs from validation.json")
+        require(validation.get("validated") is True, "validation.validated must be true")
         counts = Counter(message.get("fixture_status", "complete") for message in messages.values())
         fixture_counts = evidence.get("fixture_counts")
         require(isinstance(fixture_counts, dict)
@@ -128,16 +150,18 @@ def check_package(directory):
                 and fixture_counts == {key: counts[key] for key in ("complete", "fragment")},
                 "fixture counts mismatch")
         for key, expected_value in (("protocol", protocol["protocol_id"]), ("messages", len(messages)),
-                                    ("fields", len(expected)), ("semantic_states", len(states))):
+                                    ("fields", len(expected)), ("semantic_states", len(states)),
+                                    ("runtime", protocol["support"]["runtime"])):
             actual_value = validation.get(key)
             require(type(actual_value) is type(expected_value) and actual_value == expected_value,
                     f"validation.{key} mismatch")
+        report["source_hash_binding"] = source_hash_binding(validation, report["input_sha256"])
         warnings = []
         if any(any(part in source["url"] for part in ("/master/", "/main/", "/latest/"))
                for source in sources.values()):
             warnings.append("Some source URLs name moving branches; their historical contents are not pinned.")
-        if "source_sha256" not in validation:
-            warnings.append("The saved validation record does not bind all YAML inputs by hash; this check is new static evidence.")
+        if report["source_hash_binding"] == "absent":
+            warnings.append("The saved validation record does not bind protocol/state source files by hash; this check is new static evidence.")
         report.update(status="passed", protocol_id=protocol["protocol_id"], scope=protocol["scope"],
                       messages=len(messages), fields=len(expected), semantic_states=len(states),
                       transitions=len(state["transitions"]), complete_fixtures=counts["complete"],
@@ -155,9 +179,11 @@ def main():
     packages = [check_package(directory) for directory in directories]
     passed = all(package["status"] == "passed" for package in packages)
     print(json.dumps(dict(status="passed" if passed else "failed", packages=packages,
-                          checked=["YAML schema", "message/state/source references", "field-source coverage", "evidence metadata"],
+                          checked=["YAML schema", "message/state/source references", "field-source coverage", "evidence metadata",
+                                   "saved validation declarations", "declared source SHA256 bindings when present"],
                           not_checked=["wire decoding", "native compilation", "mutation execution", "network integration",
-                                       "dependency execution semantics", "source URL contents", "whole-standard conformance"]), ensure_ascii=False, indent=2))
+                                       "dependency execution semantics", "source URL contents", "whole-standard conformance",
+                                       "authenticity of saved validation", "re-execution of saved validation"]), ensure_ascii=False, indent=2))
     return 0 if passed else 1
 
 
