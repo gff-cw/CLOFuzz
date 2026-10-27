@@ -136,7 +136,7 @@ TCP 响应可以分片或合并到一次读取；runtime 按 codec 的协议长�
 
 ## 三级变异与模式
 
-层集合只接受 `head`、`head,content`、`head,content,sequence`。每轮从启用层等概率选择一层，再在当前 M2 请求记录中按 `weight` 选消息。这里没有实现论文未披露的自适应策略权重公式。
+层集合只接受 `head`、`head,content`、`head,content,sequence`。默认 `--protocol-schedule uniform` 从启用层等概率选择一层；`adaptive` 在 havoc/splice 中按原 StateAFL 选中的内存状态，结合直接 bitmap novelty、新队列项、新内存状态和独特故障选择层。确定性阶段在 adaptive 下继续使用原 AFL 候选。两种策略选层后均在当前 M2 请求记录中按 `weight` 选消息。调度权重、探索下限、反馈归属和验证结果见[在线集成记录](online-directed-integration.md)；这是本项目的调度实现，不声称复原论文未公开的公式。
 
 | 层 | 实际行为 |
 | --- | --- |

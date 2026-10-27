@@ -18,7 +18,7 @@
 ./afl-fuzz --inspect-layout path/to/layout.json --inspect-input path/to/existing-message.bin
 ```
 
-入口只接受 JSON，不调用 Python 或 YAML loader。C API 为 native_layout_inspect，声明见 [native_inspect.h](../native_inspect.h)，读取布局与数据文件并输出报告。布局整数解释依赖编译器的 __int128 支持，其他平台返回 unsupported_platform。上述命令留待后续构建后执行，本轮没有运行。
+入口只接受 JSON，不调用 Python 或 YAML loader。C API 为 native_layout_inspect，声明见 [native_inspect.h](../native_inspect.h)，读取布局与数据文件并输出报告。布局整数解释依赖编译器的 __int128 支持，其他平台返回 unsupported_platform。示例中的路径需替换为实际文件。
 
 退出码 0 表示按描述完整解码，1 表示输入未通过解码，2 表示描述、文件、资源、平台或报告错误。结构上解码成功不证明业务操作成功、目标执行了状态转换或完整标准符合性。
 
@@ -75,7 +75,7 @@ C 实现持有解析后的描述及输入快照，输出后释放；没有已删
 
 若 bounded 容器的字节已经完整存在，即使其末尾恰好为文件末尾，内部字段越界也属于 invalid。验证失败返回 status、error、path 和 offset，不输出部分成功树；报告流自身失败仍可能留下部分 stdout，不能解释为完整结果。
 
-布局和输入各限 1 MiB。JSON 深度至多 96、节点至多 65536（含对象 key），布局节点至多 4096（含位域子字段），结构/表达式深度至多 32，repeat 至多 4096，动态字段至多 65536，表达式求值至多 524288 步。重复 key、非整数数值及未知属性均拒绝。语义以 C 源码为准，当前尚未经过构建或运行验证。
+布局和输入各限 1 MiB。JSON 深度至多 96、节点至多 65536（含对象 key），布局节点至多 4096（含位域子字段），结构/表达式深度至多 32，repeat 至多 4096，动态字段至多 65536，表达式求值至多 524288 步。重复 key、非整数数值及未知属性均拒绝。语义以 C 源码为准，当前本地回归范围见下文。
 
 ## 与状态层的边界及迁移
 
@@ -83,4 +83,4 @@ C 实现持有解析后的描述及输入快照，输出后释放；没有已删
 
 六套旧描述仍由旧 compiler/runtime 处理。迁移需要把原来藏在 C codec 中的结构、长度规则、分支及精确限制逐项写成布局；仅修改 codec 名称或复制静态 structure_model 不会完成迁移。当前通用布局也不应导出成旧 IR，避免出现“静态通过却依赖另一套执行语义”的情况。
 
-原生模块仅完成源码及静态审阅，实际正确性与兼容性尚未经过运行验证。本次脚本清理也未执行构建、测试、解码命令或目标服务。
+原生模块已通过 `make check-native-inspection-sanitized` 的 12,729 项 ASan/UBSan 断言及当前 Linux 上的 `afl-fuzz` 构建；其中包含布局、只读接口及观测检查。测试 fixture 不代表六套工业描述已迁移或可由此通用编码。详见[验证状态](native-inspection.md#验证状态)。

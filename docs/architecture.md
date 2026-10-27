@@ -2,11 +2,11 @@
 
 在线增量改动见 [StateAFL 集成契约](online-directed-integration.md)：所有接收路径
 统一向 runtime 提供新增响应，发送绑定原子提交，并提供可选的按内存状态学习的
-变异层调度。当前改动仅经过静态审查，未重新构建或运行。
+变异层调度。当前构建、sanitizer、fixture 与真实目标的验证范围和结果以该记录为准。
 
-新增 [C 原生本地检查入口](native-inspection.md)：通用 JSON 布局解码、约束校验及双状态观测管理直接链接进 afl-fuzz，在 main 检查模式完成后退出，不进入候选、目标执行或反馈调度。本轮未构建或运行，不表示在线通用变异融合完成。
+新增 [C 原生本地检查入口](native-inspection.md)：通用 JSON 布局解码、约束校验及双状态观测管理直接链接进 afl-fuzz，在 main 检查模式完成后退出，不进入候选、目标执行或反馈调度。该只读路径已通过本地 sanitizer 检查；六协议在线路径仍使用各自 codec。
 
-早期独立 Python 解码、字段编辑和观测分析原型及旧模板已移除。当前[布局解释](generic-offline-decoder.md)和[双状态观测报告](offline-state-relation.md)使用 C 本地检查入口；字段编辑尚无 C 替代。本轮只做源码清理及静态审阅，没有验证构建或运行。下面继续描述现有 ICP-IR v1 在线路径，六套旧模型和 codec 尚未迁移到通用布局。
+早期独立 Python 解码、字段编辑和观测分析原型及旧模板已移除。当前[布局解释](generic-offline-decoder.md)和[双状态观测报告](offline-state-relation.md)使用 C 本地检查入口；通用布局的字段编辑尚无 C 替代。下面继续描述现有 ICP-IR v1 在线路径，六套模型和 codec 尚未迁移到通用布局。
 
 本次扩展在现有 StateAFL LLVM 18 版本上增加离线描述编译器和可选协议运行时。StateAFL 原有的覆盖率、内存快照、TLSH/MVPTree、状态选择、队列和 replay 路径继续承担反馈与调度职责。协议语义状态是独立上下文，不写入内存状态命名空间。
 
@@ -46,7 +46,7 @@ flowchart TD
 
 `--protocol-spec` 和 `--state-spec` 必须成对出现。只有显式启用时才创建 `proto_engine`、协议日志和协议统计。模型须声明实际可用的 runtime 支持；BACnet 使用 UDP，五种新增 codec 使用 TCP。传输不匹配在目标启动前拒绝；当前禁止与 legacy `-P` 或 `AFL_POST_LIBRARY` 共用消息边界。
 
-原 `fuzz_one` 继续选择队列及待变异的 M2，保留 M1 前缀和 M3 后缀。`protocol_capture` 额外保存 M2 的 LE32-length replay 记录；AFL 的输入和内容变异仍然使用不带长度前缀的线字节。`common_fuzz_stuff` 根据模式选择 raw 或结构化路径。结构化路径在 `proto_mutate` 中选层、按消息权重选记录，生成候选并检查依赖和序列。
+原 `fuzz_one` 继续选择队列及待变异的 M2，保留 M1 前缀和 M3 后缀。`protocol_capture` 额外保存 M2 的 LE32-length replay 记录；AFL 的输入和内容变异仍然使用不带长度前缀的线字节。`common_fuzz_stuff` 根据模式选择 raw 或结构化路径。结构化路径由适配层按 uniform 或 adaptive 选层，再在 `proto_mutate` 中按消息权重选记录，生成候选并检查依赖和序列。
 
 runtime 输出是带 LE32 长度的记录；适配层解包为线字节和精确 `region_t`，再进入原 M2 替换逻辑。长度前缀仅用于磁盘/模块间边界，不作为网络 payload 发送。结构化 SEQUENCE 可以改变 M2 消息数，因此该分支不会按旧 `max_seed_region_count` 合并多条结构化消息；适配层另检查包含 M1/M3 和 replay 前缀的完整序列不超过 MAX_FILE。
 

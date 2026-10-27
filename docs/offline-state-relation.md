@@ -8,7 +8,7 @@
 ./afl-fuzz --inspect-observations path/to/existing-observations.json
 ```
 
-C API 为 native_observation_inspect，声明及参数见 [native_inspect.h](../native_inspect.h) 和[原生入口说明](native-inspection.md)。CLI 成功处理记录返回 0，格式错误返回 2。0 不表示协议符合性或执行成功，零条关联观测也是合法报告。当前在线 runtime 不直接产生该输入，旧共享状态数组不能按序号补写成同步证据。本轮未构建或运行上述命令。
+C API 为 native_observation_inspect，声明及参数见 [native_inspect.h](../native_inspect.h) 和[原生入口说明](native-inspection.md)。CLI 成功处理记录返回 0，格式错误返回 2。0 不表示协议符合性或执行成功，零条关联观测也是合法报告。当前在线 runtime 不直接产生该输入，旧共享状态数组不能按序号补写成同步证据。
 
 ## 事件身份
 
@@ -80,4 +80,4 @@ CLI 文件上限 1 MiB、最多 10000 事件；候选至多 64 个且不重复�
 
 marker、digest、关联与同步声明均来自生产者。模块只检查内部契约，不验证报文发生、目标身份、线程静止或重置完成。相同字符串不能制造真实因果证据；报告保留这一限制。多线程/异步事务的观测充分性和 scope 划分仍需上游证据。
 
-按用户要求，本轮没有运行状态检查程序、构建或测试，仅完成脚本移除、文档迁移和静态审阅；原生实现仍未经过运行验证。
+按用户后续要求已运行原生 ASan/UBSan 回归；观测记录、CLI 分派和只读接口包含在通过的 12,729 项断言中。测试检查记录契约，不生成真实共同观测边界或验证生产者的同步声明。见[验证状态](native-inspection.md#验证状态)。

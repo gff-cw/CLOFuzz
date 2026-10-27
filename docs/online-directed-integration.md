@@ -1,9 +1,9 @@
 # 在线定向变异器与 StateAFL 的集成
 
-本轮以 `feature/protocol-aware-integration-20261025` 为交付分支，合并远程
-`origin/main` 后继续修改。三个 agents 分别静态审阅运行时、网络执行链及模型契约。
-遵循 `AGENTS.md` 中暂缓测试的要求，本轮只审查源码及 Git 差异；未构建、未运行
-测试、未启动目标服务。历史测试记录不代表本轮源码已通过回归。
+交付分支为 `feature/protocol-aware-integration-20261025`，包含远程 `origin/main`
+的修改。多个 agents 分别审阅模型、C 解释器、运行时和反馈链，并按用户后续要求
+执行构建、sanitizer 回归及本地目标验证。下面分别记录实际通过的检查与尚未验证
+的工业目标能力；历史结果不替代当前源码的回归。
 
 ## 真实响应与发送绑定
 
@@ -25,7 +25,7 @@
 Python `runtime_profile_signature` 纳入消息权重，与 C `equivalent_models` 的
 等价约束一致；相同 wire 类别、字段和依赖但权重不同的别名在编译期明确拒绝。
 
-新增的原子绑定、无效输入及模型权重负例仅为回归测试源码，尚未执行。
+原子绑定、无效输入及模型权重负例已纳入下文列出的 runtime、编译器回归。
 
 ## 以原执行结果选择变异层
 
@@ -106,9 +106,11 @@ layer_feedback还写该候选的new_tuples/new_buckets，方便对账；protocol
 | StateAFL bitmap反馈ASan/UBSan harness | 通过 | AFL bitmap consumer的新tuple和bucket计数、重复消费和分类图隔离。 |
 | native UDP/TCP/network sanitizer harness | 通过 | UDP原子发送、7000字节数据报、多数据报接收、TCP、LE32 replay及截断。 |
 | afl-fuzz C 构建 | 通过 | 当前直接bitmap反馈版本链接运行时、调度器、五个TCP codec与native inspect C模块。 |
+| 完整 tests/protocol/run_all.sh | 退出0，全部通过 | `tests/protocol/out/20261026-213134/`；compiler94、CLI15、templates14、model8、codecs22、multi-codec runtime13、analysis10、evidence22、description21、export1；包括上列scheduler、bitmap、runtime与network sanitizer。 |
 | 五个TCP adaptive campaigns | 各5秒，均通过fixture检查 | 真实fuzzer/socket/C codec/响应绑定和逐候选反馈统计对齐；不是工业server。 |
 | Modbus adaptive与uniform | 两边fixture通过；adaptive 96 executions / 3 paths / 0.41%，uniform 92 / 3 / 0.41% | 单种子短跑，不能证明提升。adaptive记录14个成功结构化序列、3个新tuple/45个新bucket；uniform选中并成功4次。 |
-| BACnet -E试跑 | 失败，未进入变异 | loopback初始化时IPSM报告“No server states have been detected”，没有BACnet adaptive验收结论。 |
+| 早期 BACnet -E试跑 | 失败，未进入变异 | loopback初始化时IPSM报告“No server states have been detected”；后续诊断发现200ms启动等待早于目标UDP bind，该次失败仍保留。 |
+| 真实 BACnet 双请求 adaptive | 正常SIGINT退出0，ready后25.16秒 | HEAD/CONTENT/SEQUENCE成功构造5/6/5次；23次反馈含7次拒绝，新增13tuple/377bucket与快照对账；IPSM含0→1与1→1；单轮功能验证，不是对照收益证据。 |
 
 五个TCP profile每个adaptive campaign都验证观察次数等于layer_feedback行数，并
 验证调度器累计tuple/bucket值等于逐候选日志计数之和。五者都执行了三层的成功
@@ -120,6 +122,32 @@ layer_feedback还写该候选的new_tuples/new_buckets，方便对账；protocol
 消费和归属有效，没有证明adaptive相对uniform提高coverage。要声称提升，需在BACnet
 Stack及多个目标上使用固定语料、构建、时长和StateAFL参数做配对多种子实验，记录
 coverage曲线、唯一edge/tuple、StateAFL memory states及每层有效发送率。
+
+## BACnet 启动预算与真实反馈复验
+
+本机仪器化 Debug server 的独立 `execve` 到 UDP `bind` 约409ms，另一构建约489ms。
+200ms等待的失败中，请求在监听建立前发出，导致没有响应、TLSH或IPSM。原始
+Vendor_Name种子使用 `-D1000000 -t5000` 后可正常退出并取得0→1状态边；该轮是
+legacy/raw，只证明原反馈与初始化可用。历史500ms/1000ms的seed04超时本轮没有
+稳定复现，不能将其根因一并认定为已修复。两个BACnet驱动现在显式记录和校验
+启动/总执行预算，见[实验参数](controlled-experiment-design.md)。
+
+真实adaptive复验使用原Object_Name和Vendor_Name两条LE32记录拼成的单一序列，
+启用`-E -d --mutation-mode valid --mutation-layers head,content,sequence
+--protocol-schedule adaptive`，同样使用1s/5s预算。同步校准基线为45executions、
+1path、1935个bitmap位置；结束为67executions、5paths，即变异阶段+22executions、
++4paths、+13位置。没有观测到crash/hang。三个层的成功候选不能等同语义接受；
+23份发送capture包含StateAFL内部重放，也不能等同23次独立候选。
+
+该轮23条`layer_feedback`与scheduler观察次数相等，累计13tuple、377bucket完全
+对账；4次正奖励来自CONTENT和SEQUENCE，最终三层权重为16/29/23。全部观察仍归
+state ID 0；`cycles_done=0`、`cur_path=0`表明短跑尚在首个`fuzz_one`，原状态选择
+在其外层。IPSM中的非零状态不能因此被报告为已学习的非零调度上下文。
+
+完整启动命令、生命周期、前后输入/模型/二进制哈希和反馈汇总保存于
+`/tmp/stateafl-memory-context-20261026/{command,lifecycle,summary}.json`。fuzzer SHA256
+为`a26124392d17bf928172e526c5e3931aae9d2e262150a1abb27274cee7f55085`，target SHA256
+为`8b030a7fe5ef4d96cff35c1cbd5339a20cbc40084f07e5ae16ac887c8902bbdc`。
 
 ## 当前边界
 

@@ -2,9 +2,9 @@
 
 本轮把通用布局解释、只读解码、字段约束校验及双状态观测处理写为 C，加入 StateAFL 本体的本地检查入口。它们读取已有文件，报告后退出，不生成或修改输入、不启动目标、不消费覆盖或状态反馈。
 
-这是被动检查功能的原生接入。通用定向变异器、在线反馈联动和六套旧模型迁移尚未实现，旧 protocol_runtime.c 不由此替换。早期三个独立 Python 解码、字段编辑及观测分析脚本与旧模板已移除；C 路径只读，尚不具备原 Python 编辑器的字节修改功能。现有 YAML 描述编译器、回归和证据工具仍保留。
+这是被动检查功能的原生接入。通用布局尚未接入在线变异、反馈联动或六模型迁移；已有六种有界 codec 的 C 在线变异与反馈联动见[在线集成记录](online-directed-integration.md)。早期三个独立 Python 解码、字段编辑及观测分析脚本与旧模板已移除；本入口只读，尚不具备通用字段编辑功能。现有 YAML 描述编译器、回归和证据工具仍保留。
 
-五套现有 TCP YAML 与本入口并非同一种可执行格式，不能仅把 YAML 转成 JSON 后直接使用。当前静态核对结果和各 profile 限制见[五协议 YAML 审查](five-protocol-yaml-readiness.md)。
+六套现有 YAML 与本入口并非同一种可执行格式，不能仅把 YAML 转成 JSON 后直接使用。当前检查结果和各 profile 限制见[六协议能力核验](six-protocol-executable-readiness.md)。
 
 现有 fuzzer 调用链、只读 API 的所有权和空参数/诊断契约，以及本轮修复与未执行测试的范围见[源码调用链与接口契约](source-call-chain-native-contracts.md)。
 
@@ -23,9 +23,9 @@ C 调用方也可使用[内存缓冲区只读接口](native-buffer-inspection.md
 | afl-fuzz.c | main 起始分派，检查后返回，不进入原目标初始化 |
 | afl-protocol-inspect.c | 使用同一实现的独立入口 |
 
-Makefile 直接把模块链接进 afl-fuzz。独立 afl-protocol-inspect 不依赖 Python、Graphviz 或 LLVM 插桩。布局整数解释需要编译器支持 __int128，面向当前 Clang/GCC 工具链；不支持时布局入口明确返回 unsupported_platform，源码保留其他模块与原程序的构建路径。这里没有验证任何平台的实际构建结果。
+Makefile 直接把模块链接进 afl-fuzz。独立 afl-protocol-inspect 不依赖 Python、Graphviz 或 LLVM 插桩。布局整数解释需要编译器支持 __int128，面向当前 Clang/GCC 工具链；不支持时布局入口明确返回 unsupported_platform。当前 Linux 构建与 sanitizer 结果见文末，不代表其他平台已验证。
 
-后续可使用以下构建入口；本轮没有执行：
+构建入口：
 
 ```bash
 make afl-protocol-inspect
@@ -45,7 +45,7 @@ afl-fuzz 保留原构建检查。独立检查器不依赖 test_x86。
 ./afl-protocol-inspect --inspect-layout layout.json --inspect-input existing-message.bin
 ```
 
-这些是文档示例，本轮没有运行。成功报告写 stdout，诊断写 stderr。退出码为 0（检查通过）、1（输入不满足布局）或 2（文件、描述、参数或报告错误）。先完整验证再输出报告；流本身 I/O 失败仍可能留下部分 stdout，不能当作完整成功结果。
+这些示例需替换为实际输入文件。成功报告写 stdout，诊断写 stderr。退出码为 0（检查通过）、1（输入不满足布局）或 2（文件、描述、参数或报告错误）。先完整验证再输出报告；流本身 I/O 失败仍可能留下部分 stdout，不能当作完整成功结果。
 
 ## 通用描述解释
 
@@ -69,4 +69,4 @@ C 入口只读 JSON，布局格式为 stateafl.offline-layout/version 1，支持
 
 ## 验证状态
 
-按用户要求，本轮没有运行编译器、构建、测试、示例、解码命令或目标服务。交付仅有源码、构建配置、文档和静态审阅；尚不能据此确认可编译、兼容或运行正确，更不能认为论文方法的效果已经验证。
+按用户后续要求已执行 `make check-native-inspection-sanitized`：12,729 项断言通过，使用 ASan/UBSan，覆盖布局读取、文件/内存接口、观测记录、参数分派及资源边界。链接同一模块的 `afl-fuzz` 也已构建通过。检查使用本地 fixture，不证明六种工业实现互通、通用在线变异或覆盖收益。完整在线验证范围见[集成记录](online-directed-integration.md)。
