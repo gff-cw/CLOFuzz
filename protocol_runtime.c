@@ -503,8 +503,9 @@ static void remember(proto_engine *e,int mi,uint8_t *b,size_t n){
     if(pc_opcua_field(b,n,"uabin:sequence",PC_UINT32,4,&o,&w,err,sizeof(err))==1)e->ua_sequence=(uint32_t)getint(b+o,w,1)+1;
   }
 }
-int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
-  if(!e)return fail(err,cap,"missing protocol engine");
+/* Resolve against a private wire copy. Until all bindings validate, this
+ * routine only reads session state; remember/pending updates commit last. */
+static int bind_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
   int mi=model_for(e,b,n,0);if(mi<0)return fail(err,cap,"request outside supported model (raw or intentionally invalid input)");
   /* Only session bindings here. Wire-invalid tests must never be repaired again. */
   pm *m=&e->m[mi];for(int i=0;i<m->nd;i++){pd *d=&m->d[i];if(d->op==4 || d->op==5 || d->op==7){uint8_t done[FMAX]={0};if(repair_field(e,mi,d->target,b,n,done,err,cap)<0)return -1;}}
@@ -512,6 +513,14 @@ int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
   remember(e,mi,b,n);for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi])e->pending[model]=1;layout v;if(!e->codec && bacnet_layout(b,n,&v,err,cap)==0 && v.kind==0)e->outstanding[b[v.invoke]]=1;
   for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->tr[t].message==mi){e->semantic_state=e->tr[t].to;break;}
   return 0;
+}
+int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
+  if(err && cap)err[0]=0;
+  if(!e || !b || !n || n>WMAX)return fail(err,cap,"missing engine/wire or unsupported request size");
+  uint8_t *bound=ck_alloc(n);memcpy(bound,b,n);
+  int result=bind_before_send(e,bound,n,err,cap);
+  if(result==0)memcpy(b,bound,n);
+  ck_free(bound);return result;
 }
 /* Live responses may arrive split across net_recv calls or coalesced. Only a
  * complete validated, correlated response may supply connection bindings. */

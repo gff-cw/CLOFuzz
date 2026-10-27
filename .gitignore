@@ -1,6 +1,8 @@
 # Binaries produced by "make".
 afl-analyze
 afl-protocol-inspect
+/tests/native-inspection/test-native-inspection
+/tests/native-inspection/test-native-inspection-sanitized
 afl-as
 afl-clang
 afl-clang++

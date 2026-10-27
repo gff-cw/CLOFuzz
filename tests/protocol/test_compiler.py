@@ -177,6 +177,13 @@ class CompilerTests(unittest.TestCase):
         next(f for f in partial['fields'] if f['id']=='quantity')['max']=1967
         self.reject('ambiguous runtime message matching')
 
+    def test_modbus_aliases_require_equal_runtime_weights(self):
+        self.p=load(ROOT/'protocols/modbus_tcp/protocol_spec.yaml')
+        self.s=load(ROOT/'protocols/modbus_tcp/state_transition.yaml')
+        partial=next(m for m in self.p['messages'] if m['id']=='write_coils_partial')
+        partial['weight'] += 1
+        self.reject('ambiguous runtime message matching')
+
     def test_modbus_repeat_is_limited_to_exact_codec_data_descriptor(self):
         self.p=load(ROOT/'protocols/modbus_tcp/protocol_spec.yaml')
         self.s=load(ROOT/'protocols/modbus_tcp/state_transition.yaml')

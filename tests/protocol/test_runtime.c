@@ -90,6 +90,31 @@ static void session_tests(const char *p,const char *s){
   proto_session_begin(e);memcpy(b,rp,sizeof(rp));CHECK(proto_before_send(e,b,sizeof(rp),err,sizeof(err))<0);
   proto_free(e);proto_free(other);
 }
+static void binding_transaction_tests(const char *p,const char *s){
+  proto_engine *e=engine(p,s);char err[256];uint8_t b[sizeof(rp)];
+  const uint8_t ack[]={0x81,0x0a,0,20,1,0,0x30,55,12,0x0c,2,0,0,123,0x19,77,0x3e,0x75,0,0x3f};
+  memcpy(b,rp,sizeof(b));
+  /* The sequence binding writes invoke=0 before the unresolved property binding.
+   * A rejection must preserve every original byte and not consume a number. */
+  CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))<0);
+  CHECK(!memcmp(b,rp,sizeof(b)) && strstr(err,"unresolved session"));
+  CHECK(proto_before_send(e,NULL,sizeof(b),err,sizeof(err))<0);
+  CHECK(proto_before_send(e,b,0,err,sizeof(err))<0);
+  CHECK(proto_before_send(e,b,65508,err,sizeof(err))<0);
+  CHECK(!memcmp(b,rp,sizeof(b)));
+  proto_after_response(e,ack,sizeof(ack));
+  CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))==0 && b[8]==0 && b[16]==55 && !*err);
+  CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))==0 && b[8]==1);
+  b[3]++;uint8_t invalid[sizeof(b)];memcpy(invalid,b,sizeof(b));
+  CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))<0);
+  CHECK(!memcmp(b,invalid,sizeof(b)));
+  memcpy(b,rp,sizeof(b));
+  CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))==0 && b[8]==2);
+  proto_session_begin(e);memcpy(b,rp,sizeof(b));
+  CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))<0);
+  CHECK(!memcmp(b,rp,sizeof(b)));
+  proto_free(e);
+}
 static void dependency_tests(const char *p,const char *s,const char *loc,uint64_t expected){
   proto_engine *e=engine(p,s);uint8_t records[64];size_t n=append(records,0,rp,sizeof(rp)),outn,o,w;const uint8_t *out;char err[256];
   draws(0,1,0,0);CHECK(proto_mutate(e,records,n,rp,sizeof(rp),PROTO_VALID,PROTO_HEAD,scripted,&out,&outn,err,sizeof(err))==0);
@@ -127,6 +152,7 @@ int main(int argc,char **argv){
   if(argc<4)return 3;
   if(!strcmp(argv[1],"load")){char err[512]={0};proto_engine *e=proto_load(argv[2],argv[3],err,sizeof(err));if(!e){if(!*err)return 4;fprintf(stderr,"%s\n",err);return 2;}proto_free(e);return 0;}
   if(!strcmp(argv[1],"session"))session_tests(argv[2],argv[3]);
+  else if(!strcmp(argv[1],"binding_transaction"))binding_transaction_tests(argv[2],argv[3]);
   else if(!strcmp(argv[1],"dependency") && argc==6)dependency_tests(argv[2],argv[3],argv[4],strtoull(argv[5],NULL,10));
   else if(!strcmp(argv[1],"limits"))limit_tests(argv[2],argv[3]);
   else if(!strcmp(argv[1],"sequence_number"))sequence_number_tests(argv[2],argv[3]);

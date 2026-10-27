@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "utc": "2026-10-26T04:26:36.840077+00:00",
+  "utc": "2026-10-27T04:05:14.911483+00:00",
   "sanitizers": [
     "address",
     "undefined",
@@ -472,6 +472,10 @@
     "checks": 6,
     "status": "passed"
   },
+  "binding_transaction_harness": {
+    "checks": 13,
+    "status": "passed"
+  },
   "dependency_harnesses": [
     {
       "name": "local copy",
@@ -525,15 +529,15 @@
     }
   ],
   "source_sha256": {
-    "protocol_runtime.c": "7744cdb9786fee53b7c500a931e98fae884b2dae3697f463c0778e6831ceeba4",
-    "protocol_runtime.h": "32416598bc9066d85015954505d6893f2fa3ebf07831537355ced244fb4a4314",
+    "protocol_runtime.c": "ed6a2d6a71e5540a6c7eed62f9ecf4b25a296799e5dbd8a02a09fff0990ed260",
+    "protocol_runtime.h": "8095b1d71d4dfffe5a45563c07f6fd051c19dc320e258751019b97b9276fbd47",
     "protocol_codecs.h": "64247e740f3b196fa8c203409360968f0f422ad81359bfbdac5b3e2a72ca966b",
     "protocol_codec_modbus.c": "e52b3098067a5605cce7f84ef2196c3ac704fbf1b7d74b1c5c68750e8c5fe6bb",
     "protocol_codec_iec104.c": "eed0661f7ccaa7b741371863757822b742171bd7a7c6151cd86ac7d062f31bde",
     "protocol_codec_mms.c": "4b0671a9e740d823224930eaa855231869b6b177c38c40ae120b97dd1c2efaa2",
     "protocol_codec_enip.c": "b2ebf51980d076edd229cf74eebc574b1949d9f05defea8a1dbd908f23696644",
     "protocol_codec_opcua.c": "da34f80b9d6d3aef1134c36a85099a1135c7a1b5f83fe602ae79cd2d8ac10d35",
-    "tests/protocol/test_runtime.c": "a68c3bd253906286608b0f4c62f5e064944cf0699a287448b505d669b991f5f6"
+    "tests/protocol/test_runtime.c": "a81d10ddbbb3f391f118f6d8b144ca738e839dd568c478ba52104a320df68076"
   },
   "supported_scope": {
     "runtime_codecs_loaded": [

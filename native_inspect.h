@@ -12,18 +12,44 @@ typedef struct {
   size_t offset;
 } native_diagnostic;
 
+enum native_inspect_result {
+  NATIVE_INSPECT_NOT_SELECTED = -1,
+  NATIVE_INSPECT_OK = 0,
+  NATIVE_INSPECT_INVALID = 1,
+  NATIVE_INSPECT_ERROR = 2
+};
+
+/* diagnostic may be NULL for this formatting helper; NULL format is handled. */
 void native_inspect_error(native_diagnostic *diagnostic, const char *status,
                          const char *path, size_t offset, const char *format, ...);
 
-/* Validation completes before report output. Validation failure writes nothing.
+/* Paths, out and diagnostic are required and remain caller-owned. Each call
+ * owns and frees its temporary input/parse trees, clears diagnostic on entry,
+ * and leaves it empty on success. out is not closed; the caller owns flushing.
+ * Validation completes before report output. Validation failure writes nothing.
  * Report I/O failure may leave a partial stream and fills diagnostic separately.
  * Return 0 for success, 1 for invalid observed content, 2 for input/description errors. */
 int native_layout_inspect(const char *layout_path, const char *input_path,
                           FILE *out, native_diagnostic *diagnostic);
+/* Read-only in-memory equivalent of native_layout_inspect. layout_json, out
+ * and diagnostic are required. input may be NULL only when input_length==0.
+ * Each byte range is limited to 1 MiB and remains caller-owned and unchanged;
+ * JSON is copied internally. No files are read or created. Return/diagnostic
+ * and stream ownership follow the file API above. The report uses an in-memory
+ * scope label; all other report fields have the same meanings. Inputs must
+ * remain stable until return. Diagnostic and report output storage must not
+ * overlap either input range. */
+int native_layout_inspect_buffer(const unsigned char *layout_json, size_t layout_length,
+                                 const unsigned char *input, size_t input_length,
+                                 FILE *out, native_diagnostic *diagnostic);
 int native_observation_inspect(const char *input_path, FILE *out,
                                native_diagnostic *diagnostic);
 
-/* Returns -1 when argv[1] is not an inspection selector; otherwise an exit code.
+/* Requires argc >= 1, argv[0] and all argc argument entries to be non-NULL,
+ * plus non-NULL output/error streams; invalid API arguments return ERROR.
+ * Returns NOT_SELECTED when argv[1] is not an inspection selector (or absent).
+ * A selected inspection always finishes here, including on errors; it never
+ * requests fallback into target execution. Streams and argv are borrowed.
  * Inspection selectors must be first and accept no fuzzer or target arguments. */
 int native_inspection_dispatch(int argc, char **argv, FILE *out, FILE *errors);
 

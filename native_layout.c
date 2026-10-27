@@ -1,4 +1,4 @@
-/* Protocol-independent, passive decoding of existing local files.
+/* Protocol-independent, passive decoding of existing files or memory buffers.
  * No encoder, mutation callback, transport or target execution is present. */
 #include "native_json.h"
 #include "native_inspect.h"
@@ -8,13 +8,44 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int layout_buffer_arguments(const unsigned char *layout_json, size_t layout_length,
+                                   const unsigned char *input, size_t input_length,
+                                   FILE *out, native_diagnostic *diagnostic) {
+  if (diagnostic) memset(diagnostic, 0, sizeof(*diagnostic));
+  if (!layout_json || (!input && input_length) || !out || !diagnostic) {
+    native_inspect_error(diagnostic, "input_error", "", 0, "missing buffer inspection argument");
+    return NATIVE_INSPECT_ERROR;
+  }
+  if (layout_length > NJ_MAX_BYTES || input_length > NJ_MAX_BYTES) {
+    native_inspect_error(diagnostic, "input_error", "", 0,
+                         "buffer inspection arguments exceed the 1 MiB limit");
+    return NATIVE_INSPECT_ERROR;
+  }
+  return NATIVE_INSPECT_OK;
+}
+
 #if !defined(__SIZEOF_INT128__)
 int native_layout_inspect(const char *layout_path, const char *input_path,
                           FILE *out, native_diagnostic *diagnostic) {
-  (void)layout_path; (void)input_path; (void)out;
+  if (diagnostic) memset(diagnostic, 0, sizeof(*diagnostic));
+  if (!layout_path || !input_path || !out || !diagnostic) {
+    native_inspect_error(diagnostic, "input_error", "", 0, "missing inspection argument");
+    return NATIVE_INSPECT_ERROR;
+  }
   native_inspect_error(diagnostic, "unsupported_platform", "", 0,
                        "native layout inspection requires a compiler with 128-bit integers");
   return 2;
+}
+
+int native_layout_inspect_buffer(const unsigned char *layout_json, size_t layout_length,
+                                 const unsigned char *input, size_t input_length,
+                                 FILE *out, native_diagnostic *diagnostic) {
+  if (layout_buffer_arguments(layout_json, layout_length, input, input_length,
+                               out, diagnostic) != NATIVE_INSPECT_OK)
+    return NATIVE_INSPECT_ERROR;
+  native_inspect_error(diagnostic, "unsupported_platform", "", 0,
+                       "native layout inspection requires a compiler with 128-bit integers");
+  return NATIVE_INSPECT_ERROR;
 }
 #else
 typedef __int128 layout_int;
@@ -60,7 +91,7 @@ typedef struct layout_scope {
 } layout_scope;
 typedef struct {
   native_diagnostic *diagnostic;
-  unsigned char *data;
+  const unsigned char *data;
   size_t length, offset, specs, fields, expression_steps, bounded_depth;
   int exit_code;
 } layout_context;
@@ -852,64 +883,113 @@ static void write_field(FILE *out, const layout_context *context,
   fputc('}', out);
 }
 
-int native_layout_inspect(const char *layout_path, const char *input_path,
-                          FILE *out, native_diagnostic *diagnostic) {
+static layout_spec *compile_layout_document(layout_context *context,
+                                             const nj_document *document) {
   static const char *const required[] = {"format", "version", "root"};
   static const char *const optional[] = {"description"};
+  layout_int version;
+  const nj_value *root = document->root;
+  if (layout_keys(context, root, required, 3, optional, 1, "/") < 0) return NULL;
+  if (!nj_string_equal(nj_get(root, "format"), "stateafl.offline-layout") ||
+      layout_number(nj_get(root, "version"), &version) < 0 || version != 1) {
+    layout_error(context, "invalid_description", "/", "unsupported layout format or version");
+    return NULL;
+  }
+  const nj_value *description = nj_get(root, "description");
+  if (description && description->type != NJ_STRING) {
+    layout_error(context, "invalid_description", "/description", "description must be text");
+    return NULL;
+  }
+  return compile_spec(context, nj_get(root, "root"), 0, "/root");
+}
+
+static int inspect_layout_content(layout_context *context, const layout_spec *spec,
+                                   FILE *out, const char *scope) {
+  int result;
+  layout_field *field = decode_spec(context, spec, NULL, context->length, 0, spec->id);
+  if (!field) return context->exit_code;
+  if (context->offset != context->length) {
+    layout_error(context, "invalid", spec->id, "unconsumed trailing bytes");
+    free_field(field);
+    return NATIVE_INSPECT_INVALID;
+  }
+  /* All interpretation and constraint checks finish before report emission. */
+  fprintf(out, "{\"format\":\"stateafl.native-decode\",\"version\":1,\"status\":\"decoded\","
+               "\"scope\":\"%s\","
+               "\"digest_contract\":\"no Python-normalized SHA256 is supplied\","
+               "\"input_length\":%zu,\"consumed\":%zu,\"decoded_fields\":%zu,\"tree\":",
+          scope, context->length, context->offset, context->fields);
+  write_field(out, context, field);
+  fputs("}\n", out);
+  if (ferror(out)) {
+    native_inspect_error(context->diagnostic, "output_error", "", context->offset,
+                         "could not write inspection report");
+    result = NATIVE_INSPECT_ERROR;
+  } else result = NATIVE_INSPECT_OK;
+  free_field(field);
+  return result;
+}
+
+int native_layout_inspect(const char *layout_path, const char *input_path,
+                          FILE *out, native_diagnostic *diagnostic) {
   nj_document *document = NULL;
   layout_spec *spec = NULL;
-  layout_field *field = NULL;
+  unsigned char *owned_input = NULL;
   layout_context context = {0};
   char error[512];
-  layout_int version;
-  int result = 2;
-  context.diagnostic = diagnostic; context.exit_code = 2;
+  int result = NATIVE_INSPECT_ERROR;
+  if (diagnostic) memset(diagnostic, 0, sizeof(*diagnostic));
+  context.diagnostic = diagnostic; context.exit_code = NATIVE_INSPECT_ERROR;
   if (!layout_path || !input_path || !out || !diagnostic) {
-    if (diagnostic) native_inspect_error(diagnostic, "input_error", "", 0, "missing inspection argument");
-    return 2;
+    native_inspect_error(diagnostic, "input_error", "", 0, "missing inspection argument");
+    return NATIVE_INSPECT_ERROR;
   }
   if (nj_load_file(layout_path, &document, error, sizeof(error)) < 0) {
     native_inspect_error(diagnostic, "invalid_description", "", 0,
                          "native layouts require bounded JSON input: %s", error);
     goto done;
   }
-  const nj_value *root = document->root;
-  if (layout_keys(&context, root, required, 3, optional, 1, "/") < 0) goto done;
-  if (!nj_string_equal(nj_get(root, "format"), "stateafl.offline-layout") ||
-      layout_number(nj_get(root, "version"), &version) < 0 || version != 1) {
-    layout_error(&context, "invalid_description", "/", "unsupported layout format or version"); goto done;
-  }
-  const nj_value *description = nj_get(root, "description");
-  if (description && description->type != NJ_STRING) {
-    layout_error(&context, "invalid_description", "/description", "description must be text"); goto done;
-  }
-  spec = compile_spec(&context, nj_get(root, "root"), 0, "/root");
+  spec = compile_layout_document(&context, document);
   if (!spec) goto done;
-  if (nj_read_file(input_path, &context.data, &context.length, NJ_MAX_BYTES, error, sizeof(error)) < 0) {
+  if (nj_read_file(input_path, &owned_input, &context.length, NJ_MAX_BYTES, error, sizeof(error)) < 0) {
     layout_error(&context, "input_error", "", "%s", error); goto done;
   }
-  field = decode_spec(&context, spec, NULL, context.length, 0, spec->id);
-  if (!field) { result = context.exit_code; goto done; }
-  if (context.offset != context.length) {
-    layout_error(&context, "invalid", spec->id, "unconsumed trailing bytes");
-    result = 1; goto done;
-  }
-  /* All interpretation and constraint checks finish before report emission. */
-  fprintf(out, "{\"format\":\"stateafl.native-decode\",\"version\":1,\"status\":\"decoded\","
-               "\"scope\":\"passive local-file structural inspection\","
-               "\"digest_contract\":\"no Python-normalized SHA256 is supplied\","
-               "\"input_length\":%zu,\"consumed\":%zu,\"decoded_fields\":%zu,\"tree\":",
-          context.length, context.offset, context.fields);
-  write_field(out, &context, field);
-  fputs("}\n", out);
-  if (ferror(out)) {
-    native_inspect_error(diagnostic, "output_error", "", context.offset, "could not write inspection report");
-    result = 2;
-  } else result = 0;
+  context.data = owned_input;
+  result = inspect_layout_content(&context, spec, out, "passive local-file structural inspection");
 done:
-  free_field(field);
   free_spec(spec);
-  free(context.data);
+  free(owned_input);
+  nj_free(document);
+  return result;
+}
+
+int native_layout_inspect_buffer(const unsigned char *layout_json, size_t layout_length,
+                                 const unsigned char *input, size_t input_length,
+                                 FILE *out, native_diagnostic *diagnostic) {
+  static const unsigned char empty_input = 0;
+  nj_document *document = NULL;
+  layout_spec *spec = NULL;
+  layout_context context = {0};
+  char error[512];
+  int result = NATIVE_INSPECT_ERROR;
+  if (layout_buffer_arguments(layout_json, layout_length, input, input_length,
+                               out, diagnostic) != NATIVE_INSPECT_OK)
+    return NATIVE_INSPECT_ERROR;
+  context.diagnostic = diagnostic; context.exit_code = NATIVE_INSPECT_ERROR;
+  if (nj_parse_buffer(layout_json, layout_length, &document, error, sizeof(error)) < 0) {
+    native_inspect_error(diagnostic, "invalid_description", "", 0,
+                         "native layouts require bounded JSON input: %s", error);
+    goto done;
+  }
+  spec = compile_layout_document(&context, document);
+  if (!spec) goto done;
+  /* A stable non-NULL view also permits zero-length bytes and align nodes to
+   * form data+offset without performing arithmetic on a NULL pointer. */
+  context.data = input ? input : &empty_input;
+  context.length = input_length;
+  result = inspect_layout_content(&context, spec, out, "passive in-memory structural inspection");
+done:
+  free_spec(spec);
   nj_free(document);
   return result;
 }

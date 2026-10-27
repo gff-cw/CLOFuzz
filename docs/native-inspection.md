@@ -4,12 +4,20 @@
 
 这是被动检查功能的原生接入。通用定向变异器、在线反馈联动和六套旧模型迁移尚未实现，旧 protocol_runtime.c 不由此替换。早期三个独立 Python 解码、字段编辑及观测分析脚本与旧模板已移除；C 路径只读，尚不具备原 Python 编辑器的字节修改功能。现有 YAML 描述编译器、回归和证据工具仍保留。
 
+五套现有 TCP YAML 与本入口并非同一种可执行格式，不能仅把 YAML 转成 JSON 后直接使用。当前静态核对结果和各 profile 限制见[五协议 YAML 审查](five-protocol-yaml-readiness.md)。
+
+现有 fuzzer 调用链、只读 API 的所有权和空参数/诊断契约，以及本轮修复与未执行测试的范围见[源码调用链与接口契约](source-call-chain-native-contracts.md)。
+
+本地测试程序另有[固定虚构夹具的 C 变换模块](native-fixture-mutation.md)，只在测试目标中链接，可供后续验证字段修改与长度一致性，不参与 fuzzer 执行循环。
+
+C 调用方也可使用[内存缓冲区只读接口](native-buffer-inspection.md)，复用同一布局解释器直接检查已有字节，无需临时输入文件；该接口不生成或编辑候选。
+
 ## 文件与构建
 
 | 文件 | 职责 |
 | --- | --- |
 | native_json.c / native_json.h | 严格有界 JSON、整数、Unicode、属性校验及报告输出 |
-| native_layout.c | 通用节点解释、字段解码和约束检查 |
+| native_layout.c | 通用节点解释、字段解码和约束检查，支持文件和内存入口 |
 | native_observation.c | 双状态声明校验、会话历史及关联证据管理 |
 | native_inspect.c / native_inspect.h | 共用本地检查参数及诊断 |
 | afl-fuzz.c | main 起始分派，检查后返回，不进入原目标初始化 |

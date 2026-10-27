@@ -14,6 +14,8 @@
 每套目录另含 protocol_ir.json、state_ir.json、evidence.yaml、validation.json、README.md 和完整请求的 seeds/。通用可填写模板在 [templates/](templates/README.md)，格式校验规则在 schema/。
 
 - [完整性与来源审查](../docs/protocol-model-audit.md)：逐协议范围、规范/实现证据、未覆盖内容。
+- [六协议描述与 C 执行能力核验](../docs/six-protocol-executable-readiness.md)：profile边界、codec写入能力、在线三级C路径及实际验证结果。
+- [五协议 YAML 与通用 C 接口审查](../docs/five-protocol-yaml-readiness.md)：静态字段/状态清单、保存 IR 一致性及执行契约边界；未运行编译、codec 或目标。
 - [模板与 C/Python 一致性审查](../docs/template-audit.md)：已修复的问题及执行语义边界。
 - [BACnet 多轮对照结果](../docs/bacnet-controlled-results.md)：真实发送样本、功能 A/B 和五模式重复实验。
 - 描述包导出：`python3 tools/export_protocol_bundle.py --output deliverables/industrial-protocol-descriptions.zip`。ZIP 内含六套模型、模板、schema 和 SHA-256 MANIFEST。

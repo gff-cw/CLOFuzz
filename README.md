@@ -392,6 +392,16 @@ both preserve one explicit BVLC length violation. Content mutation projects the
 existing AFL candidate into described fields. Protocol semantic states have a
 separate namespace from inferred memory states.
 
+Add `--protocol-schedule adaptive` to select HEAD/CONTENT/SEQUENCE using discoveries
+from the existing StateAFL execution, retention loop, and direct bitmap novelty. The bounded scheduler
+keeps learning per selected memory state and preserves exploration of every
+enabled layer. Adaptive mutation runs in havoc/splice; deterministic stages use
+the original AFL candidates. `uniform` is the default. Read the
+[integration contract and current validation limits](docs/online-directed-integration.md)
+before interpreting `protocol_schedule.json` or `layer_feedback` events. The
+current fixture and sanitizer results are recorded in that contract; no
+industrial-server coverage gain has been established.
+
 See [architecture](docs/architecture.md), [description language](docs/protocol-description-language.md),
 [scope and sources](docs/references.md), [actual BACnet results](docs/bacnet-integration-test.md)
 and [implementation review](docs/implementation-review.md).
