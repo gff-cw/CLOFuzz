@@ -5,6 +5,10 @@ protocol_test_output="${1:-tests/protocol/out/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$protocol_test_output"
 protocol_test_output="$(realpath "$protocol_test_output")"
 make -j2 afl-fuzz aflnet-replay > "$protocol_test_output/build.log" 2>&1
+clang -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
+  -fno-omit-frame-pointer -I. tests/protocol/test_schedule.c protocol_schedule.c \
+  -o "$protocol_test_output/schedule-test" > "$protocol_test_output/schedule-build.log" 2>&1
+"$protocol_test_output/schedule-test" > "$protocol_test_output/schedule.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_compiler.py -v > "$protocol_test_output/compiler.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_cli.py -v > "$protocol_test_output/cli.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_templates.py -v > "$protocol_test_output/templates.log" 2>&1

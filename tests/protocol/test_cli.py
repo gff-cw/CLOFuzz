@@ -16,6 +16,17 @@ class CLITests(unittest.TestCase):
     def test_missing_models(self):self.rejected(['--mutation-mode','valid'],'requires both')
     def test_unknown_mode(self):self.rejected(['--mutation-mode','other'],'Unknown --mutation-mode')
     def test_bad_layers(self):self.rejected(['--mutation-layers','content'],'Invalid --mutation-layers')
+    def test_schedule_requires_models(self):
+        self.rejected(['--protocol-schedule','adaptive'],'requires both')
+    def test_bad_schedule(self):
+        for value in ('random','', 'ADAPTIVE'):
+            with self.subTest(value=value):
+                self.rejected(['--protocol-schedule',value],'uniform or adaptive')
+    def test_raw_schedule_is_rejected(self):
+        self.rejected(['--protocol-spec','protocols/bacnet_ip/protocol_ir.json',
+                       '--state-spec','protocols/bacnet_ip/state_ir.json',
+                       '--mutation-mode','raw','--protocol-schedule','adaptive'],
+                      'requires a structured mutation mode')
     def test_bad_ratio(self):
         for value in ('-1','101','NaN','1.5',''):
             with self.subTest(value=value):self.rejected(['--protocol-ratio',value],'integer in 0..100')

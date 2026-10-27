@@ -82,8 +82,8 @@ NATIVE_INSPECT_TEST_SUPPORT = tests/native-inspection/fixture_packet.c
 NATIVE_INSPECT_TEST_HEADERS = tests/native-inspection/fixture_packet.h
 NATIVE_INSPECT_TEST_BINARY = tests/native-inspection/test-native-inspection
 NATIVE_INSPECT_TEST_SANITIZED = tests/native-inspection/test-native-inspection-sanitized
-afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_codecs.h $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
-	$(CC) $(CFLAGS) $@.c protocol_runtime.c $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
+afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
+	$(CC) $(CFLAGS) $@.c protocol_runtime.c protocol_schedule.c $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
 
 # Standard-library-only local inspector; no instrumentation or x86 checks needed.
 afl-protocol-inspect: afl-protocol-inspect.c $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)

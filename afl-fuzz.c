@@ -70,6 +70,7 @@
 
 #include "aflnet.h"
 #include "protocol_runtime.h"
+#include "protocol_schedule.h"
 #include "native_inspect.h"
 #include <graphviz/gvc.h>
 #include <math.h>
@@ -126,6 +127,9 @@ static u8 protocol_base[MAX_FILE], protocol_wire[MAX_FILE];
 static size_t protocol_base_len;
 static size_t protocol_surrounding_records;
 static u64 protocol_raw_runs, protocol_structured_runs, protocol_rejections;
+static u32 protocol_structured_sent;
+static u8 protocol_adaptive;
+static proto_schedule protocol_scheduler;
 static u8 fixed_random_seed, experiment_active;
 static u32 experiment_seed, protocol_candidate_limit, protocol_candidates_saved;
 static u8 *protocol_candidate_dir;
@@ -1502,6 +1506,7 @@ int send_over_network()
   u8 likely_buggy = 0;
   struct sockaddr_in serv_addr;
   struct sockaddr_in local_serv_addr;
+  protocol_structured_sent = 0;
 
   //Clean up the server if needed
   if (cleanup_script) system(cleanup_script);
@@ -1633,6 +1638,7 @@ int send_over_network()
       goto HANDLE_RESPONSES;
     }
     complete_messages++;
+    if (kl_val(it)->protocol_structured) protocol_structured_sent++;
 
     //retrieve server response
     u32 prev_buf_size = response_buf_size;
@@ -5346,6 +5352,16 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
     u8 *stats_path = alloc_printf("%s/protocol_stats.json", out_dir);
     proto_write_stats(protocol_engine, (char *)stats_path);
     ck_free(stats_path);
+    fprintf(f, "protocol_schedule : %s\n", protocol_adaptive ? "adaptive" : "uniform");
+    if (protocol_adaptive) {
+      stats_path = alloc_printf("%s/protocol_schedule.json", out_dir);
+      FILE *schedule_file = fopen((char *)stats_path, "w");
+      if (schedule_file) {
+        proto_schedule_write(&protocol_scheduler, schedule_file);
+        fclose(schedule_file);
+      }
+      ck_free(stats_path);
+    }
   }
 
   /* Get rss value from the children
@@ -6458,14 +6474,22 @@ static void protocol_capture(kliter_t(lms) *first, kliter_t(lms) *last) {
 
 /* Return explicit message regions while projecting a structured candidate into
    the existing M2 replacement path. Caller owns regions; wire buffer is reused. */
-static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count) {
+static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
+                                  int *feedback_layer, u32 *feedback_state) {
   const u8 *records;
   size_t length, checked, p = 0, off = 0;
   char error[256];
   int choices[3], n = 0;
   for (int bit = 1; bit <= 4; bit <<= 1)
     if (protocol_layers & bit) choices[n++] = bit;
-  int layer = choices[UR(n)];
+  *feedback_state = target_state_id;
+  int layer;
+  if (protocol_adaptive) {
+    layer = proto_schedule_choose(&protocol_scheduler, *feedback_state,
+                                   protocol_layers, protocol_random);
+    if (!layer) FATAL("Protocol schedule has no enabled mutation layer");
+    *feedback_layer = layer;
+  } else layer = choices[UR(n)];
   int mode = protocol_mode == PROTO_HYBRID ? PROTO_VALID : protocol_mode;
   if (proto_mutate(protocol_engine, protocol_base, protocol_base_len,
                    *wire, *wire_len, mode, layer, protocol_random,
@@ -6503,17 +6527,36 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count) {
   return regions;
 }
 
+/* Credit a candidate once, after all ordinary retention and calibration work.
+   Replays within save_if_interesting never choose or observe another layer. */
+static void protocol_observe_candidate(u32 state, int layer, unsigned events) {
+  if (!layer) return;
+  proto_schedule_observe(&protocol_scheduler, state, layer, events);
+  if (protocol_log)
+    fprintf(protocol_log, "{\"event\":\"layer_feedback\",\"memory_state_id\":%u,"
+            "\"layer_id\":%d,\"discoveries\":%u}\n", state, layer, events);
+}
+
 EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   u8 fault;
   region_t *protocol_regions = NULL;
   u32 protocol_count = 0;
+  int feedback_layer = 0;
+  u32 feedback_state = 0;
   protocol_structured_run = 0;
 
   if (protocol_engine && protocol_mode != PROTO_RAW &&
+      (!protocol_adaptive || (stage_short &&
+       (!strcmp((char *)stage_short, "havoc") || !strcmp((char *)stage_short, "splice")))) &&
       (protocol_mode != PROTO_HYBRID || UR(100) < protocol_ratio)) {
-    protocol_regions = protocol_prepare(&out_buf, &len, &protocol_count);
-    if (!protocol_regions && !protocol_fallback) return 0;
+    protocol_regions = protocol_prepare(&out_buf, &len, &protocol_count,
+                                        &feedback_layer, &feedback_state);
+    if (!protocol_regions) {
+      protocol_observe_candidate(feedback_state, feedback_layer, 0);
+      feedback_layer = 0;
+      if (!protocol_fallback) return 0;
+    }
   }
   if (protocol_engine && !protocol_regions) protocol_raw_runs++;
 
@@ -6606,17 +6649,25 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   /* End of AFLNet code */
 
+  u32 feedback_queue_before = queued_paths, feedback_states_before = state_ids_count;
+  u64 feedback_crashes_before = unique_crashes, feedback_hangs_before = unique_hangs;
+  protocol_structured_sent = 0;
   fault = run_target(argv, exec_tmout, afl_fsrv);
+  u8 feedback_delivered = protocol_count && protocol_structured_sent == protocol_count;
 
   //Update fuzz count, no matter whether the generated test is interesting or not
   if (state_aware_mode) update_fuzzs();
 
-  if (stop_soon) return 1;
+  if (stop_soon) {
+    protocol_observe_candidate(feedback_state, feedback_layer, 0);
+    return 1;
+  }
 
   if (fault == FAULT_TMOUT) {
 
     if (subseq_tmouts++ > TMOUT_LIMIT) {
       cur_skipped_paths++;
+      protocol_observe_candidate(feedback_state, feedback_layer, 0);
       return 1;
     }
 
@@ -6629,6 +6680,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
      skip_requested = 0;
      cur_skipped_paths++;
+     protocol_observe_candidate(feedback_state, feedback_layer, 0);
      return 1;
 
   }
@@ -6636,6 +6688,13 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   /* This handles FAULT_ERROR for us: */
 
   queued_discovered += save_if_interesting(argv, out_buf, len, fault);
+  unsigned discoveries = 0;
+  if (queued_paths > feedback_queue_before) discoveries |= PROTO_FEEDBACK_QUEUE;
+  if (state_ids_count > feedback_states_before) discoveries |= PROTO_FEEDBACK_MEMORY;
+  if (unique_crashes > feedback_crashes_before) discoveries |= PROTO_FEEDBACK_CRASH;
+  if (unique_hangs > feedback_hangs_before) discoveries |= PROTO_FEEDBACK_HANG;
+  protocol_observe_candidate(feedback_state, feedback_layer,
+                             feedback_delivered ? discoveries : 0);
 
   if (!(stage_cur % stats_update_freq) || stage_cur + 1 == stage_max)
     show_stats();
@@ -9549,6 +9608,7 @@ static void usage(u8* argv0) {
        "  --mutation-mode mode  - valid, near_valid, invalid, raw, hybrid (default hybrid)\n"
        "  --mutation-layers set - head | head,content | head,content,sequence (default all)\n"
        "  --protocol-ratio pct  - structured share in hybrid mode, 0..100 (default 70)\n"
+       "  --protocol-schedule policy - uniform (default) or adaptive layers in havoc/splice\n"
        "  --protocol-fallback   - explicitly allow raw fallback on rejected candidates\n\n"
        "  --random-seed n       - fixed uint32 mutation RNG seed for repeated experiments\n"
        "  --protocol-save-candidates n - save up to n sent sequences after calibration (default 0)\n\n"
@@ -10292,6 +10352,7 @@ int main(int argc, char** argv) {
     {"protocol-fallback", no_argument, NULL, 1005},
     {"random-seed", required_argument, NULL, 1006},
     {"protocol-save-candidates", required_argument, NULL, 1007},
+    {"protocol-schedule", required_argument, NULL, 1008},
     {NULL, 0, NULL, 0}
   };
   while ((opt = getopt_long(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:r:w:e:P:KEq:s:RFc:l:u:U:", protocol_options, NULL)) > 0)
@@ -10337,6 +10398,13 @@ int main(int argc, char** argv) {
           FATAL("--protocol-save-candidates requires an integer in 0..1000000");
         protocol_candidate_limit = count; break;
       }
+
+      case 1008:
+        protocol_options_given = 1;
+        if (!strcmp(optarg, "adaptive")) protocol_adaptive = 1;
+        else if (!strcmp(optarg, "uniform")) protocol_adaptive = 0;
+        else FATAL("--protocol-schedule requires uniform or adaptive");
+        break;
 
       case 'i': /* input dir */
 
@@ -10672,6 +10740,8 @@ int main(int argc, char** argv) {
   if (!!protocol_spec_path != !!protocol_state_path ||
       (protocol_options_given && !protocol_spec_path))
     FATAL("Protocol mutation requires both --protocol-spec and --state-spec");
+  if (protocol_adaptive && protocol_mode == PROTO_RAW)
+    FATAL("--protocol-schedule adaptive requires a structured mutation mode");
   if (protocol_spec_path) {
     char error[256];
     protocol_engine = proto_load(protocol_spec_path, protocol_state_path, error, sizeof(error));
