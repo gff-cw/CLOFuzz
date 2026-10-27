@@ -1,7 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
-/* Passive local-file API tests. This program never starts a target or socket. */
+/* Local-file API and fictional fixture tests; no target or socket is started. */
 #include "native_inspect.h"
 #include "native_json.h"
+#include "fixture_packet.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -294,15 +295,10 @@ static nj_document *layout_case(const char *node, const void *bytes, size_t leng
 
 static void test_layout(void) {
 #if defined(__SIZEOF_INT128__)
-  static const char packet[] =
-    "{\"kind\":\"struct\",\"id\":\"packet\",\"fields\":["
-    "{\"kind\":\"uint\",\"id\":\"magic\",\"width\":1,\"byte_order\":\"big\",\"expected\":42},"
-    "{\"kind\":\"uint\",\"id\":\"size\",\"width\":1,\"byte_order\":\"big\"},"
-    "{\"kind\":\"bytes\",\"id\":\"body\",\"length\":{\"ref\":\"size\"},\"encoding\":\"hex\"}]}";
   const unsigned char bytes[] = {42, 2, 'a', 'b'};
   const unsigned char little[] = {2, 1}, bad_enum[] = {3, 1};
   const char *enum_node = "{\"kind\":\"uint\",\"id\":\"value\",\"width\":2,\"byte_order\":\"little\",\"values\":[258]}";
-  nj_document *report = layout_case(packet, bytes, sizeof(bytes), 0, NULL);
+  nj_document *report = layout_case(fixture_packet_layout, bytes, sizeof(bytes), 0, NULL);
   const nj_value *field = find_field(nj_get(report->root, "tree"), "packet.body");
   CHECK(field != NULL && nj_string_equal(nj_get(field, "value"), "6162"));
   CHECK(unsigned_value(nj_get(field, "start")) == 2 && unsigned_value(nj_get(field, "end")) == 4);
@@ -360,6 +356,136 @@ static void test_layout(void) {
   nj_free(layout_case("{\"kind\":\"bytes\",\"id\":\"x\",\"length\":0,\"encoding\":\"hex\"}", "", 0, 2, "unsupported_platform"));
   fputs("Layout semantic cases skipped: compiler has no __int128 support.\n", stderr);
 #endif
+}
+
+static void inspect_fixture(const unsigned char *bytes, size_t length) {
+#if defined(__SIZEOF_INT128__)
+  nj_free(layout_case(fixture_packet_layout, bytes, length, 0, NULL));
+#else
+  (void)bytes;
+  (void)length;
+#endif
+}
+
+static void reject_fixture(const unsigned char *input, size_t input_length,
+                           const fixture_packet_edit *edit, size_t capacity) {
+  unsigned char output[FIXTURE_PACKET_MAX_LENGTH], original[sizeof(output)];
+  size_t length = 99;
+  char error[96];
+  memset(output, 0xa5, sizeof(output));
+  memcpy(original, output, sizeof(output));
+  memset(error, 0xa5, sizeof(error));
+  CHECK(fixture_packet_mutate(input, input_length, edit, output, capacity,
+                              &length, error, sizeof(error)) == -1);
+  CHECK(length == 0 && error[0]);
+  CHECK(memchr(error, 0, sizeof(error)) != NULL);
+  CHECK(memcmp(output, original, sizeof(output)) == 0);
+}
+
+static void test_fixture_mutations(void) {
+  const unsigned char input[] = {42, 2, 'a', 'b'}, empty[] = {42, 0};
+  const unsigned char bad_magic[] = {41, 2, 'a', 'b'};
+  const unsigned char bad_length[] = {42, 3, 'a', 'b'};
+  const unsigned char trailing[] = {42, 1, 'a', 'b'};
+  const unsigned char grown[] = {42, 3, 'a', 'b', 'x'};
+  unsigned char output[FIXTURE_PACKET_MAX_LENGTH];
+  unsigned char repeated[sizeof(output)], overlap[FIXTURE_PACKET_MAX_LENGTH + 2];
+  unsigned char oversized[FIXTURE_PACKET_MAX_LENGTH + 1];
+  fixture_packet_edit edit = {FIXTURE_PACKET_SET_BYTE, 1, 'z'};
+  size_t length = 99, repeated_length = 99, index;
+  char error[96] = "stale diagnostic", tiny = 'k';
+
+  CHECK(fixture_packet_mutate(input, sizeof(input), &edit, output, sizeof(output),
+                              &length, error, sizeof(error)) == 0);
+  CHECK(!error[0] && length == 4 && output[0] == 42 && output[1] == 2);
+  CHECK(output[2] == 'a' && output[3] == 'z' && input[3] == 'b');
+  inspect_fixture(output, length);
+  CHECK(fixture_packet_mutate(input, sizeof(input), &edit, repeated, sizeof(repeated),
+                              &repeated_length, NULL, 0) == 0);
+  CHECK(repeated_length == length && !memcmp(output, repeated, length));
+
+  edit.value = 'b';
+  CHECK(fixture_packet_mutate(input, sizeof(input), &edit, output, sizeof(input),
+                              &length, error, sizeof(error)) == 1);
+  CHECK(length == sizeof(input) && !memcmp(input, output, length));
+  inspect_fixture(output, length);
+
+  edit.operation = FIXTURE_PACKET_RESIZE_BODY;
+  edit.argument = FIXTURE_PACKET_MAX_BODY;
+  edit.value = 0x7e;
+  CHECK(fixture_packet_mutate(input, sizeof(input), &edit, output, sizeof(output),
+                              &length, error, sizeof(error)) == 0);
+  CHECK(length == FIXTURE_PACKET_MAX_LENGTH && output[1] == FIXTURE_PACKET_MAX_BODY);
+  CHECK(output[2] == 'a' && output[3] == 'b');
+  for (index = sizeof(input); index < length; index++) CHECK(output[index] == 0x7e);
+  inspect_fixture(output, length);
+  CHECK(fixture_packet_mutate(output, length, &edit, output, sizeof(output),
+                              &length, error, sizeof(error)) == 1);
+  CHECK(length == FIXTURE_PACKET_MAX_LENGTH);
+
+  edit.operation = FIXTURE_PACKET_SET_BYTE;
+  edit.argument = FIXTURE_PACKET_MAX_BODY - 1;
+  edit.value = 0;
+  CHECK(fixture_packet_mutate(output, length, &edit, output, sizeof(output),
+                              &length, error, sizeof(error)) == 0);
+  CHECK(output[length - 1] == 0);
+  inspect_fixture(output, length);
+
+  edit.operation = FIXTURE_PACKET_RESIZE_BODY;
+  edit.argument = 0;
+  CHECK(fixture_packet_mutate(output, length, &edit, output, sizeof(output),
+                              &length, error, sizeof(error)) == 0);
+  CHECK(length == 2 && output[0] == 42 && output[1] == 0);
+  inspect_fixture(output, length);
+  CHECK(fixture_packet_mutate(empty, sizeof(empty), &edit, output, sizeof(output),
+                              &length, error, sizeof(error)) == 1);
+  CHECK(length == sizeof(empty) && !memcmp(output, empty, length));
+
+  edit.argument = 3;
+  edit.value = 'x';
+  memcpy(overlap, input, sizeof(input));
+  CHECK(fixture_packet_mutate(overlap, sizeof(input), &edit, overlap + 1,
+                              sizeof(overlap) - 1, &length, error, sizeof(error)) == 0);
+  CHECK(length == sizeof(grown) && !memcmp(overlap + 1, grown, length));
+  inspect_fixture(overlap + 1, length);
+  CHECK(fixture_packet_mutate(overlap + 1, length, &edit, overlap, sizeof(overlap),
+                              &length, error, sizeof(error)) == 1);
+  CHECK(length == sizeof(grown) && !memcmp(overlap, grown, length));
+
+  reject_fixture(input, sizeof(input), &edit, 4);
+  edit.argument = (size_t)-1;
+  reject_fixture(input, sizeof(input), &edit, sizeof(output));
+  edit.operation = FIXTURE_PACKET_SET_BYTE;
+  edit.argument = 2;
+  reject_fixture(input, sizeof(input), &edit, sizeof(output));
+  edit.argument = 0;
+  reject_fixture(empty, sizeof(empty), &edit, sizeof(output));
+  reject_fixture(input, sizeof(input), &edit, sizeof(input) - 1);
+  reject_fixture(input, 0, &edit, sizeof(output));
+  reject_fixture(input, 1, &edit, sizeof(output));
+  reject_fixture(bad_magic, sizeof(bad_magic), &edit, sizeof(output));
+  reject_fixture(bad_length, sizeof(bad_length), &edit, sizeof(output));
+  reject_fixture(trailing, sizeof(trailing), &edit, sizeof(output));
+  memset(oversized, 0, sizeof(oversized));
+  reject_fixture(oversized, sizeof(oversized), &edit, sizeof(output));
+  reject_fixture(NULL, 0, &edit, sizeof(output));
+  reject_fixture(input, sizeof(input), NULL, sizeof(output));
+  edit.operation = (enum fixture_packet_operation)999;
+  reject_fixture(input, sizeof(input), &edit, sizeof(output));
+
+  memset(output, 0xa5, sizeof(output));
+  memcpy(repeated, output, sizeof(output));
+  edit.operation = FIXTURE_PACKET_SET_BYTE;
+  CHECK(fixture_packet_mutate(input, sizeof(input), &edit, output, sizeof(output),
+                              NULL, error, sizeof(error)) == -1);
+  CHECK(!memcmp(output, repeated, sizeof(output)));
+  length = 99;
+  CHECK(fixture_packet_mutate(input, sizeof(input), &edit, NULL, 0,
+                              &length, error, sizeof(error)) == -1 && length == 0);
+  CHECK(fixture_packet_mutate(NULL, 0, &edit, output, sizeof(output),
+                              &length, &tiny, 0) == -1 && tiny == 'k');
+  CHECK(fixture_packet_mutate(NULL, 0, &edit, output, sizeof(output),
+                              &length, &tiny, 1) == -1 && tiny == 0);
 }
 
 /* These labels describe fictional producer records, not protocol traffic. */
@@ -749,12 +875,13 @@ int main(void) {
   test_json_rejections();
   test_json_output_and_files();
   test_layout();
+  test_fixture_mutations();
   test_observation_history();
   test_observation_prediction_and_pairing();
   test_observation_identity();
   test_observation_rejections();
   test_diagnostic_and_required_arguments();
   test_dispatcher();
-  printf("Native passive inspection checks passed: %zu\n", checks);
+  printf("Native local inspection and fixture checks passed: %zu\n", checks);
   return EXIT_SUCCESS;
 }

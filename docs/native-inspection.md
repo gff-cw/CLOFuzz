@@ -8,6 +8,8 @@
 
 现有 fuzzer 调用链、只读 API 的所有权和空参数/诊断契约，以及本轮修复与未执行测试的范围见[源码调用链与接口契约](source-call-chain-native-contracts.md)。
 
+本地测试程序另有[固定虚构夹具的 C 变换模块](native-fixture-mutation.md)，只在测试目标中链接，可供后续验证字段修改与长度一致性，不参与 fuzzer 执行循环。
+
 ## 文件与构建
 
 | 文件 | 职责 |

@@ -78,6 +78,8 @@ PROTOCOL_CODECS = $(wildcard protocol_codec_*.c)
 NATIVE_INSPECT_SOURCES = native_json.c native_layout.c native_observation.c native_inspect.c
 NATIVE_INSPECT_HEADERS = native_json.h native_inspect.h
 NATIVE_INSPECT_TEST_SOURCE = tests/native-inspection/test_native_inspection.c
+NATIVE_INSPECT_TEST_SUPPORT = tests/native-inspection/fixture_packet.c
+NATIVE_INSPECT_TEST_HEADERS = tests/native-inspection/fixture_packet.h
 NATIVE_INSPECT_TEST_BINARY = tests/native-inspection/test-native-inspection
 NATIVE_INSPECT_TEST_SANITIZED = tests/native-inspection/test-native-inspection-sanitized
 afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_codecs.h $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
@@ -87,17 +89,17 @@ afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_codecs.h $(P
 afl-protocol-inspect: afl-protocol-inspect.c $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
 	$(CC) $(CFLAGS) $< $(NATIVE_INSPECT_SOURCES) -o $@
 
-# Opt-in passive-module checks; neither all nor afl-fuzz runs these targets.
+# Opt-in local fixture/API checks; neither all nor afl-fuzz runs these targets.
 .PHONY: native-inspection-tests native-inspection-tests-sanitized check-native-inspection check-native-inspection-sanitized
 native-inspection-tests: $(NATIVE_INSPECT_TEST_BINARY)
 
-$(NATIVE_INSPECT_TEST_BINARY): $(NATIVE_INSPECT_TEST_SOURCE) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
-	$(CC) $(CFLAGS) -std=gnu11 -I. $< $(NATIVE_INSPECT_SOURCES) -o $@
+$(NATIVE_INSPECT_TEST_BINARY): $(NATIVE_INSPECT_TEST_SOURCE) $(NATIVE_INSPECT_TEST_SUPPORT) $(NATIVE_INSPECT_TEST_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
+	$(CC) $(CFLAGS) -std=gnu11 -I. $< $(NATIVE_INSPECT_TEST_SUPPORT) $(NATIVE_INSPECT_SOURCES) -o $@
 
 native-inspection-tests-sanitized: $(NATIVE_INSPECT_TEST_SANITIZED)
 
-$(NATIVE_INSPECT_TEST_SANITIZED): $(NATIVE_INSPECT_TEST_SOURCE) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
-	$(CC) $(CFLAGS) -std=gnu11 -O1 -fsanitize=address,undefined -fno-omit-frame-pointer -I. $< $(NATIVE_INSPECT_SOURCES) -o $@
+$(NATIVE_INSPECT_TEST_SANITIZED): $(NATIVE_INSPECT_TEST_SOURCE) $(NATIVE_INSPECT_TEST_SUPPORT) $(NATIVE_INSPECT_TEST_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
+	$(CC) $(CFLAGS) -std=gnu11 -O1 -fsanitize=address,undefined -fno-omit-frame-pointer -I. $< $(NATIVE_INSPECT_TEST_SUPPORT) $(NATIVE_INSPECT_SOURCES) -o $@
 
 check-native-inspection: native-inspection-tests
 	./$(NATIVE_INSPECT_TEST_BINARY)
