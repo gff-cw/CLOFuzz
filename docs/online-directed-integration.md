@@ -107,10 +107,12 @@ layer_feedback还写该候选的new_tuples/new_buckets，方便对账；protocol
 | native UDP/TCP/network sanitizer harness | 通过 | UDP原子发送、7000字节数据报、多数据报接收、TCP、LE32 replay及截断。 |
 | afl-fuzz C 构建 | 通过 | 当前直接bitmap反馈版本链接运行时、调度器、五个TCP codec与native inspect C模块。 |
 | 完整 tests/protocol/run_all.sh | 退出0，全部通过 | `tests/protocol/out/20261026-213134/`；compiler94、CLI15、templates14、model8、codecs22、multi-codec runtime13、analysis10、evidence22、description21、export1；包括上列scheduler、bitmap、runtime与network sanitizer。 |
+| BACnet驱动预算CLI回归 | 2/2测试通过 | 后续新增16个非法预算和2个help子用例，验证在输出创建/目标初始化前拒绝；已加入完整入口，现有analysis10项也通过；无C变异器改动。 |
 | 五个TCP adaptive campaigns | 各5秒，均通过fixture检查 | 真实fuzzer/socket/C codec/响应绑定和逐候选反馈统计对齐；不是工业server。 |
 | Modbus adaptive与uniform | 两边fixture通过；adaptive 96 executions / 3 paths / 0.41%，uniform 92 / 3 / 0.41% | 单种子短跑，不能证明提升。adaptive记录14个成功结构化序列、3个新tuple/45个新bucket；uniform选中并成功4次。 |
 | 早期 BACnet -E试跑 | 失败，未进入变异 | loopback初始化时IPSM报告“No server states have been detected”；后续诊断发现200ms启动等待早于目标UDP bind，该次失败仍保留。 |
 | 真实 BACnet 双请求 adaptive | 正常SIGINT退出0，ready后25.16秒 | HEAD/CONTENT/SEQUENCE成功构造5/6/5次；23次反馈含7次拒绝，新增13tuple/377bucket与快照对账；IPSM含0→1与1→1；单轮功能验证，不是对照收益证据。 |
+| 真实 BACnet 三轮配对对照 | 9/9正常退出、检查通过 | 每次15秒，raw/uniform/adaptive使用同一Vendor_Name种子与1s/5s预算；bitmap新增位置分别4/4/24、8/12/7、0/26/10；收益混合，不证明提升，见[对照结果](bacnet-adaptive-results.md)。 |
 
 五个TCP profile每个adaptive campaign都验证观察次数等于layer_feedback行数，并
 验证调度器累计tuple/bucket值等于逐候选日志计数之和。五者都执行了三层的成功
