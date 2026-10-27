@@ -43,19 +43,29 @@ Python `runtime_profile_signature` 纳入消息权重，与 C `equivalent_models
 每个新状态优先尝试尚未观察的启用层。之后各层的整数权重为：
 
 ```
-16 + floor(240 * accumulated_reward / (15 * attempts))
+16 + floor(240 * accumulated_reward / (24 * attempts))
 ```
 
-每层均有最低权重 16，最大 256。单个候选的事件按是否发生计一次：新入队 +2、
-新增内存状态 +4、独特 crash +8、独特 hang +1，总奖励不超过 15。
-这些工程权重尚无性能实验支撑。每个状态累计约 1024 次观察后，将尝试和奖励
-减半，保留近期结果的作用；全局诊断计数使用饱和加法防止溢出。
+每层均有最低权重16，最大256。单个候选的队列/状态/故障事件奖励分别为新入队+2、
+新增内存状态+4、独特crash+8、独特hang+1。状态以 has_new_bits(virgin_bits)
+发现的本次新覆盖位置和已有位置新 hit-count bucket 直接加覆盖奖励：
+min(8, 1 + floor(log2(new_tuples))) + (new_buckets > 0 ? 1 : 0)，单候选覆盖奖励
+至多9。tuple数量是原始StateAFL bitmap中新到达的位置数，bucket数量是旧位置的新
+分类数，两类互斥。总奖励上限24；真实计数在layer_feedback和全局调度快照中记录。
+每状态累计约1024次观察后，学习历史折半以保留近期结果；总计数饱和加法。
+
+覆盖采集挂在原has_new_bits路径，仅对完整发送后的当前执行开启，仅观察一次。
+测量在原位图被AFL消费之前；之后普通入队和位图保存仍走原代码。StateAFL状态分析
+和calibrate_case重放不会重复计数；timeout/crash专用virgin map、部分发送和拒绝
+候选不记作正常结构化覆盖反馈。新bucket会驱动层奖励，即使它未造成新queue entry。
+这直接联动AFL分类覆盖反馈，不等同按源代码边编号计数。
 
 ```mermaid
 flowchart LR
   S[原 StateAFL 选中内存状态] --> L[按状态选择变异层]
   L --> M[原 M2 替换与网络执行]
-  M --> R[原 save_if_interesting 与校准]
+  M --> C[原bitmap分类，计tuple与bucket增量]
+  C --> R[原 save_if_interesting 与校准]
   R --> D[检查入队 / 状态 / 独特故障增量]
   D --> O[对本次状态与层观察一次]
   O --> L
@@ -74,9 +84,42 @@ flowchart LR
 当前策略。固定 `--random-seed` 在相同反馈序列下提供可复现的整数抽样；网络和
 目标本身的非确定性不因此消失。
 
-新增 `test_schedule.c` 覆盖层掩码、探索、状态隔离、奖励、LRU、计数溢出和固定
-随机序列；`test_cli.py` 覆盖参数拒绝。完整协议脚本已加入独立调度器 sanitizer
-检查入口。本轮没有执行这些测试或构建该入口。
+覆盖反馈在完整候选发送后，紧邻原 has_new_bits(virgin_bits) 消费前采集。每个
+layer_feedback还写该候选的new_tuples/new_buckets，方便对账；protocol_schedule.json
+相应保存全局coverage_events与饱和累计数。discovery位16表示存在直接覆盖新增，
+裸位16不会产生覆盖奖励。
+
+新增 `test_schedule.c` 覆盖层掩码、探索、状态隔离、tuple/bucket奖励、LRU、计数溢出
+及固定随机序列；`test_feedback.c` 直接纳入 `afl-fuzz.c` 测真实 bitmap消费路径，验证
+新tuple/bucket分类、重复位图、crash/session map隔离和一次调度归因。15项CLI测试覆盖
+参数拒绝；完整协议脚本已加入scheduler和bitmap sanitizer检查。本次验证结果见下表。
+
+本次验证覆盖了先前AGENTS.md中的暂缓测试约定，实际运行结果如下：
+
+| 验证 | 结果 | 范围 |
+| --- | --- | --- |
+| 六协议描述检查 | 6/6通过 | schema、字段来源、消息/状态引用和一致性；没有编译执行器。 |
+| test_model_completeness.py | 8/8通过，约33.4秒 | 全部71个fixture独立解码、31请求encoder声明、损坏长度/计数拒绝、ForwardOpen前提和生成可复现；编译并调用5个TCP C validator，不启动设备。 |
+| generic native-inspection sanitized | 12,729项断言通过 | ASan/UBSan本地通用只读解释/观测/fixture API。 |
+| 完整run_runtime_tests.py | 84 loader case、250随机模型、25,000随机报文、100,096运行时断言、13项原子绑定断言及会话/依赖harness通过 | C runtime ASan/UBSan/LSan；重新生成只在临时目录。 |
+| scheduler ASan/UBSan | 通过 | 精确coverage reward、状态隔离、有界探索、LRU/decay、饱和及可复现RNG。 |
+| StateAFL bitmap反馈ASan/UBSan harness | 通过 | AFL bitmap consumer的新tuple和bucket计数、重复消费和分类图隔离。 |
+| native UDP/TCP/network sanitizer harness | 通过 | UDP原子发送、7000字节数据报、多数据报接收、TCP、LE32 replay及截断。 |
+| afl-fuzz C 构建 | 通过 | 当前直接bitmap反馈版本链接运行时、调度器、五个TCP codec与native inspect C模块。 |
+| 五个TCP adaptive campaigns | 各5秒，均通过fixture检查 | 真实fuzzer/socket/C codec/响应绑定和逐候选反馈统计对齐；不是工业server。 |
+| Modbus adaptive与uniform | 两边fixture通过；adaptive 96 executions / 3 paths / 0.41%，uniform 92 / 3 / 0.41% | 单种子短跑，不能证明提升。adaptive记录14个成功结构化序列、3个新tuple/45个新bucket；uniform选中并成功4次。 |
+| BACnet -E试跑 | 失败，未进入变异 | loopback初始化时IPSM报告“No server states have been detected”，没有BACnet adaptive验收结论。 |
+
+五个TCP profile每个adaptive campaign都验证观察次数等于layer_feedback行数，并
+验证调度器累计tuple/bucket值等于逐候选日志计数之和。五者都执行了三层的成功
+变异，但单轮层覆盖不能证明所有描述消息/字段都有变异器，也不能证明覆盖优化有效。
+带-E的Modbus fixture画出0->1和1->1 IPSM边；本次短时调度快照只命中state ID 0，
+未验证多个内存状态各自学到不同策略。
+
+该Modbus对照只有单种子/单短跑，coverage相同。当前证据证明direct bitmap反馈在线
+消费和归属有效，没有证明adaptive相对uniform提高coverage。要声称提升，需在BACnet
+Stack及多个目标上使用固定语料、构建、时长和StateAFL参数做配对多种子实验，记录
+coverage曲线、唯一edge/tuple、StateAFL memory states及每层有效发送率。
 
 ## 当前边界
 
