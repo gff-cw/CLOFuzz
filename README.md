@@ -329,21 +329,17 @@ The --inspect-layout/--inspect-input and --inspect-observations modes return
 before target setup and require no Python. These additions have not been built
 or run in this change; the generic directed mutation engine is not implemented.
 
-A protocol-independent [layout interpreter and decoder](docs/generic-offline-decoder.md)
-reads existing binary files using struct, scalar, bits, choice, repeat and
-bounded-container nodes. Its [editable template](protocols/templates/offline_layout.template.yaml)
-uses a separate versioned format and requires no per-protocol native codec.
-A [local field editor](docs/generic-offline-editor.md) applies explicit scalar,
-bit-field and equal-length content edits, then checks the complete layout and
-preserves unedited bits. It provides no automatic selection or target execution.
+A protocol-independent [C layout interpreter](docs/generic-offline-decoder.md)
+reads existing binary files using the [JSON template](protocols/templates/native_layout.template.json).
 The [dual-state model](docs/dual-state-observation-model.md) and
-[offline relation analyzer](docs/offline-state-relation.md) keep protocol evidence
-separate from memory-cluster labels and require explicit shared observation boundaries.
+[native observation report](docs/offline-state-relation.md) keep protocol evidence
+separate from memory-cluster labels and require declared shared observation boundaries.
 
-These offline modules have been written and statically reviewed; they have not
-been executed or tested in this change. The six existing profiles have not been
-migrated. The online decoder and mutation runtime below still use their existing
-scoped codecs; this change does not replace them.
+The earlier standalone Python decoder, field editor and observation analyzer,
+and their obsolete templates, have been removed. The native path is read-only;
+it does not replace the removed editor's byte-writing functionality. Existing
+YAML compilation, tests and evidence tools remain available. The six existing
+profiles and online mutation runtime still use their scoped codecs.
 
 ## Optional protocol description mutation (ICP-IR v1)
 

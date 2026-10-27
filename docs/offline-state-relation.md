@@ -1,14 +1,14 @@
 # 离线双状态关联记录
 
-`tools/offline_state_relation.py` 读取已有观测，只汇总显式对齐的证据。不推导状态转换、不修改 StateAFL 状态 ID，也不从旧数组下标补造对应关系。理论依据见[双状态观测模型](dual-state-observation-model.md)。
+[native_observation.c](../native_observation.c) 读取已有观测，逐事件保存生产者声明为对齐的证据。早期独立 Python 分析脚本已删除。模块不推导状态转换、不修改 StateAFL ID，也不从旧数组下标补造对应关系。理论依据见[双状态观测模型](dual-state-observation-model.md)。
 
 输入为 UTF-8 JSON，根对象固定为 `{"format":"stateafl.offline-observations","version":1,"events":[...]}`。命令行只读文件并向标准输出返回 JSON：
 
 ```bash
-python3 tools/offline_state_relation.py --input path/to/existing-observations.json
+./afl-fuzz --inspect-observations path/to/existing-observations.json
 ```
 
-Python API 为 `analyze(document)`。CLI 成功处理记录返回 0，格式错误返回 2。0 不表示协议符合性或执行成功；零条可关联观测也是合法报告。该格式不是当前 C runtime 的直接输出，旧共享状态数组不能被按序号补写成同步观测。
+C API 为 native_observation_inspect，声明及参数见 [native_inspect.h](../native_inspect.h) 和[原生入口说明](native-inspection.md)。CLI 成功处理记录返回 0，格式错误返回 2。0 不表示协议符合性或执行成功，零条关联观测也是合法报告。当前在线 runtime 不直接产生该输入，旧共享状态数组不能按序号补写成同步证据。本轮未构建或运行上述命令。
 
 ## 事件身份
 
@@ -72,12 +72,12 @@ boundary 必含：
 
 ## 输出及限制
 
-关系按 `(model_sha256, memory namespace, calibration_epoch, library_revision, run_id, session_id, session_epoch)` 分区。每条关系包含 protocol_states、memory_state_id、certainty、计数与原始证据引用。observed 的状态数组长度为 1；ambiguous 的集合不拆成多条确定关系，计数不是概率。允许两侧出现多对多对应。
+输出格式为 stateafl.native-state-observations/version 1。aligned_observations 按事件保留 protocol_states、certainty、模型摘要、run/session/epoch、memory 和 boundary 来源及完整 source_event；memory 包含 namespace、calibration_epoch、library_revision 和 state_id。每条记录保持这些身份，不自动合并。observed 的状态数组长度为 1，ambiguous 的集合不拆成确定关系，允许多对多对应。relations_aggregated=false 明确表示没有复刻旧 Python 的分组计数。
 
 报告另含 session 的当前类别与候选、历史确认、最近预测，以及跳过原因统计。未对齐或未确认的原始声明保存在 unpaired_observations 中，避免丢失任一侧证据。不提供跨运行自动合并、状态等价判定、事务重建或在线调度接口。
 
-CLI 文件上限 1 MiB，最多 10000 事件、65536 关系；候选至多 64 个且不重复，文本至多 256 字符。重复 JSON key、非有限数、布尔冒充整数及未知字段被拒绝。
+CLI 文件上限 1 MiB、最多 10000 事件；候选至多 64 个且不重复，文本至多 256 个 Unicode 字符。重复 JSON key、非整数或非有限数、布尔冒充整数及未知字段被拒绝。输入验证失败不输出成功报告，输出流失败可能留下部分字节并返回错误。
 
 marker、digest、关联与同步声明均来自生产者。模块只检查内部契约，不验证报文发生、目标身份、线程静止或重置完成。相同字符串不能制造真实因果证据；报告保留这一限制。多线程/异步事务的观测充分性和 scope 划分仍需上游证据。
 
-按用户要求，本轮没有运行工具或测试，只完成实现、文档和静态审阅。
+按用户要求，本轮没有运行状态检查程序、构建或测试，仅完成脚本移除、文档迁移和静态审阅；原生实现仍未经过运行验证。

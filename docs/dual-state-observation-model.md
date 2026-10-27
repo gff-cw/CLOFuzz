@@ -114,7 +114,7 @@ R[model_digest, memory_namespace, calibration_epoch]
 
 `run_id` 区分独立运行，`session_id` 区分协议作用域，`session_epoch` 区分该作用域的重建。它们不替代进程身份；多个连接可能共享同一进程内存。若输入来源没有这些信息，应标记缺失，不能从文件名、记录序号或协议状态名推测补全。
 
-关系统计至少按模型摘要、内存命名空间与校准 epoch 分区。当前离线实现还以参考库 library_revision、run_id、session_id 和 session_epoch 分区，保留原始边界来源，不自动跨运行汇总。后续比较若需要汇总，也必须保留这些身份，不能把前一运行的最后状态当成下一运行的初始状态。
+关系统计若需要汇总，至少应按模型摘要、内存命名空间与校准 epoch 分区。当前 C 报告逐事件保存 library_revision、run_id、session_id、session_epoch 及原始边界来源，不执行分组或跨运行汇总。后续比较必须保留这些身份，不能把前一运行的最后状态当成下一运行的初始状态。
 
 ## 8. 离线分析器的最小记录契约
 
@@ -129,7 +129,7 @@ R[model_digest, memory_namespace, calibration_epoch]
 | 共同边界 | `observation_id`、完成证据、静止或等价同步证据；证据来源可追溯 |
 | 生命周期 | 显式连接/会话重建与重置事件，重置范围及已知后置条件 |
 
-具体 Python 类型、JSON 字段及命令行形式以 [offline_state_relation.py](../tools/offline_state_relation.py) 的实现为准。这是独立离线记录契约，当前 C runtime 不直接生产上述记录。若旧产物缺少共同边界、epoch 或确认来源，该模块只能报告“无法确认关联”；不能据此报告运行失败，也不能补写历史事实。
+具体 JSON 校验、C 数据结构及报告以 [native_observation.c](../native_observation.c) 和[原生入口说明](native-inspection.md)为准。早期独立 Python 分析脚本已移除。当前 C 报告按事件保留观测，不自动聚合为跨作用域统计；在线 runtime 不直接生产上述记录。若旧产物缺少共同边界、epoch 或确认来源，记录仍应标为无法确认关联，不能补写历史事实或仅据此判定目标运行失败。
 
 离线模块的输入生产者必须承担证据真实性。结构校验通过只表示记录满足契约，不能从一个 JSON 字符串验证实际线程静止、二进制身份或响应真实发生。
 
