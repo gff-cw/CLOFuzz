@@ -3,6 +3,9 @@
 `test_native_inspection.c` calls the real `native_json`, `native_layout`,
 `native_observation` and shared `native_inspection_dispatch` APIs. All fixtures
 are fictional short layouts and producer-declared local observation records.
+The layout checks also call `native_layout_inspect_buffer` directly with borrowed
+JSON and byte buffers; this new entry point only decodes, validates and reports.
+It does not edit input, generate candidates, or implement a directed mutator.
 `fixture_packet.c/.h` additionally edit only the existing fictional packet
 `42 | body length (u8) | body`, with deterministic byte replacement and body
 resize operations. See the [fixture module contract](../../docs/native-fixture-mutation.md).
@@ -36,7 +39,9 @@ Neither build nor execution target is invoked by the default `all` target. The
 test source needs a POSIX environment for `mkdtemp`, `unlink` and `rmdir`. On a
 compiler without `__int128`, it checks the documented layout rejection and
 skips the layout semantic cases; JSON, fixture-edit, observation and dispatch
-checks remain. The suite contains eleven test groups.
+checks remain. The suite contains twelve test groups. The buffer-layout group
+checks required arguments and byte limits on every platform and skips its
+semantic cases when `__int128` is unavailable.
 
 | Test function | Intended checks, not yet executed |
 | --- | --- |
@@ -44,6 +49,7 @@ checks remain. The suite contains eleven test groups.
 | `test_json_rejections` | Duplicate decoded keys, malformed UTF-8/surrogates/escapes, unsupported numeric forms, trailing input, missing API arguments, excessive nesting, byte and node limits. |
 | `test_json_output_and_files` | Explicit-length string escaping, preserved raw value slices, Unicode surrogate-pair decoding, zero-byte file limit and failure output reset. |
 | `test_layout` | Fixed and enumerated scalars (`values`), lengths from prior fields, little-endian bit carriers, local reference shadowing, transparent choice/bounded references, truncation versus invalid complete bounded content, trailing bytes, invalid descriptions/expressions and decoded-field limits. |
+| `test_buffer_layout` | File/buffer report tree and metadata agreement (with distinct scope labels), unchanged borrowed inputs, explicit JSON lengths including a rejected trailing NUL, empty/invalid descriptions, empty NULL input for a zero-length layout, truncation and invalid content, exact/excessive JSON/input byte limits, reused diagnostics and caller-owned streams. |
 | `test_fixture_mutations` | Deterministic byte edits, resize with length repair, empty and 255-byte bodies, valid unchanged results, repeated results, exact/insufficient capacity, in-place and overlapping data buffers, invalid inputs/operations, optional diagnostics and failure atomicity; supported platforms also decode resulting fixtures through the existing C layout module. |
 | `test_observation_history` | Empty input, aligned producer records, timeout/partial/unmatched events clear current candidates while preserving historical confirmation. |
 | `test_observation_prediction_and_pairing` | Prediction never becomes confirmation; ambiguous candidates remain one grouped row; missing pair/synchronization, unaligned markers and zero/synthetic memory labels do not create aligned relations. |

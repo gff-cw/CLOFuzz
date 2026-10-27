@@ -31,6 +31,17 @@ void native_inspect_error(native_diagnostic *diagnostic, const char *status,
  * Return 0 for success, 1 for invalid observed content, 2 for input/description errors. */
 int native_layout_inspect(const char *layout_path, const char *input_path,
                           FILE *out, native_diagnostic *diagnostic);
+/* Read-only in-memory equivalent of native_layout_inspect. layout_json, out
+ * and diagnostic are required. input may be NULL only when input_length==0.
+ * Each byte range is limited to 1 MiB and remains caller-owned and unchanged;
+ * JSON is copied internally. No files are read or created. Return/diagnostic
+ * and stream ownership follow the file API above. The report uses an in-memory
+ * scope label; all other report fields have the same meanings. Inputs must
+ * remain stable until return. Diagnostic and report output storage must not
+ * overlap either input range. */
+int native_layout_inspect_buffer(const unsigned char *layout_json, size_t layout_length,
+                                 const unsigned char *input, size_t input_length,
+                                 FILE *out, native_diagnostic *diagnostic);
 int native_observation_inspect(const char *input_path, FILE *out,
                                native_diagnostic *diagnostic);
 

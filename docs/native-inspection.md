@@ -10,12 +10,14 @@
 
 本地测试程序另有[固定虚构夹具的 C 变换模块](native-fixture-mutation.md)，只在测试目标中链接，可供后续验证字段修改与长度一致性，不参与 fuzzer 执行循环。
 
+C 调用方也可使用[内存缓冲区只读接口](native-buffer-inspection.md)，复用同一布局解释器直接检查已有字节，无需临时输入文件；该接口不生成或编辑候选。
+
 ## 文件与构建
 
 | 文件 | 职责 |
 | --- | --- |
 | native_json.c / native_json.h | 严格有界 JSON、整数、Unicode、属性校验及报告输出 |
-| native_layout.c | 通用节点解释、字段解码和约束检查 |
+| native_layout.c | 通用节点解释、字段解码和约束检查，支持文件和内存入口 |
 | native_observation.c | 双状态声明校验、会话历史及关联证据管理 |
 | native_inspect.c / native_inspect.h | 共用本地检查参数及诊断 |
 | afl-fuzz.c | main 起始分派，检查后返回，不进入原目标初始化 |

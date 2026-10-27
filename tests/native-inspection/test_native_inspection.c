@@ -358,6 +358,159 @@ static void test_layout(void) {
 #endif
 }
 
+static nj_document *buffer_layout_case(const unsigned char *layout, size_t layout_length,
+                                       const unsigned char *input, size_t input_length,
+                                       int expected, const char *status) {
+  FILE *out = tmpfile();
+  native_diagnostic diagnostic;
+  nj_document *report = NULL;
+  CHECK(out != NULL);
+  memset(&diagnostic, 0xa5, sizeof(diagnostic));
+  CHECK(native_layout_inspect_buffer(layout, layout_length, input, input_length,
+                                     out, &diagnostic) == expected);
+  safe_diagnostic(&diagnostic);
+  if (expected == 0) {
+    empty_diagnostic(&diagnostic);
+    report = stream_document(out);
+    CHECK(nj_string_equal(nj_get(report->root, "format"), "stateafl.native-decode"));
+    CHECK(nj_string_equal(nj_get(report->root, "status"), "decoded"));
+    CHECK(unsigned_value(nj_get(report->root, "input_length")) == input_length);
+    CHECK(unsigned_value(nj_get(report->root, "consumed")) == input_length);
+  } else {
+    CHECK(ftell(out) == 0);
+    CHECK(strcmp(diagnostic.status, status) == 0 && diagnostic.message[0]);
+  }
+  /* The API borrows the stream; positioning permits writing after report reads. */
+  CHECK(fseek(out, 0, SEEK_END) == 0);
+  CHECK(fputs("caller still owns stream", out) >= 0);
+  CHECK(fclose(out) == 0);
+  return report;
+}
+
+static void test_buffer_layout(void) {
+  const char *prefix = "{\"format\":\"stateafl.offline-layout\",\"version\":1,\"root\":";
+  char *layout = join_text(prefix, fixture_packet_layout, "}");
+  const size_t layout_length = strlen(layout);
+  unsigned char input[] = {42, 2, 'a', 'b'};
+  char *large_layout = malloc(NJ_MAX_BYTES + 1);
+  unsigned char *large_input = malloc(NJ_MAX_BYTES + 1);
+  native_diagnostic diagnostic;
+  FILE *out;
+  CHECK(large_layout != NULL && large_input != NULL);
+  memset(large_layout, ' ', NJ_MAX_BYTES + 1);
+  memcpy(large_layout, layout, layout_length);
+  memset(large_input, 0, NJ_MAX_BYTES + 1);
+
+#if defined(__SIZEOF_INT128__)
+  const unsigned char original_input[] = {42, 2, 'a', 'b'};
+  unsigned char wrong_magic[] = {41, 2, 'a', 'b'};
+  unsigned char *original_layout = malloc(layout_length + 1);
+  char *empty_layout = join_text(prefix,
+      "{\"kind\":\"bytes\",\"id\":\"empty\",\"length\":0,\"encoding\":\"hex\"}", "}");
+  const size_t empty_length = strlen(empty_layout);
+  nj_document *memory_report, *file_report;
+  const nj_value *memory_tree, *file_tree;
+  static const char *const report_numbers[] = {"version", "input_length", "consumed", "decoded_fields"};
+  static const char *const report_strings[] = {"format", "status", "digest_contract"};
+  size_t index;
+  CHECK(original_layout != NULL);
+  memcpy(original_layout, layout, layout_length + 1);
+  memory_report = buffer_layout_case((unsigned char *)layout, layout_length,
+                                     input, sizeof(input), 0, NULL);
+  CHECK(!memcmp(layout, original_layout, layout_length + 1));
+  CHECK(!memcmp(input, original_input, sizeof(input)));
+  file_report = layout_case(fixture_packet_layout, input, sizeof(input), 0, NULL);
+  CHECK(nj_string_equal(nj_get(memory_report->root, "scope"), "passive in-memory structural inspection"));
+  CHECK(nj_string_equal(nj_get(file_report->root, "scope"), "passive local-file structural inspection"));
+  for (index = 0; index < sizeof(report_numbers) / sizeof(report_numbers[0]); index++)
+    CHECK(unsigned_value(nj_get(memory_report->root, report_numbers[index])) ==
+          unsigned_value(nj_get(file_report->root, report_numbers[index])));
+  for (index = 0; index < sizeof(report_strings) / sizeof(report_strings[0]); index++) {
+    const nj_value *text = nj_get(file_report->root, report_strings[index]);
+    CHECK(text != NULL && text->type == NJ_STRING);
+    CHECK(nj_string_equal(nj_get(memory_report->root, report_strings[index]), text->text));
+  }
+  memory_tree = nj_get(memory_report->root, "tree");
+  file_tree = nj_get(file_report->root, "tree");
+  CHECK(memory_tree != NULL && file_tree != NULL);
+  CHECK(memory_tree->end - memory_tree->start == file_tree->end - file_tree->start);
+  CHECK(!memcmp(memory_report->source + memory_tree->start,
+                file_report->source + file_tree->start,
+                memory_tree->end - memory_tree->start));
+  nj_free(memory_report);
+  nj_free(file_report);
+
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             input, sizeof(input) - 1, 1, "truncated"));
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             wrong_magic, sizeof(wrong_magic), 1, "invalid"));
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             input, 0, 1, "truncated"));
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             NULL, 0, 1, "truncated"));
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length + 1,
+                             input, sizeof(input), 2, "invalid_description"));
+  nj_free(buffer_layout_case((unsigned char *)"", 0,
+                             input, sizeof(input), 2, "invalid_description"));
+  nj_free(buffer_layout_case((unsigned char *)"{", 1,
+                             input, sizeof(input), 2, "invalid_description"));
+  nj_free(buffer_layout_case((unsigned char *)"{}", 2,
+                             input, sizeof(input), 2, "invalid_description"));
+  nj_free(buffer_layout_case((unsigned char *)empty_layout, empty_length,
+                             NULL, 0, 0, NULL));
+  nj_free(buffer_layout_case((unsigned char *)empty_layout, empty_length,
+                             input, sizeof(input), 1, "invalid"));
+  nj_free(buffer_layout_case((unsigned char *)large_layout, NJ_MAX_BYTES,
+                             input, sizeof(input), 0, NULL));
+  /* At the byte limit, parsing proceeds and rejects trailing content. */
+  nj_free(buffer_layout_case((unsigned char *)empty_layout, empty_length,
+                             large_input, NJ_MAX_BYTES, 1, "invalid"));
+  CHECK(!memcmp(layout, original_layout, layout_length + 1));
+  CHECK(!memcmp(input, original_input, sizeof(input)));
+  free(empty_layout);
+  free(original_layout);
+#else
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             input, sizeof(input), 2, "unsupported_platform"));
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             NULL, 0, 2, "unsupported_platform"));
+  nj_free(buffer_layout_case((unsigned char *)large_layout, NJ_MAX_BYTES,
+                             large_input, NJ_MAX_BYTES, 2, "unsupported_platform"));
+#endif
+
+  nj_free(buffer_layout_case((unsigned char *)large_layout, NJ_MAX_BYTES + 1,
+                             NULL, 0, 2, "input_error"));
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             large_input, NJ_MAX_BYTES + 1, 2, "input_error"));
+  nj_free(buffer_layout_case(NULL, 0, input, sizeof(input), 2, "input_error"));
+  nj_free(buffer_layout_case((unsigned char *)layout, layout_length,
+                             NULL, 1, 2, "input_error"));
+  out = tmpfile();
+  CHECK(out != NULL);
+  memset(&diagnostic, 0xa5, sizeof(diagnostic));
+  CHECK(native_layout_inspect_buffer((unsigned char *)layout, layout_length,
+                                     input, sizeof(input), NULL, &diagnostic) == 2);
+  safe_diagnostic(&diagnostic);
+  CHECK(strcmp(diagnostic.status, "input_error") == 0);
+  CHECK(native_layout_inspect_buffer((unsigned char *)layout, layout_length,
+                                     input, sizeof(input), out, NULL) == 2);
+  CHECK(ftell(out) == 0);
+#if defined(__SIZEOF_INT128__)
+  CHECK(native_layout_inspect_buffer((unsigned char *)layout, layout_length,
+                                     input, sizeof(input), out, &diagnostic) == 0);
+  empty_diagnostic(&diagnostic);
+#else
+  CHECK(native_layout_inspect_buffer((unsigned char *)layout, layout_length,
+                                     input, sizeof(input), out, &diagnostic) == 2);
+  CHECK(strcmp(diagnostic.status, "unsupported_platform") == 0);
+#endif
+  CHECK(fputs("caller still owns stream", out) >= 0);
+  CHECK(fclose(out) == 0);
+  free(large_input);
+  free(large_layout);
+  free(layout);
+}
+
 static void inspect_fixture(const unsigned char *bytes, size_t length) {
 #if defined(__SIZEOF_INT128__)
   nj_free(layout_case(fixture_packet_layout, bytes, length, 0, NULL));
@@ -875,6 +1028,7 @@ int main(void) {
   test_json_rejections();
   test_json_output_and_files();
   test_layout();
+  test_buffer_layout();
   test_fixture_mutations();
   test_observation_history();
   test_observation_prediction_and_pairing();
