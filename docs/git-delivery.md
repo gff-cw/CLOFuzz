@@ -32,3 +32,26 @@
 | `2bdfeb1` | 独立描述包核验及索引 |
 
 恢复开始时另有 55 个 tracked 文件修改和 14 个 untracked 文件，包含五 TCP codec 与相关集成。它们已落盘，但不属于上述 HEAD；IEC104 功能测试异常退出，最新 BACnet legacy 初始化超时，完整验收未通过。恢复后的只读核验工具和文档修订也尚未提交。不得据此声明新扩展已经提交或推送。
+
+## 在线 StateAFL 反馈调度交付（2026-10-26）
+
+继续在上述功能分支工作，执行 `git fetch origin` 后合并远程 `origin/main`，
+再按本地 `AGENTS.md` 要求将各独立功能提交推送至原远程分支。没有改写历史。
+
+| 提交 | 内容 |
+| --- | --- |
+| `85f1f81` | 将所有网络接收增量送入协议响应运行时 |
+| `4ce4d18` | 合并远程 `origin/main` |
+| `1b3d321` | 原子化会话绑定、同步 Python/C alias 权重契约及文档/回归源码 |
+| `9d541f4` | 增加可选的按 StateAFL 内存状态学习变异层调度 |
+| `fe01dc4` | 精确限定本次 M2 完整发送统计，保留刻意损坏的字节 |
+
+最终提交 `fe01dc4a34b25962da82c84a9590e5ac9c8ca495` 已推送。推送后通过
+`git ls-remote --heads origin feature/protocol-aware-integration-20261025`
+核实远端 tip 与本地相同，工作区无未提交更改。
+
+新增 `--protocol-schedule adaptive` 为显式 opt-in；默认 `uniform` 保留旧选层。
+新增 scheduler、runtime 事务/API、别名权重、CLI 和网络集成回归源码。根据当前
+`AGENTS.md` 的测试延期要求，本轮未构建、未运行测试或目标服务；只完成 Git 差异、
+Python AST、shell 语法及静态源码检查。此前 IEC104 异常及 BACnet 启动超时的历史
+限制仍然成立；这次推送不构成工业目标互通或覆盖收益证据。
