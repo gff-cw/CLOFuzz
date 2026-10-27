@@ -192,8 +192,12 @@ def run_campaign(args, work, codec, target, library, env, model):
                '-K', '-m', 'none', '-t', '1000',
                '--protocol-spec', str(spec / 'protocol_ir.json'), '--state-spec', str(spec / 'state_ir.json'),
                '--mutation-mode', 'valid', '--mutation-layers', args.layers,
+               '--protocol-schedule', args.schedule,
                '--random-seed', '20261025', '--protocol-save-candidates', '24',
                '--', str(target), codec, str(port), str(trace_path)]
+    if args.state_aware:
+        at = command.index('--')
+        command[at:at] = ['-E', '-q', '3', '-s', '3']
     (folder / 'command.json').write_text(json.dumps(command, indent=2) + '\n')
     started, ready = time.monotonic(), None
     print(f'START {codec}: TCP {port}', flush=True)
@@ -222,11 +226,15 @@ def run_campaign(args, work, codec, target, library, env, model):
     protocol = json.loads(protocol_path.read_text()) if protocol_path.exists() else {}
     wire = inspect_trace(trace_path, codec, model, library)
     events, layers = Counter(), Counter()
+    feedback = []
     mutation_log = output / 'protocol_mutations.jsonl'
     if mutation_log.exists():
         for line in mutation_log.read_text().splitlines():
             event = json.loads(line); events[event['event']] += 1
             if event['event'] == 'mutation': layers[event['layer']] += 1
+            if event['event'] == 'layer_feedback': feedback.append(event)
+    schedule_path = output / 'protocol_schedule.json'
+    schedule = json.loads(schedule_path.read_text()) if schedule_path.exists() else {}
     checks = dict(ready=ready is not None, clean_stop=status == 0,
                   executions_continue=int(stats.get('execs_done', 0)) > 4,
                   structured_mutations=int(stats.get('protocol_structured', 0)) > 0,
@@ -237,6 +245,12 @@ def run_campaign(args, work, codec, target, library, env, model):
                   no_trace_errors=wire['invalid_json'] == 0,
                   no_crashes=int(stats.get('unique_crashes', 0)) == 0,
                   no_hangs=int(stats.get('unique_hangs', 0)) == 0)
+    if args.schedule == 'adaptive':
+        checks['adaptive_observations'] = schedule.get('observations', 0) > 0
+        checks['feedback_exactly_once'] = schedule.get('observations', -1) == len(feedback)
+        checks['coverage_count_matches_log'] = (
+            schedule.get('new_tuples', -1) == sum(e.get('new_tuples', 0) for e in feedback)
+            and schedule.get('new_buckets', -1) == sum(e.get('new_buckets', 0) for e in feedback))
     if codec in HANDLES:
         checks['live_bindings_sent'] = wire['correct_bound_requests'] > 0
         # Raw calibration uses the captured handle1; structured executions
@@ -245,7 +259,7 @@ def run_campaign(args, work, codec, target, library, env, model):
     result = dict(codec=codec, passed=all(checks.values()), checks=checks, command=command,
                   exit_code=status, seconds=round(time.monotonic() - started, 3),
                   stats=stats, protocol_stats=protocol, wire=wire,
-                  events=dict(events), layers=dict(layers))
+                  events=dict(events), layers=dict(layers), schedule=schedule)
     (folder / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     print(f'END {codec}: passed={result["passed"]} execs={stats.get("execs_done")} structured={stats.get("protocol_structured")} wire_changed={wire["changed_mutable_requests"]}', flush=True)
     if not result['passed']:
@@ -261,6 +275,8 @@ def main():
     parser.add_argument('--startup-usecs', type=int, default=20000)
     parser.add_argument('--codecs', default=','.join(PROFILES))
     parser.add_argument('--layers', default='head,content,sequence')
+    parser.add_argument('--schedule', choices=('uniform', 'adaptive'), default='uniform')
+    parser.add_argument('--state-aware', action='store_true')
     args = parser.parse_args()
     work = args.output.resolve(); work.mkdir(parents=True, exist_ok=False)
     selected = args.codecs.split(',')

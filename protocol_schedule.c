@@ -6,6 +6,10 @@ static uint64_t increment(uint64_t value) {
   return value == UINT64_MAX ? value : value + 1;
 }
 
+static uint64_t saturating_add(uint64_t value, uint64_t amount) {
+  return amount > UINT64_MAX - value ? UINT64_MAX : value + amount;
+}
+
 static int layer_index(int layer) {
   return layer == PROTO_HEAD ? 0 : layer == PROTO_CONTENT ? 1 :
          layer == PROTO_SEQUENCE ? 2 : -1;
@@ -55,7 +59,8 @@ int proto_schedule_weights(const proto_schedule *s, uint32_t state_id,
     if (!(layers & (1 << i))) continue;
     weights[i] = 16;
     if (entry && entry->attempts[i])
-      weights[i] += 240u * entry->rewards[i] / (15u * entry->attempts[i]);
+      weights[i] += 240u * entry->rewards[i] /
+                    (PROTO_SCHEDULE_MAX_REWARD * entry->attempts[i]);
   }
   return 0;
 }
@@ -81,6 +86,12 @@ int proto_schedule_choose(proto_schedule *s, uint32_t state_id,
 
 void proto_schedule_observe(proto_schedule *s, uint32_t state_id,
                             int layer, unsigned events) {
+  proto_schedule_observe_outcome(s, state_id, layer, events, 0, 0);
+}
+
+void proto_schedule_observe_outcome(proto_schedule *s, uint32_t state_id,
+                                    int layer, unsigned events,
+                                    uint32_t new_tuples, uint32_t new_buckets) {
   int index = layer_index(layer);
   if (!s || index < 0) return;
   proto_schedule_entry *entry = touch_entry(s, state_id);
@@ -97,24 +108,41 @@ void proto_schedule_observe(proto_schedule *s, uint32_t state_id,
                     ((events & PROTO_FEEDBACK_MEMORY) ? 4 : 0) +
                     ((events & PROTO_FEEDBACK_CRASH) ? 8 : 0) +
                     ((events & PROTO_FEEDBACK_HANG) ? 1 : 0);
+  unsigned coverage_reward = new_buckets ? 1 : 0;
+  if (new_tuples) {
+    unsigned tuple_reward = 1;
+    for (uint32_t remaining = new_tuples; remaining > 1 && tuple_reward < 8;
+         remaining >>= 1)
+      tuple_reward++;
+    coverage_reward += tuple_reward;
+  }
+  reward += coverage_reward;
+  if (new_tuples || new_buckets) events |= PROTO_FEEDBACK_COVERAGE;
   entry->attempts[index]++;
   entry->rewards[index] += reward;
   s->observations = increment(s->observations);
   if (reward) s->rewarded = increment(s->rewarded);
-  for (unsigned i = 0; i < 4; i++)
+  for (unsigned i = 0; i < 5; i++)
     if (events & (1u << i)) s->events[i] = increment(s->events[i]);
+  s->new_tuples = saturating_add(s->new_tuples, new_tuples);
+  s->new_buckets = saturating_add(s->new_buckets, new_buckets);
 }
 
 void proto_schedule_write(const proto_schedule *s, FILE *f) {
   if (!s || !f) return;
   fprintf(f, "{\"policy\":\"adaptive\",\"capacity\":%u,\"window_limit\":%u,"
+          "\"max_reward\":%u,"
           "\"observations\":%" PRIu64 ",\"rewarded\":%" PRIu64 ","
           "\"queue_events\":%" PRIu64 ",\"memory_events\":%" PRIu64 ","
           "\"crash_events\":%" PRIu64 ",\"hang_events\":%" PRIu64 ","
+          "\"coverage_events\":%" PRIu64 ",\"new_tuples\":%" PRIu64 ","
+          "\"new_buckets\":%" PRIu64 ","
           "\"evictions\":%" PRIu64 ",\"states\":[",
           (unsigned)PROTO_SCHEDULE_SLOTS, (unsigned)PROTO_SCHEDULE_WINDOW,
+          (unsigned)PROTO_SCHEDULE_MAX_REWARD,
           s->observations, s->rewarded, s->events[0], s->events[1],
-          s->events[2], s->events[3], s->evictions);
+          s->events[2], s->events[3], s->events[4], s->new_tuples,
+          s->new_buckets, s->evictions);
   unsigned written = 0;
   for (unsigned i = 0; i < PROTO_SCHEDULE_SLOTS; i++) {
     const proto_schedule_entry *entry = &s->entries[i];

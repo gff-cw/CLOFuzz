@@ -9,6 +9,14 @@ clang -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
   -fno-omit-frame-pointer -I. tests/protocol/test_schedule.c protocol_schedule.c \
   -o "$protocol_test_output/schedule-test" > "$protocol_test_output/schedule-build.log" 2>&1
 "$protocol_test_output/schedule-test" > "$protocol_test_output/schedule.log" 2>&1
+clang -std=gnu11 -O1 -g -Wno-pointer-sign -Wno-unused-result \
+  -DAFL_PATH='"."' -DBIN_PATH='"/usr/bin"' -DDOC_PATH='"docs"' \
+  -fsanitize=address,undefined -fno-omit-frame-pointer -I. \
+  tests/protocol/test_feedback.c protocol_runtime.c protocol_schedule.c \
+  protocol_codec_*.c native_json.c native_layout.c native_observation.c native_inspect.c \
+  aflnet.c -ldl -lgvc -lcgraph -lm -o "$protocol_test_output/feedback-test" \
+  > "$protocol_test_output/feedback-build.log" 2>&1
+"$protocol_test_output/feedback-test" > "$protocol_test_output/feedback.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_compiler.py -v > "$protocol_test_output/compiler.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_cli.py -v > "$protocol_test_output/cli.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_templates.py -v > "$protocol_test_output/templates.log" 2>&1

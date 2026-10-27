@@ -130,6 +130,9 @@ static u64 protocol_raw_runs, protocol_structured_runs, protocol_rejections;
 static u32 protocol_structured_sent;
 static u8 protocol_adaptive;
 static proto_schedule protocol_scheduler;
+/* Only populated for the first execution of an adaptive candidate. */
+static u8 protocol_collect_coverage;
+static u32 protocol_new_tuples, protocol_new_buckets;
 static u8 fixed_random_seed, experiment_active;
 static u32 experiment_seed, protocol_candidate_limit, protocol_candidates_saved;
 static u8 *protocol_candidate_dir;
@@ -2348,6 +2351,17 @@ static inline u8 has_new_bits(u8* virgin_map) {
        almost always be the case. */
 
     if (unlikely(*current) && unlikely(*current & *virgin)) {
+
+      /* Observe the same classified bitmap novelty that AFL consumes below.
+         Do not clear bits twice or count later calibration/state replays. */
+      if (protocol_collect_coverage && virgin_map == virgin_bits) {
+        u8 *cur_bytes = (u8 *)current, *vir_bytes = (u8 *)virgin;
+        for (u32 byte = 0; byte < sizeof(*current); byte++) {
+          if (!(cur_bytes[byte] & vir_bytes[byte])) continue;
+          if (vir_bytes[byte] == 0xff) protocol_new_tuples++;
+          else protocol_new_buckets++;
+        }
+      }
 
       if (likely(ret < 2)) {
 
@@ -5010,7 +5024,9 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
 
-    if (!(hnb = has_new_bits(virgin_bits))) {
+    hnb = has_new_bits(virgin_bits);
+    protocol_collect_coverage = 0;
+    if (!hnb) {
       if (crash_mode) total_crashes++;
       return 0;
     }
@@ -6537,12 +6553,16 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
 
 /* Credit a candidate once, after all ordinary retention and calibration work.
    Replays within save_if_interesting never choose or observe another layer. */
-static void protocol_observe_candidate(u32 state, int layer, unsigned events) {
+static void protocol_observe_candidate(u32 state, int layer, unsigned events,
+                                       u32 tuples, u32 buckets) {
   if (!layer) return;
-  proto_schedule_observe(&protocol_scheduler, state, layer, events);
+  if (tuples || buckets) events |= PROTO_FEEDBACK_COVERAGE;
+  proto_schedule_observe_outcome(&protocol_scheduler, state, layer, events,
+                                 tuples, buckets);
   if (protocol_log)
     fprintf(protocol_log, "{\"event\":\"layer_feedback\",\"memory_state_id\":%u,"
-            "\"layer_id\":%d,\"discoveries\":%u}\n", state, layer, events);
+            "\"layer_id\":%d,\"discoveries\":%u,\"new_tuples\":%u,"
+            "\"new_buckets\":%u}\n", state, layer, events, tuples, buckets);
 }
 
 EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
@@ -6561,7 +6581,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
     protocol_regions = protocol_prepare(&out_buf, &len, &protocol_count,
                                         &feedback_layer, &feedback_state);
     if (!protocol_regions) {
-      protocol_observe_candidate(feedback_state, feedback_layer, 0);
+      protocol_observe_candidate(feedback_state, feedback_layer, 0, 0, 0);
       feedback_layer = 0;
       if (!protocol_fallback) return 0;
     }
@@ -6667,7 +6687,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   if (state_aware_mode) update_fuzzs();
 
   if (stop_soon) {
-    protocol_observe_candidate(feedback_state, feedback_layer, 0);
+    protocol_observe_candidate(feedback_state, feedback_layer, 0, 0, 0);
     return 1;
   }
 
@@ -6675,7 +6695,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
     if (subseq_tmouts++ > TMOUT_LIMIT) {
       cur_skipped_paths++;
-      protocol_observe_candidate(feedback_state, feedback_layer, 0);
+      protocol_observe_candidate(feedback_state, feedback_layer, 0, 0, 0);
       return 1;
     }
 
@@ -6688,21 +6708,25 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
      skip_requested = 0;
      cur_skipped_paths++;
-     protocol_observe_candidate(feedback_state, feedback_layer, 0);
+     protocol_observe_candidate(feedback_state, feedback_layer, 0, 0, 0);
      return 1;
 
   }
 
   /* This handles FAULT_ERROR for us: */
 
+  protocol_new_tuples = protocol_new_buckets = 0;
+  protocol_collect_coverage = feedback_layer && feedback_delivered && fault == crash_mode;
   queued_discovered += save_if_interesting(argv, out_buf, len, fault);
+  protocol_collect_coverage = 0;
   unsigned discoveries = 0;
   if (queued_paths > feedback_queue_before) discoveries |= PROTO_FEEDBACK_QUEUE;
   if (state_ids_count > feedback_states_before) discoveries |= PROTO_FEEDBACK_MEMORY;
   if (unique_crashes > feedback_crashes_before) discoveries |= PROTO_FEEDBACK_CRASH;
   if (unique_hangs > feedback_hangs_before) discoveries |= PROTO_FEEDBACK_HANG;
   protocol_observe_candidate(feedback_state, feedback_layer,
-                             feedback_delivered ? discoveries : 0);
+                             feedback_delivered ? discoveries : 0,
+                             protocol_new_tuples, protocol_new_buckets);
 
   if (!(stage_cur % stats_update_freq) || stage_cur + 1 == stage_max)
     show_stats();

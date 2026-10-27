@@ -185,9 +185,11 @@ def main():
         transactional['messages'][1]['dependencies'] = [
             d for d in transactional['messages'][1]['dependencies']
             if d['op'] != 'bind_from_response']
+        next(field for field in transactional['messages'][1]['fields']
+             if field['id'] == 'property_id')['mutability'] = 'runtime_bound'
         transactional['messages'][1]['dependencies'].extend([
             dict(op='sequence_number', target='invoke_id', source='$message'),
-            dict(op='bind_from_response', target='object_id', source='object_id',
+            dict(op='bind_from_response', target='property_id', source='invoke_id',
                  message='read_property_ack'),
         ])
         transactional['messages'][2]['dependencies'] = [
