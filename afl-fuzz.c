@@ -1479,6 +1479,21 @@ void wait_for_state_sequence(void) {
 
 
 
+/* Observe every appended response byte exactly once, including bytes received
+   before an error and the final drain. TCP framing stays in the runtime. */
+static int receive_network_responses(int sockfd, struct timeval timeout,
+                                    u32 poll_wait_msecs_total) {
+  u32 previous_size = response_buf_size;
+  int result = net_recv(sockfd, timeout, poll_wait_msecs_total,
+                        &response_buf, &response_buf_size);
+
+  if (protocol_engine && response_buf_size > previous_size)
+    proto_after_response(protocol_engine, (u8 *)response_buf + previous_size,
+                         response_buf_size - previous_size);
+
+  return result;
+}
+
 /* Send (mutated) messages in order to the server under test */
 int send_over_network()
 {
@@ -1581,7 +1596,7 @@ int send_over_network()
 
   //retrieve early server response if needed
   messages_sent = 0;
-  if (net_recv(sockfd, timeout, poll_wait_msecs_total, &response_buf, &response_buf_size)) goto HANDLE_RESPONSES;
+  if (receive_network_responses(sockfd, timeout, poll_wait_msecs_total)) goto HANDLE_RESPONSES;
 
   //write the request messages
   kliter_t(lms) *it;
@@ -1619,15 +1634,12 @@ int send_over_network()
 
     //retrieve server response
     u32 prev_buf_size = response_buf_size;
-    if (net_recv(sockfd, timeout, poll_wait_msecs_total, &response_buf, &response_buf_size)) {
+    if (receive_network_responses(sockfd, timeout, poll_wait_msecs_total)) {
       goto HANDLE_RESPONSES;
     }
 
     //Update accumulated response buffer size
     response_bytes[messages_sent - 1] = response_buf_size;
-    if (protocol_engine && response_buf_size > prev_buf_size)
-      proto_after_response(protocol_engine, (u8 *)response_buf + prev_buf_size,
-                           response_buf_size - prev_buf_size);
 
     //set likely_buggy flag if AFLNet does not receive any feedback from the server
     //it could be a signal of a potentiall server crash, like the case of CVE-2019-7314
@@ -1637,7 +1649,7 @@ int send_over_network()
 
 HANDLE_RESPONSES:
 
-  net_recv(sockfd, timeout, poll_wait_msecs_total, &response_buf, &response_buf_size);
+  receive_network_responses(sockfd, timeout, poll_wait_msecs_total);
 
   if (messages_sent > 0 && response_bytes != NULL) {
     response_bytes[messages_sent - 1] = response_buf_size;
