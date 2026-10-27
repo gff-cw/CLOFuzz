@@ -6,6 +6,8 @@
 
 五套现有 TCP YAML 与本入口并非同一种可执行格式，不能仅把 YAML 转成 JSON 后直接使用。当前静态核对结果和各 profile 限制见[五协议 YAML 审查](five-protocol-yaml-readiness.md)。
 
+现有 fuzzer 调用链、只读 API 的所有权和空参数/诊断契约，以及本轮修复与未执行测试的范围见[源码调用链与接口契约](source-call-chain-native-contracts.md)。
+
 ## 文件与构建
 
 | 文件 | 职责 |

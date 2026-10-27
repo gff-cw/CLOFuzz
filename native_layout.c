@@ -11,7 +11,11 @@
 #if !defined(__SIZEOF_INT128__)
 int native_layout_inspect(const char *layout_path, const char *input_path,
                           FILE *out, native_diagnostic *diagnostic) {
-  (void)layout_path; (void)input_path; (void)out;
+  if (diagnostic) memset(diagnostic, 0, sizeof(*diagnostic));
+  if (!layout_path || !input_path || !out || !diagnostic) {
+    native_inspect_error(diagnostic, "input_error", "", 0, "missing inspection argument");
+    return NATIVE_INSPECT_ERROR;
+  }
   native_inspect_error(diagnostic, "unsupported_platform", "", 0,
                        "native layout inspection requires a compiler with 128-bit integers");
   return 2;
@@ -863,6 +867,7 @@ int native_layout_inspect(const char *layout_path, const char *input_path,
   char error[512];
   layout_int version;
   int result = 2;
+  if (diagnostic) memset(diagnostic, 0, sizeof(*diagnostic));
   context.diagnostic = diagnostic; context.exit_code = 2;
   if (!layout_path || !input_path || !out || !diagnostic) {
     if (diagnostic) native_inspect_error(diagnostic, "input_error", "", 0, "missing inspection argument");

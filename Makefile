@@ -77,12 +77,33 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 PROTOCOL_CODECS = $(wildcard protocol_codec_*.c)
 NATIVE_INSPECT_SOURCES = native_json.c native_layout.c native_observation.c native_inspect.c
 NATIVE_INSPECT_HEADERS = native_json.h native_inspect.h
+NATIVE_INSPECT_TEST_SOURCE = tests/native-inspection/test_native_inspection.c
+NATIVE_INSPECT_TEST_BINARY = tests/native-inspection/test-native-inspection
+NATIVE_INSPECT_TEST_SANITIZED = tests/native-inspection/test-native-inspection-sanitized
 afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_codecs.h $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
 	$(CC) $(CFLAGS) $@.c protocol_runtime.c $(PROTOCOL_CODECS) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
 
 # Standard-library-only local inspector; no instrumentation or x86 checks needed.
 afl-protocol-inspect: afl-protocol-inspect.c $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
 	$(CC) $(CFLAGS) $< $(NATIVE_INSPECT_SOURCES) -o $@
+
+# Opt-in passive-module checks; neither all nor afl-fuzz runs these targets.
+.PHONY: native-inspection-tests native-inspection-tests-sanitized check-native-inspection check-native-inspection-sanitized
+native-inspection-tests: $(NATIVE_INSPECT_TEST_BINARY)
+
+$(NATIVE_INSPECT_TEST_BINARY): $(NATIVE_INSPECT_TEST_SOURCE) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
+	$(CC) $(CFLAGS) -std=gnu11 -I. $< $(NATIVE_INSPECT_SOURCES) -o $@
+
+native-inspection-tests-sanitized: $(NATIVE_INSPECT_TEST_SANITIZED)
+
+$(NATIVE_INSPECT_TEST_SANITIZED): $(NATIVE_INSPECT_TEST_SOURCE) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)
+	$(CC) $(CFLAGS) -std=gnu11 -O1 -fsanitize=address,undefined -fno-omit-frame-pointer -I. $< $(NATIVE_INSPECT_SOURCES) -o $@
+
+check-native-inspection: native-inspection-tests
+	./$(NATIVE_INSPECT_TEST_BINARY)
+
+check-native-inspection-sanitized: native-inspection-tests-sanitized
+	./$(NATIVE_INSPECT_TEST_SANITIZED)
 
 afl-replay: afl-replay.c $(COMM_HDR) aflnet.o aflnet.h | test_x86
 	$(CC) $(CFLAGS) $@.c aflnet.o -o $@ $(LDFLAGS)
@@ -129,6 +150,7 @@ all_done: test_build
 .NOTPARALLEL: clean
 
 clean:
+	rm -f $(NATIVE_INSPECT_TEST_BINARY) $(NATIVE_INSPECT_TEST_SANITIZED)
 	rm -f $(PROGS) afl-as as afl-g++ afl-clang afl-clang++ *.o *~ a.out core core.[1-9][0-9]* *.stackdump test .test test-instr .test-instr0 .test-instr1 qemu_mode/qemu-2.10.0.tar.bz2 afl-qemu-trace
 	rm -rf out_dir qemu_mode/qemu-2.10.0
 	$(MAKE) -C llvm_mode clean

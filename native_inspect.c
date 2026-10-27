@@ -13,6 +13,10 @@ void native_inspect_error(native_diagnostic *d, const char *status,
   snprintf(d->status, sizeof(d->status), "%s", status ? status : "invalid");
   snprintf(d->path, sizeof(d->path), "%s", path ? path : "");
   d->offset = offset;
+  if (!format) {
+    snprintf(d->message, sizeof(d->message), "%s", "unspecified inspection error");
+    return;
+  }
   va_start(arguments, format);
   vsnprintf(d->message, sizeof(d->message), format, arguments);
   va_end(arguments);
@@ -32,13 +36,19 @@ static int bad_arguments(FILE *out, const char *message) {
   native_diagnostic d;
   native_inspect_error(&d, "invalid_arguments", "", 0, "%s", message);
   diagnostic_report(out, &d);
-  return 2;
+  (void)fflush(out);
+  return NATIVE_INSPECT_ERROR;
 }
 
 int native_inspection_dispatch(int argc, char **argv, FILE *out, FILE *errors) {
   native_diagnostic d;
   int result;
-  if (argc < 2) return -1;
+  if (!out || !errors) return NATIVE_INSPECT_ERROR;
+  if (argc < 1 || !argv)
+    return bad_arguments(errors, "argc and argv must describe at least the program name");
+  for (int index = 0; index < argc; index++)
+    if (!argv[index]) return bad_arguments(errors, "argv contains a NULL argument entry");
+  if (argc < 2) return NATIVE_INSPECT_NOT_SELECTED;
   if (!strcmp(argv[1], "--inspect-help")) {
     if (argc != 2) return bad_arguments(errors, "--inspect-help accepts no other arguments");
     fputs("Native local-file inspection (no target is started):\n"
@@ -61,7 +71,7 @@ int native_inspection_dispatch(int argc, char **argv, FILE *out, FILE *errors) {
   } else if (!strncmp(argv[1], "--inspect-", 10)) {
     return bad_arguments(errors, "unknown inspection selector; use --inspect-help");
   } else {
-    return -1;
+    return NATIVE_INSPECT_NOT_SELECTED;
   }
   /* An invalid module result must not fall through into normal fuzzing. */
   if (result < 0 || result > 2) {

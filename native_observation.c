@@ -533,9 +533,10 @@ int native_observation_inspect(const char *input_path, FILE *out,
   char error[512];
   int result = 2;
   memset(&context, 0, sizeof(context));
+  if (diagnostic) memset(diagnostic, 0, sizeof(*diagnostic));
   context.diagnostic = diagnostic;
-  if (!input_path || !out) {
-    native_inspect_error(diagnostic, "input_error", "", 0, "input path and output stream are required");
+  if (!input_path || !out || !diagnostic) {
+    native_inspect_error(diagnostic, "input_error", "", 0, "input path, output stream and diagnostic are required");
     return 2;
   }
   if (nj_load_file(input_path, &context.document, error, sizeof(error)) < 0) {
