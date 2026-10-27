@@ -181,6 +181,24 @@ def main():
                                        'stdout': completed.stdout, 'stderr': completed.stderr})
         else:
             result['session_harness'] = json.loads(completed.stdout)
+        transactional = copy.deepcopy(bound)
+        transactional['messages'][1]['dependencies'] = [
+            d for d in transactional['messages'][1]['dependencies']
+            if d['op'] != 'bind_from_response']
+        transactional['messages'][1]['dependencies'].extend([
+            dict(op='sequence_number', target='invoke_id', source='$message'),
+            dict(op='bind_from_response', target='object_id', source='object_id',
+                 message='read_property_ack'),
+        ])
+        pp.write_text(json.dumps(transactional))
+        completed = subprocess.run([str(binary), 'binding_transaction', str(pp), str(sp)],
+                                   env=env, capture_output=True, text=True, timeout=20)
+        if completed.returncode:
+            result['failures'].append({'name': 'atomic live binding',
+                                       'returncode': completed.returncode,
+                                       'stdout': completed.stdout, 'stderr': completed.stderr})
+        else:
+            result['binding_transaction_harness'] = json.loads(completed.stdout)
         result['dependency_harnesses'] = []
         execution_cases = [
             ('local copy', dict(op='copy_from_message', target='invoke_id', source='property_id'), 'apdu.invoke', 77),

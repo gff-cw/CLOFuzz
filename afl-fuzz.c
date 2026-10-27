@@ -1606,7 +1606,9 @@ int send_over_network()
 
     usleep(send_delay_us);
 
-    if (protocol_engine && protocol_structured_run) {
+    if (protocol_engine && protocol_structured_run &&
+        !(kl_val(it)->protocol_structured &&
+          (protocol_mode == PROTO_NEAR_VALID || protocol_mode == PROTO_INVALID))) {
       char error[256];
       if (proto_before_send(protocol_engine, (u8 *)kl_val(it)->mdata,
                             kl_val(it)->msize, error, sizeof(error)) < 0) {

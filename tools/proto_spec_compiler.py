@@ -315,7 +315,7 @@ def runtime_profile_signature(mid, codec, messages, fields, examples):
                              source if source == "$message" else fields[source_message][source]["locator"],
                              reference_key(source_message), dep.get("unit", 1),
                              dep.get("multiply", 1), dep.get("add", 0), dep.get("algorithm")))
-    return msg["direction"], sorted(field_signature), sorted(dependencies)
+    return msg["direction"], msg["weight"], sorted(field_signature), sorted(dependencies)
 
 
 def validate(protocol, state):
