@@ -321,6 +321,26 @@ StateAFL uses the [Trend Micro Locality Sensitive Hash (TLSH) library](https://g
 
 
 
+## Generic offline descriptions and state observations
+
+Native C [local-file inspection](docs/native-inspection.md) is linked into the
+afl-fuzz source entry point and a standalone afl-protocol-inspect build target.
+The --inspect-layout/--inspect-input and --inspect-observations modes return
+before target setup and require no Python. These additions have not been built
+or run in this change; the generic directed mutation engine is not implemented.
+
+A protocol-independent [C layout interpreter](docs/generic-offline-decoder.md)
+reads existing binary files using the [JSON template](protocols/templates/native_layout.template.json).
+The [dual-state model](docs/dual-state-observation-model.md) and
+[native observation report](docs/offline-state-relation.md) keep protocol evidence
+separate from memory-cluster labels and require declared shared observation boundaries.
+
+The earlier standalone Python decoder, field editor and observation analyzer,
+and their obsolete templates, have been removed. The native path is read-only;
+it does not replace the removed editor's byte-writing functionality. Existing
+YAML compilation, tests and evidence tools remain available. The six existing
+profiles and online mutation runtime still use their scoped codecs.
+
 ## Optional protocol description mutation (ICP-IR v1)
 
 Start with the [editable protocol templates and step-by-step workflow](protocols/templates/README.md).
@@ -330,9 +350,10 @@ This entry validates and recompiles the selected YAML before launching StateAFL,
 
 The existing LLVM 18 instrumentation, coverage feedback, inferred memory states,
 queue selection and AFL operators remain in use. With no new options, the legacy
-mutation path remains active. The new runtime currently supports a bounded
-BACnet/IP Who-Is / ReadProperty scope; the other five protocol directories are
-validated static models, not implemented runtime codecs.
+mutation path remains active. All six protocol profiles have scoped C runtime
+codecs with validated fixtures. The five TCP profiles also
+have local instrumented fixture tests; BACnet Stack remains the actual
+industrial protocol implementation used for the integration experiments.
 
 ```bash
 python3 -m pip install -r tools/requirements-protocol.txt

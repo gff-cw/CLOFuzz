@@ -138,7 +138,7 @@
           "match": {
             "type": "string",
             "maxLength": 4096,
-            "description": "Static annotation. Runtime identifies messages using the codec and fixed scalar fields."
+            "description": "Static annotation. Runtime matches direction, codec service/format, fixed scalars and required field ranges; equivalent TCP profile aliases may canonicalize."
           },
           "blocks": {
             "type": "array",
@@ -208,7 +208,8 @@
                 },
                 "locator": {
                   "type": "string",
-                  "maxLength": 63
+                  "maxLength": 63,
+                  "description": "Bounded codec locator. abs scalars use declared width; variable locators return the exact leaf/container slice, not unrelated trailing fields. A parsed container is not necessarily replaceable."
                 },
                 "width": {
                   "type": "integer",
@@ -249,7 +250,8 @@
                   "type": "integer"
                 },
                 "max": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Compiler checks logical scalar width up to the full UInt64 range 0..18446744073709551615, or variable byte-length bounds."
                 },
                 "values": {
                   "type": "array",
@@ -274,7 +276,7 @@
                   "minItems": 0,
                   "maxItems": 6,
                   "uniqueItems": true,
-                  "description": "Runtime HEAD scalar selection uses enum/boundary/bitflip/arithmetic; empty means those four defaults. Runtime CONTENT uses AFL field projection or the dedicated codec, not this list."
+                  "description": "Runtime HEAD scalars use enum/boundary/bitflip/arithmetic; empty means those four defaults. CONTENT scalars project AFL bytes; variable-leaf resize selects a bounded length for codec replacement and validation."
                 },
                 "evidence": {
                   "type": "string",
@@ -335,7 +337,7 @@
                     "max"
                   ],
                   "additionalProperties": false,
-                  "description": "Static bounded repetition declaration; runtime-enabled profiles reject generic repeat."
+                  "description": "Static bounded repetition. Runtime rejects generic repeat; only exact codec-managed Modbus FC0F/10 abs:13 bytes data/count descriptors are accepted."
                 },
                 "structure": {
                   "type": "string",
@@ -419,7 +421,7 @@
                     "connection",
                     "transaction"
                   ],
-                  "description": "Static scope annotation. Current C runtime caches one latest value per engine/message/field; it does not create scope-specific caches."
+                  "description": "Static scope annotation. C runtime stores latest engine/message/field scalars and pending requests, resets each connection/execution and binds validated actual responses; scope does not create a transaction database."
                 },
                 "when": {
                   "type": "string",
@@ -429,7 +431,8 @@
                 "multiply": {
                   "type": "integer",
                   "minimum": 1,
-                  "maximum": 65507
+                  "maximum": 65507,
+                  "description": "Executed only for runtime length_of/count_of: (source byte length / unit) * multiply + add. Other runtime operations require multiply=1."
                 }
               },
               "required": [

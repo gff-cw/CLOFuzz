@@ -13,6 +13,7 @@ import tempfile
 import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
+CODECS = ('modbus', 'iec104', 'mms', 'enip', 'opcua')
 
 
 def main():
@@ -37,6 +38,7 @@ def main():
         command = [args.compiler, '-std=gnu11', '-Wall', '-Wextra', '-Werror',
                    '-Wno-unused-parameter', '-fsanitize=address,undefined',
                    '-fno-omit-frame-pointer', '-g', '-I.', 'protocol_runtime.c',
+                   *(f'protocol_codec_{codec}.c' for codec in CODECS),
                    'tests/protocol/test_runtime.c', '-o', str(binary)]
         subprocess.run(command, cwd=ROOT, env=env, check=True)
         result['compiler'] = subprocess.check_output([args.compiler, '--version'], text=True).splitlines()[0]
@@ -76,7 +78,7 @@ def main():
         change('wrong field width', lambda p: p['messages'][0]['fields'][0].update(width=2))
         change('overflow scalar max', lambda p: p['messages'][0]['fields'][0].update(max=256))
         change('negative scalar min', lambda p: p['messages'][0]['fields'][0].update(min=-1))
-        change('overflow signed64', lambda p: p['messages'][0]['fields'][0].update(max=2**64))
+        change('overflow unsigned64', lambda p: p['messages'][0]['fields'][0].update(max=2**64))
         change('oversize variable field', lambda p: p['messages'][0]['fields'][-1].update(max=65508))
         change('wrong integer type', lambda p: p['messages'][0].update(weight=True))
         change('invalid enumeration', lambda p: p['messages'][0]['fields'][0].update(values=[0]))
@@ -104,7 +106,7 @@ def main():
         change('static-only conditional dependency', lambda p: p['messages'][0]['dependencies'][0].update(op='conditional_presence'))
         change('static-only tagged dependency', lambda p: p['messages'][0]['dependencies'][0].update(op='tagged_length'))
         change('multiple dependency writers', lambda p: p['messages'][0]['dependencies'].append(copy.deepcopy(p['messages'][0]['dependencies'][0])))
-        change('unsupported multiply', lambda p: p['messages'][0]['dependencies'][0].update(multiply=2))
+        change('unsupported checksum multiply', lambda p: p['messages'][0]['dependencies'][0].update(op='checksum_of',algorithm='sum8',multiply=2))
         change('zero dependency unit', lambda p: p['messages'][0]['dependencies'][0].update(unit=0))
         change('invalid checksum', lambda p: p['messages'][0]['dependencies'][0].update(op='checksum_of',algorithm='shell'))
         change('nonscalar dependency target', lambda p: p['messages'][0]['dependencies'][0].update(target='limits'))
@@ -135,7 +137,13 @@ def main():
             check_case(f'malformed JSON {index}', raw=raw)
         for model in sorted((ROOT/'protocols').glob('*/protocol_ir.json')):
             if model.parent.name != 'bacnet_ip':
-                check_case(f'explicit static-only {model.parent.name}', p=json.loads(model.read_text()), s=json.loads(model.with_name('state_ir.json').read_text()))
+                compiled=json.loads(model.read_text())
+                compiled_state=json.loads(model.with_name('state_ir.json').read_text())
+                check_case(f'compiled runtime {model.parent.name}',p=compiled,s=compiled_state,accepted=True)
+                if model.parent.name == 'ethernet_ip_cip_tcp':
+                    context=next(f for f in compiled['messages'][0]['fields'] if f['id']=='context')
+                    context['max']=2**64
+                    check_case('overflow uint64 context',p=compiled,s=compiled_state)
         # Random byte mutations also exercise valid JSON with damaged schema.
         # Either success or a diagnosed rejection is acceptable; sanitizers must remain clean.
         rng = random.Random(0x51a7)
@@ -161,6 +169,11 @@ def main():
         # Live session binding must not leak between engines, executions, or simulated mutation.
         bound = copy.deepcopy(protocol)
         bound['messages'][1]['dependencies'].append(dict(op='bind_from_response',target='invoke_id',source='invoke_id',message='read_property_ack'))
+        # This synthetic bootstrap tests cache isolation only. It explicitly
+        # declares an uncorrelated reply; real pending-request correlation and
+        # handle binding are covered by test_multicodec_runtime.py.
+        bound['messages'][2]['dependencies'] = [d for d in bound['messages'][2]['dependencies']
+                                               if d['op'] != 'correlate_request_response']
         pp.write_text(json.dumps(bound));sp.write_text(json.dumps(state))
         completed = subprocess.run([str(binary), 'session', str(pp), str(sp)], env=env, capture_output=True, text=True, timeout=20)
         if completed.returncode:
@@ -173,6 +186,8 @@ def main():
             ('local copy', dict(op='copy_from_message', target='invoke_id', source='property_id'), 'apdu.invoke', 77),
             ('local length', dict(op='length_of', target='invoke_id', source='object_id'), 'apdu.invoke', 4),
             ('local count', dict(op='count_of', target='invoke_id', source='object_id',unit=2), 'apdu.invoke', 2),
+            ('multiplied local length', dict(op='length_of', target='invoke_id', source='object_id',multiply=3), 'apdu.invoke', 12),
+            ('multiplied local count', dict(op='count_of', target='invoke_id', source='object_id',unit=2,multiply=3), 'apdu.invoke', 6),
             ('local offset', dict(op='offset_of', target='invoke_id', source='property_id'), 'apdu.invoke', 16),
             ('sum8 checksum', dict(op='checksum_of', target='invoke_id', source='object_id',algorithm='sum8'), 'apdu.invoke', 125),
             ('crc32 checksum', dict(op='checksum_of', target='object_id', source='property_id',algorithm='crc32'), 'bacnet.object', zlib.crc32(bytes([77]))),
@@ -199,16 +214,19 @@ def main():
             else:
                 result['dependency_harnesses'].append({'name': name, **json.loads(completed.stdout)})
     result['source_sha256'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                               for path in [ROOT/'protocol_runtime.c', ROOT/'protocol_runtime.h', ROOT/'tests/protocol/test_runtime.c']}
+                               for path in [ROOT/'protocol_runtime.c', ROOT/'protocol_runtime.h', ROOT/'protocol_codecs.h',
+                                            *(ROOT/f'protocol_codec_{codec}.c' for codec in CODECS),
+                                            ROOT/'tests/protocol/test_runtime.c']}
     result['supported_scope'] = {
-        'runtime_codec': 'BACnet/IP UDP Original-Unicast/Broadcast-NPDU, unsegmented APDUs',
+        'runtime_codecs_loaded': ['bacnet', *CODECS],
+        'wire_mutation_harness': 'BACnet/IP UDP Original-Unicast/Broadcast-NPDU, unsegmented APDUs; dedicated multi-codec tests cover the other runtime profiles',
         'content_encoders': ['Who-Is optional paired device limits', 'ReadProperty object/property/present optional array index scalar projection'],
         'parser': 'dynamic destination/source NPDU addresses, BACnet LVT including extended lengths and balanced context tags',
-        'integers': 'IR signed-64-bit nonnegative scalar bounds; uint8/16/24/32/64 field types',
+        'integers': 'IR unsigned-64-bit scalar bounds; uint8/16/24/32/64 field types',
         'sequence': 'request replay insert/delete/repeat/reorder; declared response transition simulated between requests; bounded counts/repetitions/serialized bytes',
-        'dependencies': ['local length_of/count_of/offset_of', 'local sum8/crc32 checksum_of', 'scalar copy_from_message/bind_from_response', 'invoke response correlation', 'field-width sequence_number'],
-        'static_only_codecs': ['modbus_tcp', 'ethernet_ip_cip_tcp', 'opcua_tcp', 'iec60870_5_104', 'iec61850_mms_tcp'],
-        'excluded': ['segmented APDUs', 'network-layer NPDUs', 'BACnet/SC', 'BBMD/foreign-device lifecycle', 'conditional_presence/tagged_length runtime dependencies', 'when/repeat executable field controls', 'response payload mutation encoder', 'absent ReadProperty array-index insertion'],
+        'dependencies': ['local length_of/count_of with unit and multiply; offset_of', 'local sum8/crc32 checksum_of', 'scalar copy_from_message/bind_from_response', 'invoke response correlation', 'field-width sequence_number', 'codec-managed MMS tagged_length'],
+        'static_only_codecs': [],
+        'excluded': ['segmented APDUs', 'network-layer NPDUs', 'BACnet/SC', 'BBMD/foreign-device lifecycle', 'generic conditional_presence/tagged_length runtime dependencies', 'generic when/repeat executable field controls', 'response payload mutation encoder', 'absent ReadProperty array-index insertion'],
         'invalid_modes': 'near_valid and invalid both intentionally change one BVLC length constraint after repair; before_send preserves these bytes',
         'metadata': 'guards/actions/structure descriptions are documentation; dependencies drive runtime binding',
         'evidence_limits': 'Standalone local tests only; randomized runs do not prove protocol conformance or replace live target integration.'}

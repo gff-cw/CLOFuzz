@@ -1,0 +1,123 @@
+{
+  "status": "passed",
+  "packages": [
+    {
+      "path": "/home/weicresec/Desktop/workspace/stateafl/protocols/modbus_tcp",
+      "status": "passed",
+      "input_sha256": {
+        "protocol_spec.yaml": "3e76eecd88f46f08f065f6ed5702ae5a25d689aa3dc638a97cdac0267f21378f",
+        "state_transition.yaml": "7c0a777fde7326f46427f463088db75132c36d8a1c1a4cdad7e9786ea2f64ed8",
+        "evidence.yaml": "885e4bdf921c577552a6922ae9e506ffadfcd7ec2b3aae52b32e6b53bd013b7d",
+        "validation.json": "c469de5000206aea079730fb07f78ae7f58961777467a6d7b6edf256faff251a"
+      },
+      "protocol_id": "modbus_tcp",
+      "scope": "Modbus TCP MBAP plus FC01/02/03/04 reads, FC05/06 single writes, FC0F/10 multiple writes; all normal response layouts and generic exception layout; FC0F arbitrary 1..1968 coils including final-byte padding. Bounded runtime codec and structural repair.",
+      "messages": 19,
+      "fields": 138,
+      "semantic_states": 1,
+      "transitions": 19,
+      "complete_fixtures": 19,
+      "warnings": [
+        "Some source URLs name moving branches; their historical contents are not pinned.",
+        "The saved validation record does not bind all YAML inputs by hash; this check is new static evidence."
+      ]
+    },
+    {
+      "path": "/home/weicresec/Desktop/workspace/stateafl/protocols/iec60870_5_104",
+      "status": "passed",
+      "input_sha256": {
+        "protocol_spec.yaml": "26088ac74a6f3fd0791d789a8f2ceae3f8cf6108f526e917f0995fce008eb385",
+        "state_transition.yaml": "76ec20669f20d8b7c6e348afe78cb237e698a4985cd09746786703ebb610481d",
+        "evidence.yaml": "0b6d9ae8faf76030d76308cdd0375896d7d1212fbc5d2d348bd1a94c4e0bf5c2",
+        "validation.json": "657e26b9ebbdb64ef3f2acdd3f6e81cbcb9e6336200ecbf0da5ff0629e1b0183"
+      },
+      "protocol_id": "iec60870_5_104",
+      "scope": "IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group interrogation request, positive/negative activation confirmation and termination; COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Bounded runtime codec and structural repair.",
+      "messages": 11,
+      "fields": 62,
+      "semantic_states": 6,
+      "transitions": 17,
+      "complete_fixtures": 11,
+      "warnings": [
+        "Some source URLs name moving branches; their historical contents are not pinned.",
+        "The saved validation record does not bind all YAML inputs by hash; this check is new static evidence."
+      ]
+    },
+    {
+      "path": "/home/weicresec/Desktop/workspace/stateafl/protocols/iec61850_mms_tcp",
+      "status": "passed",
+      "input_sha256": {
+        "protocol_spec.yaml": "03a0008475f4d704505b5d455fb0088abc9327372c969d4c9266dd8814edce89",
+        "state_transition.yaml": "b0baf3d539c891d45961bb8ddb709a1a58732ec96d579e831baf2eb2657ad8a8",
+        "evidence.yaml": "40bf00c4827c4f69e2ad7379a3ab4c98732e1e20696bb7a586d0136a4a9669f8",
+        "validation.json": "55937c5f9e09da681befcf00af0c071f61430249e873376ff0a3bd05df51d6ee"
+      },
+      "protocol_id": "iec61850_mms_tcp",
+      "scope": "Complete TPKT/COTP TP0, session/presentation normal-mode association, ACSE AARQ/AARE with embedded MMS initiate, VMD-domain GetNameList, one domain-specific named-variable Read/Write, MMS conclude and ACSE/session release, all successful request/response layouts. Bounded runtime codec with BER definite lengths and structural repair.",
+      "messages": 14,
+      "fields": 136,
+      "semantic_states": 9,
+      "transitions": 14,
+      "complete_fixtures": 14,
+      "warnings": [
+        "The saved validation record does not bind all YAML inputs by hash; this check is new static evidence."
+      ]
+    },
+    {
+      "path": "/home/weicresec/Desktop/workspace/stateafl/protocols/ethernet_ip_cip_tcp",
+      "status": "passed",
+      "input_sha256": {
+        "protocol_spec.yaml": "c2552d6655dc5bd4b1b207ff4f122d3db817cd6b1aac09b81a7b46d59451d7b7",
+        "state_transition.yaml": "18054869af8d0da4eaabd72d0580cc8242709d512569f138c896cc16264354ce",
+        "evidence.yaml": "8c71a50c024c86385b092a66d06d293aeaa9f34e87b98c90d1fdd57c702db985",
+        "validation.json": "3ea95148a30defbf6baee7692dab4d6a9b12efbb87dd4c3a870f7a5c20c4ce40"
+      },
+      "protocol_id": "ethernet_ip_cip_tcp",
+      "scope": "EtherNet/IP TCP RegisterSession success/failure, UnregisterSession (no reply), SendRRData (NullAddress + UnconnectedData), SendUnitData (ConnectedAddress + ConnectedData with UInt16 class-3 sequence), complete GetAttributeSingle Identity Vendor-ID request/response layouts and encapsulation/CIP errors. SendUnitData requires an externally successful ForwardOpen establishing class-3 connection and supplying directional IDs; this model does not establish that prerequisite. Bounded runtime explicit-message codec and structural repair.",
+      "messages": 10,
+      "fields": 132,
+      "semantic_states": 4,
+      "transitions": 10,
+      "complete_fixtures": 10,
+      "warnings": [
+        "The saved validation record does not bind all YAML inputs by hash; this check is new static evidence."
+      ]
+    },
+    {
+      "path": "/home/weicresec/Desktop/workspace/stateafl/protocols/opcua_tcp",
+      "status": "passed",
+      "input_sha256": {
+        "protocol_spec.yaml": "2bcfcd4c1ac92a4ade9ecb4c39c80e851e2d41833036aaeccb6b08227b39da0d",
+        "state_transition.yaml": "0766728e02b5b1e03891c3d31c920a61a25567e055735ac0912817008fb0aa33",
+        "evidence.yaml": "ae75c3aafdc3cabcb1bc504e716eec6eb616503f844997db77c2b110bc48af2b",
+        "validation.json": "3e783f4b7e9fd3be16de8db1ba5f85a0c597ec53485072dff5dfcb44e71e4d29"
+      },
+      "protocol_id": "opcua_tcp",
+      "scope": "Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers and nested endpoint/token arrays; bounded runtime codec and structural repair; Session services excluded.",
+      "messages": 10,
+      "fields": 107,
+      "semantic_states": 6,
+      "transitions": 14,
+      "complete_fixtures": 10,
+      "warnings": [
+        "Some source URLs name moving branches; their historical contents are not pinned.",
+        "The saved validation record does not bind all YAML inputs by hash; this check is new static evidence."
+      ]
+    }
+  ],
+  "checked": [
+    "YAML schema",
+    "message/state/source references",
+    "field-source coverage",
+    "evidence metadata"
+  ],
+  "not_checked": [
+    "wire decoding",
+    "native compilation",
+    "mutation execution",
+    "network integration",
+    "dependency execution semantics",
+    "source URL contents",
+    "whole-standard conformance"
+  ]
+}

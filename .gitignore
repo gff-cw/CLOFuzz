@@ -1,5 +1,6 @@
 # Binaries produced by "make".
 afl-analyze
+afl-protocol-inspect
 afl-as
 afl-clang
 afl-clang++

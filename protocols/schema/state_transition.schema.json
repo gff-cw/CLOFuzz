@@ -114,7 +114,7 @@
     "invalid_strategy": {
       "type": "string",
       "maxLength": 4096,
-      "description": "Static description. Current runtime invalid/near_valid modes use a fixed BVLC length violation, not this string."
+      "description": "Static description. Current runtime invalid/near_valid modes use a bounded protocol-specific length violation; this string is not executed."
     }
   },
   "required": [

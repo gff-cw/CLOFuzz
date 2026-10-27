@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "utc": "2026-10-26T02:44:56.106650+00:00",
+  "utc": "2026-10-26T04:26:36.840077+00:00",
   "sanitizers": [
     "address",
     "undefined",
@@ -85,7 +85,7 @@
       "passed": true
     },
     {
-      "name": "overflow signed64",
+      "name": "overflow unsigned64",
       "expected": "reject",
       "passed": true
     },
@@ -225,7 +225,7 @@
       "passed": true
     },
     {
-      "name": "unsupported multiply",
+      "name": "unsupported checksum multiply",
       "expected": "reject",
       "passed": true
     },
@@ -400,28 +400,33 @@
       "passed": true
     },
     {
-      "name": "explicit static-only ethernet_ip_cip_tcp",
+      "name": "compiled runtime ethernet_ip_cip_tcp",
+      "expected": "accept",
+      "passed": true
+    },
+    {
+      "name": "overflow uint64 context",
       "expected": "reject",
       "passed": true
     },
     {
-      "name": "explicit static-only iec60870_5_104",
-      "expected": "reject",
+      "name": "compiled runtime iec60870_5_104",
+      "expected": "accept",
       "passed": true
     },
     {
-      "name": "explicit static-only iec61850_mms_tcp",
-      "expected": "reject",
+      "name": "compiled runtime iec61850_mms_tcp",
+      "expected": "accept",
       "passed": true
     },
     {
-      "name": "explicit static-only modbus_tcp",
-      "expected": "reject",
+      "name": "compiled runtime modbus_tcp",
+      "expected": "accept",
       "passed": true
     },
     {
-      "name": "explicit static-only opcua_tcp",
-      "expected": "reject",
+      "name": "compiled runtime opcua_tcp",
+      "expected": "accept",
       "passed": true
     }
   ],
@@ -449,6 +454,11 @@
     "-g",
     "-I.",
     "protocol_runtime.c",
+    "protocol_codec_modbus.c",
+    "protocol_codec_iec104.c",
+    "protocol_codec_mms.c",
+    "protocol_codec_enip.c",
+    "protocol_codec_opcua.c",
     "tests/protocol/test_runtime.c",
     "-o",
     "<temporary-binary>"
@@ -479,6 +489,16 @@
       "status": "passed"
     },
     {
+      "name": "multiplied local length",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
+      "name": "multiplied local count",
+      "checks": 3,
+      "status": "passed"
+    },
+    {
       "name": "local offset",
       "checks": 3,
       "status": "passed"
@@ -505,40 +525,49 @@
     }
   ],
   "source_sha256": {
-    "protocol_runtime.c": "39585120110b293afb6d8de7ee77caa7066839a392a8047244b73c01648ee142",
-    "protocol_runtime.h": "612178d079fd6727853852f612c93ceba8ab3e808a57032932534fe5043105fc",
-    "tests/protocol/test_runtime.c": "ab03f8055d7426477ea8d1e9b8350ab3e44d94b2b25474ed4afc6a933822a559"
+    "protocol_runtime.c": "7744cdb9786fee53b7c500a931e98fae884b2dae3697f463c0778e6831ceeba4",
+    "protocol_runtime.h": "32416598bc9066d85015954505d6893f2fa3ebf07831537355ced244fb4a4314",
+    "protocol_codecs.h": "64247e740f3b196fa8c203409360968f0f422ad81359bfbdac5b3e2a72ca966b",
+    "protocol_codec_modbus.c": "e52b3098067a5605cce7f84ef2196c3ac704fbf1b7d74b1c5c68750e8c5fe6bb",
+    "protocol_codec_iec104.c": "eed0661f7ccaa7b741371863757822b742171bd7a7c6151cd86ac7d062f31bde",
+    "protocol_codec_mms.c": "4b0671a9e740d823224930eaa855231869b6b177c38c40ae120b97dd1c2efaa2",
+    "protocol_codec_enip.c": "b2ebf51980d076edd229cf74eebc574b1949d9f05defea8a1dbd908f23696644",
+    "protocol_codec_opcua.c": "da34f80b9d6d3aef1134c36a85099a1135c7a1b5f83fe602ae79cd2d8ac10d35",
+    "tests/protocol/test_runtime.c": "a68c3bd253906286608b0f4c62f5e064944cf0699a287448b505d669b991f5f6"
   },
   "supported_scope": {
-    "runtime_codec": "BACnet/IP UDP Original-Unicast/Broadcast-NPDU, unsegmented APDUs",
+    "runtime_codecs_loaded": [
+      "bacnet",
+      "modbus",
+      "iec104",
+      "mms",
+      "enip",
+      "opcua"
+    ],
+    "wire_mutation_harness": "BACnet/IP UDP Original-Unicast/Broadcast-NPDU, unsegmented APDUs; dedicated multi-codec tests cover the other runtime profiles",
     "content_encoders": [
       "Who-Is optional paired device limits",
       "ReadProperty object/property/present optional array index scalar projection"
     ],
     "parser": "dynamic destination/source NPDU addresses, BACnet LVT including extended lengths and balanced context tags",
-    "integers": "IR signed-64-bit nonnegative scalar bounds; uint8/16/24/32/64 field types",
+    "integers": "IR unsigned-64-bit scalar bounds; uint8/16/24/32/64 field types",
     "sequence": "request replay insert/delete/repeat/reorder; declared response transition simulated between requests; bounded counts/repetitions/serialized bytes",
     "dependencies": [
-      "local length_of/count_of/offset_of",
+      "local length_of/count_of with unit and multiply; offset_of",
       "local sum8/crc32 checksum_of",
       "scalar copy_from_message/bind_from_response",
       "invoke response correlation",
-      "field-width sequence_number"
+      "field-width sequence_number",
+      "codec-managed MMS tagged_length"
     ],
-    "static_only_codecs": [
-      "modbus_tcp",
-      "ethernet_ip_cip_tcp",
-      "opcua_tcp",
-      "iec60870_5_104",
-      "iec61850_mms_tcp"
-    ],
+    "static_only_codecs": [],
     "excluded": [
       "segmented APDUs",
       "network-layer NPDUs",
       "BACnet/SC",
       "BBMD/foreign-device lifecycle",
-      "conditional_presence/tagged_length runtime dependencies",
-      "when/repeat executable field controls",
+      "generic conditional_presence/tagged_length runtime dependencies",
+      "generic when/repeat executable field controls",
       "response payload mutation encoder",
       "absent ReadProperty array-index insertion"
     ],

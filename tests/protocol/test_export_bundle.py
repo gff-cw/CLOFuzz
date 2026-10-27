@@ -21,7 +21,11 @@ class BundleTests(unittest.TestCase):
                 self.assertIn('protocols/README.md',archive.namelist())
                 manifest=json.loads(archive.read('MANIFEST.json'))
                 self.assertEqual(len(manifest['profiles']),6)
+                self.assertTrue(all(p['runtime'] for p in manifest['profiles']))
                 self.assertTrue(all(p['all_fixtures_complete'] for p in manifest['profiles']))
+                for filename in ('tools/native_protocol_codecs.py','protocol_codecs.h',
+                                 *(f'protocol_codec_{codec}.c' for codec in ('modbus','iec104','mms','enip','opcua'))):
+                    self.assertIn(filename,archive.namelist())
                 for name,digest in manifest['files'].items():
                     self.assertNotIn('..',Path(name).parts)
                     self.assertEqual(hashlib.sha256(archive.read(name)).hexdigest(),digest)

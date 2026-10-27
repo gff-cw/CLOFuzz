@@ -10,8 +10,8 @@ sources:
   sections: IEC 60870-5-104:2006+AMD1:2016 catalogue only; paid text not consulted
 scope: IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group
   interrogation request, positive/negative activation confirmation and termination;
-  COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no
-  runtime encoder.
+  COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Bounded runtime codec and structural
+  repair.
 confidence: Each field names its source and confidence; catalogue identity does not
   establish normative wire details.
 accessed: '2026-10-25'
@@ -282,15 +282,16 @@ validation:
   fields: 62
   semantic_states: 6
   validated: true
-  runtime: false
+  runtime: true
   scope: IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group
     interrogation request, positive/negative activation confirmation and termination;
-    COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no
-    runtime encoder.
-  example_validation: protocol envelope and length consistency; scoped BACnet decoder
-    checks for runtime fixtures; not live service conformance
+    COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Bounded runtime codec and
+    structural repair.
+  example_validation: protocol envelope and length consistency; bounded runtime codec
+    validates complete fixtures and exact field ranges; not live service conformance
+  message_aliases: {}
   execution_contract:
-    static_only: true
+    static_only: false
     static_metadata:
       protocol:
       - name
@@ -320,9 +321,13 @@ validation:
       - transitions[].guard
       - transitions[].actions
       - invalid_strategy
-    field_when_repeat: static-only; rejected by runtime-enabled profiles
+    field_when_repeat: generic when/repeat are static-only; exact Modbus multiwrite
+      data/count repeat descriptors are codec-managed
     dependencies: whitelisted operations only; scope and when are annotations
     content_scalar_strategies: runtime uses AFL field projection; values/strategies
       are annotations for CONTENT scalars
     runtime_encode: capability assertion derived from runtime support and message
       direction; never an execution switch
+    validator_build: non-BACnet runtime validation requires a C11 compiler (CC or
+      cc), protocol_codecs.h and all five protocol_codec_*.c sources; no Python in
+      StateAFL mutation loop

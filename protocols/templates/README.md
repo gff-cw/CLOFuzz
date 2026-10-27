@@ -1,5 +1,9 @@
 # 统一描述模板 → 具体协议描述 → 加载定向变异
 
+[native_layout.template.json](native_layout.template.json) 和 [native_observations.template.json](native_observations.template.json) 用于 [C 原生本地检查](../../docs/native-inspection.md)。前者是虚构结构示例，后者需填写实际摘要及作用域；均不启动目标，不等于旧在线 codec 描述。
+
+旧的独立 Python 布局和编辑计划模板已移除。C 本地检查使用上述两个 JSON 模板；下面的 YAML 模板仍用于现有 ICP-IR 编译流程，不能把两种格式混用。
+
 这里是用户填写协议描述的起点。JSON Schema 是格式检查规则；本目录的带注释 YAML 才是可复制、填写的模板。
 
 - [protocol_spec.template.yaml](protocol_spec.template.yaml)：消息、HEAD/CONTENT、字段、取值策略、长度/跨消息依赖、协议来源。
@@ -22,7 +26,7 @@ python3 tools/init_protocol_spec.py \
 
 工具按统一模板的顶层结构，填入现有 BACnet 的真实字段、定位器、消息和状态定义，同时生成初始 IR、来源和种子。输出目录必须尚不存在；不会覆盖现有描述。生成的字段独立展开，不使用 YAML 引用别名，修改一个消息不会意外修改另一个消息。
 
-`--base` 可选六种已有协议配置：bacnet_ip、modbus_tcp、iec60870_5_104、iec61850_mms_tcp、ethernet_ip_cip_tcp、opcua_tcp。它不会自动从标准网页推导协议；真实字段由各协议配置提供。当前只有 BACnet 有在线 codec；其他五种可生成、编辑和静态校验，不能启动定向变异。`--require-runtime` 会提前拒绝这些静态配置。
+`--base` 可选六种已有协议配置：bacnet_ip、modbus_tcp、iec60870_5_104、iec61850_mms_tcp、ethernet_ip_cip_tcp、opcua_tcp。它不会自动从标准网页推导协议；真实字段由各协议配置提供。六种参考 profile 均有有界 C runtime codec，`--require-runtime` 可用于任一配置；显式设为 runtime=false 的静态描述仍会被拒绝。BACnet 使用 UDP，其余五种使用 TCP。支持的是描述中列出的服务与叶字段，新增服务仍需相应 codec 实现。
 
 ## 2. 按被测实现修改生成的 YAML
 
@@ -74,7 +78,7 @@ python3 tools/run_protocol_campaign.py --spec-dir ./my-specs/bacnet_ip \
   -N udp://127.0.0.1/47818 -- /path/to/server 123
 ```
 
-仅校验/编译（包括其他五种静态配置）：
+仅校验/编译（不启动任何目标）：
 
 ```bash
 python3 tools/run_protocol_campaign.py --spec-dir ./my-specs/modbus_tcp --validate-only
@@ -95,7 +99,7 @@ python3 tools/proto_spec_compiler.py \
 # --state-spec ./my-specs/bacnet_ip/state_ir.json
 ```
 
-统一模板的结构在六种具体协议配置中相同；各协议的字段、编码和状态定义不同。当前“可加载、可在线变异”只验证了 BACnet 有限范围，不等于其他五种协议已完成在线运行时。
+统一模板的结构在六种具体协议配置中相同；各协议的字段、编码和状态定义不同。六种已有 profile 可加载并进行限定范围的在线变异。五种 TCP 路径新增仪器化 C fixture double 和本地功能测试；它们用于检查真实 fuzzer/socket 路径、字段变化和响应绑定。真实工业服务目标的既有证据仍是 BACnet Stack，不把 C 夹具当作其他五种工业产品的互通或标准合规证明。
 
 ## 5. 配置的执行边界
 
@@ -103,18 +107,22 @@ python3 tools/proto_spec_compiler.py \
 
 | 配置 | 当前含义 |
 | --- | --- |
-| `support.runtime` | 当前 C codec 是否可用。目前仅 BACnet/IP；静态模型通过编译不代表有执行器。 |
+| `support.runtime` | 当前 C codec 是否可用。六种参考 profile 均可用；设为 false 的静态模型不能启动定向变异。 |
 | 消息 `fixture_status` | `complete` 为声明范围内完整消息；`fragment` 为静态片段，不能用于 runtime=true，也不生成 replay seed。省略时兼容旧描述，按 complete 处理。 |
 | 消息 `runtime_encode` | 能力断言：仅 runtime=true 的 request 为 true。它不是开关，不能靠它开启静态协议或禁用请求。 |
 | `role` / `mutability` | `fixed`、`derived` 必须双向一致；derived 恰有一个依赖写入者；runtime_bound 必须有绑定、关联或序列依赖。 |
-| `locator` / `path` | `locator` 参与执行，`path` 只是说明。BACnet 动态定位由专用解析器完成。 |
+| `locator` / `path` | `locator` 参与执行，`path` 只是说明。各 codec 解析实际结构和精确切片；abs 标量严格取声明宽度，变量字段不吞入相邻字段。 |
 | `example` / `default` | `example` 是完整单报文模板，连续十六进制、不含 replay LE32 前缀；`default` 只是字段默认值说明，不会重写模板。字节型 default 为十六进制，string 为 UTF-8 文本。 |
 | `blocks` / 字段 `block` | 编译器检查分组与引用；运行时按字段 role 选择 HEAD / CONTENT，不解释任意块层次。 |
-| `strategies` / `values` | HEAD 标量执行配置的枚举、边界、位翻转、算术；空 strategies 使用四种默认策略。CONTENT 标量投影 AFL 候选字节，不执行此列表。 |
+| `strategies` / `values` | HEAD 标量执行枚举、边界、位翻转、算术；空列表使用默认策略。CONTENT 标量投影 AFL 字节；变量叶的 resize 允许在范围内调整长度并交给 codec 验证。 |
 | `structure_model` / `structure` | 有界、类型化的结构元数据，不是编码程序；其中 condition 不执行。 |
-| 字段 `when` / `repeat` | 静态结构描述及引用检查；runtime=true 拒绝这些通用构造。BACnet 可选字段由专用 codec 处理。 |
-| 依赖 `scope` / `when` | 注释；不创建按 scope 区分的缓存，也不执行条件。当前缓存按 engine、消息、字段保存最近标量。 |
+| 字段 `when` / `repeat` | 通用构造在 runtime=true 下拒绝；唯一 repeat 例外是精确匹配 FC0F/10 data/count 的 Modbus 描述。各 codec 处理自身可选结构。 |
+| 依赖 `scope` / `when` | 注释；不创建按 scope 区分的缓存，也不执行条件。缓存按 engine、消息、字段保存最近标量和 pending 请求；绑定须来自实际响应并满足声明关联。 |
 | 状态 `guard` / `actions` | 注释；运行时按当前 state 和 message 选择边，不按 guard 消歧或执行 actions。运行时同一 `(from,message)` 只能有一条边。 |
-| `invalid_strategy` | 描述性说明；当前 invalid/near_valid 实现固定修改一条 BVLC 长度，不解释该字符串。 |
+| `invalid_strategy` | 描述性说明；当前 invalid/near_valid 在修复后修改一条对应协议长度为原值+1，不解释该字符串。 |
 
-编译器检查静态引用、数值边界和协议封装长度；运行时 BACnet 还检查专用 NPDU/APDU/tag 结构、例子的字段范围、方向及可用编码器。`validation.json` 的 `execution_contract` 明确列出静态元数据与运行时限制。通过这些检查不等于经过真实目标的成功交换，也不等于覆盖整个协议标准。
+编译器检查引用、完整报文、实际字段范围和消息匹配。非 BACnet runtime 编译通过 native helper 使用同一 C validator；BACnet 保留专用 NPDU/APDU/tag 检查。`validation.json` 的 `execution_contract` 明确列出静态元数据与运行时限制。通过这些检查不等于经过真实目标的成功交换，也不等于覆盖整个协议标准。
+
+非 BACnet 编译需 C11 编译器（`CC` 或 `cc`）、`tools/native_protocol_codecs.py`、`protocol_codecs.h` 和五个 `protocol_codec_*.c`。helper 每进程在临时目录构建一次；StateAFL 在线直接执行 C，不在每次变异运行 Python。标量支持完整 UInt64 范围。
+
+变量 CONTENT 仅支持 codec 明确实现的叶替换，不能复制任意 opaque CIP/UA/BER 容器。MMS 叶变化会重新编码祖先 BER/session 长度和必要的 INTEGER 宽度。运行时按 TCP 协议长度处理响应分片与合并；M1 前缀仅提供模拟语义起点，session/channel/token 等仍绑定实际响应。任意 guard/actions、会话前缀搜索和完整多事务数据库均不在实现范围。

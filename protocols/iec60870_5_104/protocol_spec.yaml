@@ -4,14 +4,14 @@ name: IEC 60870-5-104
 version: IEC 60870-5-104; lib60870 profile
 scope: IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group
   interrogation request, positive/negative activation confirmation and termination;
-  COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no
-  runtime encoder.
+  COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Bounded runtime codec and structural
+  repair.
 transport: tcp
 framing: protocol length inside replayable records
 codec: iec104
 support:
-  runtime: false
-  level: static description; runtime encoder unavailable
+  runtime: true
+  level: runtime scoped codec
   excluded:
   - other ASDU payload types
   - TLS
@@ -38,11 +38,7 @@ messages:
     - start
     - length
     - control
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: start
@@ -114,7 +110,7 @@ messages:
     add: -2
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: start_con
   example: 68040b000000
   direction: response
@@ -126,11 +122,7 @@ messages:
     - start
     - length
     - control
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: start
@@ -214,11 +206,7 @@ messages:
     - start
     - length
     - control
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: start
@@ -290,7 +278,7 @@ messages:
     add: -2
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: stop_con
   example: '680423000000'
   direction: response
@@ -302,11 +290,7 @@ messages:
     - start
     - length
     - control
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: start
@@ -390,11 +374,7 @@ messages:
     - start
     - length
     - control
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: start
@@ -466,7 +446,7 @@ messages:
     add: -2
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: test_con
   example: '680483000000'
   direction: response
@@ -478,11 +458,7 @@ messages:
     - start
     - length
     - control
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: start
@@ -567,11 +543,7 @@ messages:
     - length
     - format
     - receive_seq
-    parent: REQUEST
   - id: CONTENT
-    fields: []
-    parent: REQUEST
-  - id: REQUEST
     fields: []
   fields:
   - id: start
@@ -666,7 +638,7 @@ messages:
     add: -2
   notes: ''
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: interrogation
   example: 680e0000000064010600010000000014
   direction: request
@@ -682,15 +654,11 @@ messages:
     - type_id
     - vsq
     - cot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - common_address
     - ioa
     - qoi
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: start
     block: HEAD
@@ -937,7 +905,7 @@ messages:
     ASDUs between confirmation/termination are excluded, so completion does not mean
     an empty remote database.'
   fixture_status: complete
-  runtime_encode: false
+  runtime_encode: true
 - id: interrogation_confirmation
   example: 680e0000020064010700010000000014
   direction: response
@@ -953,15 +921,11 @@ messages:
     - type_id
     - vsq
     - cot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - common_address
     - ioa
     - qoi
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: start
     block: HEAD
@@ -1214,8 +1178,7 @@ messages:
     source: qoi
     message: interrogation
     scope: transaction
-  notes: C_IC_NA_1 activation confirmation or activation termination. Negative confirmation
-    sets P/N bit6; fixture cause 7+64.
+  notes: C_IC_NA_1 positive activation confirmation; fixture COT=7, P/N clear.
   fixture_status: complete
   runtime_encode: false
 - id: interrogation_termination
@@ -1233,15 +1196,11 @@ messages:
     - type_id
     - vsq
     - cot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - common_address
     - ioa
     - qoi
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: start
     block: HEAD
@@ -1494,8 +1453,7 @@ messages:
     source: qoi
     message: interrogation
     scope: transaction
-  notes: C_IC_NA_1 activation confirmation or activation termination. Negative confirmation
-    sets P/N bit6; fixture cause 7+64.
+  notes: C_IC_NA_1 activation termination; fixture COT=10, P/N clear.
   fixture_status: complete
   runtime_encode: false
 - id: interrogation_negative
@@ -1513,15 +1471,11 @@ messages:
     - type_id
     - vsq
     - cot
-    parent: REQUEST
   - id: CONTENT
     fields:
     - common_address
     - ioa
     - qoi
-    parent: REQUEST
-  - id: REQUEST
-    fields: []
   fields:
   - id: start
     block: HEAD
@@ -1774,7 +1728,6 @@ messages:
     source: qoi
     message: interrogation
     scope: transaction
-  notes: C_IC_NA_1 activation confirmation or activation termination. Negative confirmation
-    sets P/N bit6; fixture cause 7+64.
+  notes: C_IC_NA_1 negative activation confirmation; fixture COT=71 (7+64), P/N set.
   fixture_status: complete
   runtime_encode: false

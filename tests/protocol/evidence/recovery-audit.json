@@ -1,0 +1,263 @@
+{
+  "format_version": 1,
+  "acceptance": "failed",
+  "observed_at_utc": "2026-10-26T07:08:00.892904+00:00",
+  "auditor_sha256": "816913296cc6ccd72483857d70bf45e7d878d7a246d209d2bc732b8886a13f00",
+  "method": "Read-only audit of existing artifacts; no tests were executed.",
+  "runtime": {
+    "path": "tests/protocol/evidence/runtime-results.json",
+    "sha256": "377eb8976b204e545057cb60f4fb6a04f2a8c270bf398051defe1248207a9134",
+    "evidence_state": "present",
+    "recorded_outcome": "passed",
+    "acceptance": "passed",
+    "source_provenance": "listed_sources_match",
+    "sources": [
+      {
+        "path": "protocol_codec_enip.c",
+        "status": "match",
+        "expected_sha256": "b2ebf51980d076edd229cf74eebc574b1949d9f05defea8a1dbd908f23696644",
+        "actual_sha256": "b2ebf51980d076edd229cf74eebc574b1949d9f05defea8a1dbd908f23696644"
+      },
+      {
+        "path": "protocol_codec_iec104.c",
+        "status": "match",
+        "expected_sha256": "eed0661f7ccaa7b741371863757822b742171bd7a7c6151cd86ac7d062f31bde",
+        "actual_sha256": "eed0661f7ccaa7b741371863757822b742171bd7a7c6151cd86ac7d062f31bde"
+      },
+      {
+        "path": "protocol_codec_mms.c",
+        "status": "match",
+        "expected_sha256": "4b0671a9e740d823224930eaa855231869b6b177c38c40ae120b97dd1c2efaa2",
+        "actual_sha256": "4b0671a9e740d823224930eaa855231869b6b177c38c40ae120b97dd1c2efaa2"
+      },
+      {
+        "path": "protocol_codec_modbus.c",
+        "status": "match",
+        "expected_sha256": "e52b3098067a5605cce7f84ef2196c3ac704fbf1b7d74b1c5c68750e8c5fe6bb",
+        "actual_sha256": "e52b3098067a5605cce7f84ef2196c3ac704fbf1b7d74b1c5c68750e8c5fe6bb"
+      },
+      {
+        "path": "protocol_codec_opcua.c",
+        "status": "match",
+        "expected_sha256": "da34f80b9d6d3aef1134c36a85099a1135c7a1b5f83fe602ae79cd2d8ac10d35",
+        "actual_sha256": "da34f80b9d6d3aef1134c36a85099a1135c7a1b5f83fe602ae79cd2d8ac10d35"
+      },
+      {
+        "path": "protocol_codecs.h",
+        "status": "match",
+        "expected_sha256": "64247e740f3b196fa8c203409360968f0f422ad81359bfbdac5b3e2a72ca966b",
+        "actual_sha256": "64247e740f3b196fa8c203409360968f0f422ad81359bfbdac5b3e2a72ca966b"
+      },
+      {
+        "path": "protocol_runtime.c",
+        "status": "match",
+        "expected_sha256": "7744cdb9786fee53b7c500a931e98fae884b2dae3697f463c0778e6831ceeba4",
+        "actual_sha256": "7744cdb9786fee53b7c500a931e98fae884b2dae3697f463c0778e6831ceeba4"
+      },
+      {
+        "path": "protocol_runtime.h",
+        "status": "match",
+        "expected_sha256": "32416598bc9066d85015954505d6893f2fa3ebf07831537355ced244fb4a4314",
+        "actual_sha256": "32416598bc9066d85015954505d6893f2fa3ebf07831537355ced244fb4a4314"
+      },
+      {
+        "path": "tests/protocol/test_runtime.c",
+        "status": "match",
+        "expected_sha256": "a68c3bd253906286608b0f4c62f5e064944cf0699a287448b505d669b991f5f6",
+        "actual_sha256": "a68c3bd253906286608b0f4c62f5e064944cf0699a287448b505d669b991f5f6"
+      }
+    ],
+    "nested_failures": [],
+    "scope_note": "Only the listed source files are bound to this offline result; this does not certify afl-fuzz, its binary, or integration runs."
+  },
+  "tcp_fixtures": {
+    "modbus": {
+      "path": "tests/protocol/out/multicodec-tcp-final/modbus/result.json",
+      "sha256": "a236aead0ca688a4486885cfb7f1d8809043526179d116756833759efb00333a",
+      "evidence_state": "present",
+      "recorded_outcome": "passed",
+      "acceptance": "unverified",
+      "source_provenance": "unverified",
+      "runner_exit_code": 0,
+      "runner_signal": null,
+      "failed_checks": [],
+      "target_unique_crashes": "0",
+      "target_unique_hangs": "0",
+      "snapshot_structured_success": 10,
+      "event_source": "jsonl",
+      "event_count_complete": true,
+      "event_artifact": {
+        "path": "tests/protocol/out/multicodec-tcp-final/modbus/out/protocol_mutations.jsonl",
+        "sha256": "4f7b46dc5a68d9695f8dcb5be6c1927d944b705320fb69bbb1c7d8f752910288"
+      },
+      "mutation_event_count": 10,
+      "rejected_event_count": 5,
+      "counter_consistency": "match",
+      "counter_note": "Candidate construction events do not count successful sends. A mismatch does not establish its cause."
+    },
+    "iec104": {
+      "path": "tests/protocol/out/multicodec-tcp-final/iec104/result.json",
+      "sha256": "ba227845bd3a9e405eb2e6c2bb75c9c45ef81060dd78768f65f33e310d35b96f",
+      "evidence_state": "present",
+      "recorded_outcome": "failed",
+      "acceptance": "failed",
+      "source_provenance": "unverified",
+      "runner_exit_code": -11,
+      "runner_signal": 11,
+      "failed_checks": [
+        "clean_stop",
+        "structured_mutations"
+      ],
+      "target_unique_crashes": "0",
+      "target_unique_hangs": "0",
+      "snapshot_structured_success": 0,
+      "event_source": "jsonl",
+      "event_count_complete": true,
+      "event_artifact": {
+        "path": "tests/protocol/out/multicodec-tcp-final/iec104/out/protocol_mutations.jsonl",
+        "sha256": "301bc7f3f313f2067efd1f82ceddab0a7ab48c6b7116cc909a09fd1c8b9123a6"
+      },
+      "mutation_event_count": 47,
+      "rejected_event_count": 63,
+      "counter_consistency": "mismatch",
+      "counter_note": "Candidate construction events do not count successful sends. A mismatch does not establish its cause."
+    },
+    "mms": {
+      "path": "tests/protocol/out/multicodec-tcp-final/mms/result.json",
+      "sha256": "d955a290110699412d1155db959221347170e222357850525ea30d825b954674",
+      "evidence_state": "present",
+      "recorded_outcome": "passed",
+      "acceptance": "unverified",
+      "source_provenance": "unverified",
+      "runner_exit_code": 0,
+      "runner_signal": null,
+      "failed_checks": [],
+      "target_unique_crashes": "0",
+      "target_unique_hangs": "0",
+      "snapshot_structured_success": 5,
+      "event_source": "jsonl",
+      "event_count_complete": true,
+      "event_artifact": {
+        "path": "tests/protocol/out/multicodec-tcp-final/mms/out/protocol_mutations.jsonl",
+        "sha256": "da604c43b67bbe37733edb1ef8ef30c5c67c7c53eda922cef7750d22adc8090a"
+      },
+      "mutation_event_count": 5,
+      "rejected_event_count": 6,
+      "counter_consistency": "match",
+      "counter_note": "Candidate construction events do not count successful sends. A mismatch does not establish its cause."
+    },
+    "enip": {
+      "path": "tests/protocol/out/multicodec-tcp-final/enip/result.json",
+      "sha256": "a02839435ae7ff74c2632a63c954b68c8763c94c5ad820214708fe2b936cef6d",
+      "evidence_state": "present",
+      "recorded_outcome": "passed",
+      "acceptance": "unverified",
+      "source_provenance": "unverified",
+      "runner_exit_code": 0,
+      "runner_signal": null,
+      "failed_checks": [],
+      "target_unique_crashes": "0",
+      "target_unique_hangs": "0",
+      "snapshot_structured_success": 32,
+      "event_source": "jsonl",
+      "event_count_complete": true,
+      "event_artifact": {
+        "path": "tests/protocol/out/multicodec-tcp-final/enip/out/protocol_mutations.jsonl",
+        "sha256": "d4af86c2a815319912285771af1958b72c3e3063f89082a91d19c0e6bd0ff184"
+      },
+      "mutation_event_count": 32,
+      "rejected_event_count": 47,
+      "counter_consistency": "match",
+      "counter_note": "Candidate construction events do not count successful sends. A mismatch does not establish its cause."
+    },
+    "opcua": {
+      "path": "tests/protocol/out/multicodec-tcp-final/opcua/result.json",
+      "sha256": "3073fbec4d2b59bb96565a2d30ac615342c7c87d9bde2c2cd80cc209ada2111f",
+      "evidence_state": "present",
+      "recorded_outcome": "passed",
+      "acceptance": "unverified",
+      "source_provenance": "unverified",
+      "runner_exit_code": 0,
+      "runner_signal": null,
+      "failed_checks": [],
+      "target_unique_crashes": "0",
+      "target_unique_hangs": "0",
+      "snapshot_structured_success": 47,
+      "event_source": "jsonl",
+      "event_count_complete": true,
+      "event_artifact": {
+        "path": "tests/protocol/out/multicodec-tcp-final/opcua/out/protocol_mutations.jsonl",
+        "sha256": "14384807a52d481b0520d48ee754e45fa0ff4aaac58149d564896ff878db89db"
+      },
+      "mutation_event_count": 47,
+      "rejected_event_count": 41,
+      "counter_consistency": "match",
+      "counter_note": "Candidate construction events do not count successful sends. A mismatch does not establish its cause."
+    }
+  },
+  "bacnet": {
+    "legacy": {
+      "path": "tests/protocol/out/multicodec-bacnet-regression/legacy/result.json",
+      "sha256": "3bf800eff0e4cb791debc7b5538d1e19a59b791628c6ec0670236b7dddaa97ab",
+      "evidence_state": "present",
+      "recorded_outcome": "failed",
+      "acceptance": "failed",
+      "source_provenance": "unverified",
+      "runner_exit_code": 1,
+      "runner_signal": null,
+      "failed_checks": [
+        "ready_reached",
+        "clean_sigint_stop",
+        "executions_continue",
+        "coverage_nonzero",
+        "queue_matches_stats",
+        "replays_present_and_framed",
+        "memory_states_present",
+        "memory_graph_matches_paths",
+        "calibration_present"
+      ],
+      "target_unique_crashes": null,
+      "target_unique_hangs": null,
+      "snapshot_structured_success": null,
+      "event_source": "result_only",
+      "event_count_complete": null,
+      "mutation_event_count": null,
+      "rejected_event_count": null,
+      "counter_consistency": "unverified",
+      "counter_note": "Candidate construction events do not count successful sends. A mismatch does not establish its cause."
+    },
+    "head": {
+      "path": "tests/protocol/out/multicodec-bacnet-regression/head/result.json",
+      "evidence_state": "missing",
+      "recorded_outcome": "unverified",
+      "acceptance": "unverified",
+      "error": "missing"
+    },
+    "head_content": {
+      "path": "tests/protocol/out/multicodec-bacnet-regression/head_content/result.json",
+      "evidence_state": "missing",
+      "recorded_outcome": "unverified",
+      "acceptance": "unverified",
+      "error": "missing"
+    },
+    "all": {
+      "path": "tests/protocol/out/multicodec-bacnet-regression/all/result.json",
+      "evidence_state": "missing",
+      "recorded_outcome": "unverified",
+      "acceptance": "unverified",
+      "error": "missing"
+    },
+    "hybrid": {
+      "path": "tests/protocol/out/multicodec-bacnet-regression/hybrid/result.json",
+      "evidence_state": "missing",
+      "recorded_outcome": "unverified",
+      "acceptance": "unverified",
+      "error": "missing"
+    }
+  },
+  "limits": [
+    "Successful integration records lack source/binary hashes and remain unverified for the current complete worktree.",
+    "Missing modes are unverified, even when an earlier matrix passed.",
+    "Fixture results do not establish industrial-server interoperability."
+  ]
+}

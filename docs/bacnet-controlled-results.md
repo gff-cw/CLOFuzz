@@ -2,9 +2,11 @@
 
 实验对象：本机 BACnet Stack 1.5.0 `build-protocol-integration/server 123`，lo/UDP。没有修改BACnet源码或原始inputs。模板及描述正确性审查见 [template-audit.md](template-audit.md)，六协议范围与完整性见 [protocol-model-audit.md](protocol-model-audit.md)。
 
+本文保留该轮实验执行时的结果、测试数量与支持范围。其后工作树已有五 TCP codec，但最新 IEC104 夹具测试和 BACnet legacy 回归仍失败；当前验收状态见 [任务恢复记录](task-recovery.md)，不能用本文的早期成功替代。
+
 ## 模板与描述检查
 
-本轮修复了role/mutability矛盾、derived/runtime_bound缺少依赖、Python接受C不支持配置、样例只校验外壳、歧义匹配和状态边、最终IR资源预算、深依赖递归等问题。86项编译器测试、14项模板测试通过；15000个BACnet结构随机案例与真实C解析器比较，13403次字段定位检查零差异。六协议当前为71完整消息fixture、641字段声明，独立深层结构/破坏内部长度负例及生成重现检查通过。这里的完整只指明确profile；其他五协议的C编码器仍未实现。
+本轮修复了role/mutability矛盾、derived/runtime_bound缺少依赖、Python接受C不支持配置、样例只校验外壳、歧义匹配和状态边、最终IR资源预算、深依赖递归等问题。86项编译器测试、14项模板测试通过；15000个BACnet结构随机案例与真实C解析器比较，13403次字段定位检查零差异。该轮六协议为71完整消息fixture、641字段声明，独立深层结构/破坏内部长度负例及生成重现检查通过。这里的完整只指明确profile；这些对照执行时，其他五协议的C编码器尚未实现。
 
 ## 实际发包功能对照
 

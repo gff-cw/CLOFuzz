@@ -17,20 +17,14 @@
             "max_message_size",
             "max_chunk_count"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "body",
             "endpoint"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -315,7 +309,7 @@
       "id": "hello",
       "match": "hello",
       "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -331,19 +325,13 @@
             "max_message_size",
             "max_chunk_count"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "body"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -614,20 +602,14 @@
             "message_size",
             "error_code"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "body",
             "reason"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -811,8 +793,7 @@
             "chunk",
             "message_size"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -820,12 +801,7 @@
             "server_uri",
             "endpoint"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1015,8 +991,7 @@
             "security_mode",
             "requested_lifetime"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -1026,12 +1001,7 @@
             "sender_certificate",
             "receiver_thumbprint"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1525,7 +1495,7 @@
       "id": "open_channel",
       "match": "open_channel",
       "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -1545,8 +1515,7 @@
             "revised_lifetime",
             "service_result"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -1556,12 +1525,7 @@
             "sender_certificate",
             "receiver_thumbprint"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -2114,8 +2078,7 @@
             "request_handle",
             "token"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -2123,12 +2086,7 @@
             "service_nodeid",
             "endpoint"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -2521,7 +2479,7 @@
       "id": "message",
       "match": "message",
       "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response. MSG carries complete GetEndpoints Discovery request; this service does not require CreateSession/ActivateSession.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -2538,20 +2496,14 @@
             "token",
             "service_result"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "body",
             "service_nodeid"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3082,20 +3034,14 @@
             "token",
             "service_result"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "body",
             "service_nodeid"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3492,20 +3438,14 @@
             "request_handle",
             "token"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
             "body",
             "service_nodeid"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -3846,13 +3786,13 @@
       "id": "close_channel",
       "match": "close_channel",
       "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response. Implementation profile includes binary encoding NodeId 452 plus RequestHeader; Part6 7.1.4 says empty body. This wording difference is unresolved, so CLO is implementation evidence, not asserted full normative conformance. No response is sent.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     }
   ],
   "name": "OPC UA TCP",
   "protocol_id": "opcua_tcp",
-  "scope": "Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers and nested endpoint/token arrays; no Session services or runtime encoder.",
+  "scope": "Complete HEL/ACK/ERR/RHE and single-final-chunk UASC SecurityPolicy None Issue OpenSecureChannel request/response, GetEndpoints Discovery request/response, ServiceFault, implementation-profile CloseSecureChannel. Complete UA Binary headers and nested endpoint/token arrays; bounded runtime codec and structural repair; Session services excluded.",
   "sources": [
     {
       "basis": "implementation",
@@ -3887,8 +3827,8 @@
       "intermediate/abort chunks and runtime reassembly",
       "whole-standard conformance; CLO normative wording difference unresolved"
     ],
-    "level": "static description; runtime encoder unavailable",
-    "runtime": false
+    "level": "runtime scoped codec",
+    "runtime": true
   },
   "transport": "tcp",
   "version": "OPC10000 Part4/6 v1.05 / asyncua interoperability profile"

@@ -12,17 +12,11 @@
             "length",
             "control"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -114,7 +108,7 @@
       "id": "start_act",
       "match": "start_act",
       "notes": "",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -125,17 +119,11 @@
             "length",
             "control"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -238,17 +226,11 @@
             "length",
             "control"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -340,7 +322,7 @@
       "id": "stop_act",
       "match": "stop_act",
       "notes": "",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -351,17 +333,11 @@
             "length",
             "control"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -464,17 +440,11 @@
             "length",
             "control"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -566,7 +536,7 @@
       "id": "test_act",
       "match": "test_act",
       "notes": "",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -577,17 +547,11 @@
             "length",
             "control"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -691,17 +655,11 @@
             "format",
             "receive_seq"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -817,7 +775,7 @@
       "id": "s_ack",
       "match": "s_ack",
       "notes": "",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -832,8 +790,7 @@
             "vsq",
             "cot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -841,12 +798,7 @@
             "ioa",
             "qoi"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1134,7 +1086,7 @@
       "id": "interrogation",
       "match": "interrogation",
       "notes": "C_IC_NA_1 request: SQ=0/count=1, IOA=0, QOI 20 global or 21..36 group. Data ASDUs between confirmation/termination are excluded, so completion does not mean an empty remote database.",
-      "runtime_encode": false,
+      "runtime_encode": true,
       "weight": 2
     },
     {
@@ -1149,8 +1101,7 @@
             "vsq",
             "cot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -1158,12 +1109,7 @@
             "ioa",
             "qoi"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1464,7 +1410,7 @@
       "fixture_status": "complete",
       "id": "interrogation_confirmation",
       "match": "interrogation_confirmation",
-      "notes": "C_IC_NA_1 activation confirmation or activation termination. Negative confirmation sets P/N bit6; fixture cause 7+64.",
+      "notes": "C_IC_NA_1 positive activation confirmation; fixture COT=7, P/N clear.",
       "runtime_encode": false,
       "weight": 2
     },
@@ -1480,8 +1426,7 @@
             "vsq",
             "cot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -1489,12 +1434,7 @@
             "ioa",
             "qoi"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -1795,7 +1735,7 @@
       "fixture_status": "complete",
       "id": "interrogation_termination",
       "match": "interrogation_termination",
-      "notes": "C_IC_NA_1 activation confirmation or activation termination. Negative confirmation sets P/N bit6; fixture cause 7+64.",
+      "notes": "C_IC_NA_1 activation termination; fixture COT=10, P/N clear.",
       "runtime_encode": false,
       "weight": 2
     },
@@ -1811,8 +1751,7 @@
             "vsq",
             "cot"
           ],
-          "id": "HEAD",
-          "parent": "REQUEST"
+          "id": "HEAD"
         },
         {
           "fields": [
@@ -1820,12 +1759,7 @@
             "ioa",
             "qoi"
           ],
-          "id": "CONTENT",
-          "parent": "REQUEST"
-        },
-        {
-          "fields": [],
-          "id": "REQUEST"
+          "id": "CONTENT"
         }
       ],
       "dependencies": [
@@ -2126,14 +2060,14 @@
       "fixture_status": "complete",
       "id": "interrogation_negative",
       "match": "interrogation_negative",
-      "notes": "C_IC_NA_1 activation confirmation or activation termination. Negative confirmation sets P/N bit6; fixture cause 7+64.",
+      "notes": "C_IC_NA_1 negative activation confirmation; fixture COT=71 (7+64), P/N set.",
       "runtime_encode": false,
       "weight": 2
     }
   ],
   "name": "IEC 60870-5-104",
   "protocol_id": "iec60870_5_104",
-  "scope": "IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group interrogation request, positive/negative activation confirmation and termination; COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Complete static profile; no runtime encoder.",
+  "scope": "IEC104 APCI I/S/U; STARTDT/STOPDT/TESTFR; single-object C_IC_NA_1 global/group interrogation request, positive/negative activation confirmation and termination; COT/CA/IOA widths 2/2/3. Other data ASDUs excluded. Bounded runtime codec and structural repair.",
   "sources": [
     {
       "basis": "implementation",
@@ -2154,8 +2088,8 @@
       "TLS",
       "multi-object runtime generation"
     ],
-    "level": "static description; runtime encoder unavailable",
-    "runtime": false
+    "level": "runtime scoped codec",
+    "runtime": true
   },
   "transport": "tcp",
   "version": "IEC 60870-5-104; lib60870 profile"

@@ -37,7 +37,7 @@ class CompilerTests(unittest.TestCase):
                 p=load(path);s=load(path.with_name('state_transition.yaml'))
                 result=compile_spec(p,s,d)
                 self.assertTrue(result['validated'])
-                self.assertEqual(result['runtime'],path.parent.name=='bacnet_ip')
+                self.assertTrue(result['runtime'])
                 for fname in ['protocol_ir.json','state_ir.json','validation.json']:
                     self.assertEqual((Path(d)/fname).read_bytes(),(path.parent/fname).read_bytes())
 
@@ -48,7 +48,8 @@ class CompilerTests(unittest.TestCase):
     def test_missing_dependency_target(self): self.msg['dependencies'][0]['target']='missing';self.reject('target')
     def test_missing_dependency_source(self): self.msg['dependencies'][0]['source']='missing';self.reject('source')
     def test_unknown_encoder(self): self.p['codec']='shell';self.reject('codec')
-    def test_runtime_unavailable_codec(self): self.p['codec']='mms';self.reject('runtime')
+    def test_runtime_unknown_codec(self): self.p['codec']='unavailable';self.reject('codec')
+    def test_runtime_codec_transport_mismatch(self): self.p['codec']='mms';self.reject('transport mismatch')
     def test_dependency_cycle(self):
         self.msg['dependencies'] += [dict(op='copy_from_message',target='invoke_id',source='property_id'),dict(op='copy_from_message',target='property_id',source='invoke_id')]
         self.reject('cycle')
@@ -155,6 +156,54 @@ class CompilerTests(unittest.TestCase):
         self.msg['dependencies'].append(dict(op='copy_from_message',target='invoke_id',source='property_id',add=1));self.reject('add is not executed')
     def test_runtime_sequence_uses_own_previous_value(self):
         self.msg['dependencies'].append(dict(op='sequence_number',target='invoke_id',source='property_id'));self.reject("target's own previous")
+
+    def test_unsigned64_limits_are_supported_and_overflow_is_rejected(self):
+        self.p=load(ROOT/'protocols/ethernet_ip_cip_tcp/protocol_spec.yaml')
+        self.s=load(ROOT/'protocols/ethernet_ip_cip_tcp/state_transition.yaml')
+        context=next(f for f in self.p['messages'][0]['fields'] if f['id']=='context')
+        context.update(default=2**64-1,values=[2**64-1])
+        validate(self.p,self.s)
+        context['max']=2**64
+        self.reject('integer')
+
+    def test_modbus_aliases_require_equal_runtime_constraints(self):
+        self.p=load(ROOT/'protocols/modbus_tcp/protocol_spec.yaml')
+        self.s=load(ROOT/'protocols/modbus_tcp/state_transition.yaml')
+        with tempfile.TemporaryDirectory() as directory:
+            result=compile_spec(self.p,self.s,directory)
+        self.assertEqual(result['message_aliases'],dict(write_coils_partial='write_coils',
+                        write_coils_partial_response='write_coils_response'))
+        partial=next(m for m in self.p['messages'] if m['id']=='write_coils_partial')
+        next(f for f in partial['fields'] if f['id']=='quantity')['max']=1967
+        self.reject('ambiguous runtime message matching')
+
+    def test_modbus_repeat_is_limited_to_exact_codec_data_descriptor(self):
+        self.p=load(ROOT/'protocols/modbus_tcp/protocol_spec.yaml')
+        self.s=load(ROOT/'protocols/modbus_tcp/state_transition.yaml')
+        request=next(m for m in self.p['messages'] if m['id']=='write_coils')
+        next(f for f in request['fields'] if f['id']=='data')['repeat']['element_width']=2
+        self.reject('exact codec-managed Modbus')
+
+    def test_native_runtime_rejects_corrupt_inner_count(self):
+        self.p=load(ROOT/'protocols/modbus_tcp/protocol_spec.yaml')
+        self.s=load(ROOT/'protocols/modbus_tcp/state_transition.yaml')
+        request=next(m for m in self.p['messages'] if m['id']=='write_coils')
+        wire=bytearray.fromhex(request['example']);wire[12]=2;request['example']=wire.hex()
+        self.reject('byte count mismatch')
+
+    def test_mms_tagged_length_requires_codec_managed_presentation(self):
+        self.p=load(ROOT/'protocols/iec61850_mms_tcp/protocol_spec.yaml')
+        self.s=load(ROOT/'protocols/iec61850_mms_tcp/state_transition.yaml')
+        request=next(m for m in self.p['messages'] if m['id']=='read')
+        request['dependencies'][1]['source']='domain_id'
+        self.reject('tagged_length requires codec-managed MMS')
+
+    def test_length_multiplier_is_supported_but_copy_multiplier_is_rejected(self):
+        self.msg['dependencies'].append(dict(op='length_of',target='invoke_id',source='object_id',multiply=2))
+        validate(self.p,self.s)
+        self.msg['dependencies'][-1]['op']='copy_from_message'
+        self.msg['dependencies'][-1]['source']='property_id'
+        self.reject('multiply is not executed')
 
     def test_metadata_is_explicit_and_defaults_do_not_rewrite_examples(self):
         original=self.msg['example']
