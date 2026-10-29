@@ -1,6 +1,9 @@
 #ifndef __AFLNET_H
 #define __AFLNET_H 1
 
+#include <sys/time.h>
+#include <sys/types.h>
+#include "types.h"
 #include "klist.h"
 #include "khash.h"
 #include <arpa/inet.h>

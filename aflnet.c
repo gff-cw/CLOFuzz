@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
@@ -6,6 +7,7 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -1565,13 +1567,14 @@ klist_t(lms) *construct_kl_messages(u8* fname, region_t *regions, u32 region_cou
 
 void delete_kl_messages(klist_t(lms) *kl_messages)
 {
+  if (!kl_messages) return;
   /* Free all messages in the list before destroying the list itself */
   message_t *m;
 
   int ret = kl_shift(lms, kl_messages, &m);
   while (ret == 0) {
     if (m) {
-      ck_free(m->mdata);
+      if (m->mdata) ck_free(m->mdata);
       ck_free(m);
     }
     ret = kl_shift(lms, kl_messages, &m);
@@ -1583,6 +1586,7 @@ void delete_kl_messages(klist_t(lms) *kl_messages)
 
 kliter_t(lms) *get_last_message(klist_t(lms) *kl_messages)
 {
+  if (!kl_messages || kl_messages->size == 0) return NULL;
   kliter_t(lms) *it;
   it = kl_begin(kl_messages);
   while (kl_next(it) != kl_end(kl_messages)) {

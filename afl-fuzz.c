@@ -1645,7 +1645,8 @@ int send_over_network()
   kliter_t(lms) *it;
   messages_sent = 0;
 
-  for (it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it)) {
+  if (kl_messages) {
+    for (it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it)) {
 
     usleep(send_delay_us);
 
@@ -1690,6 +1691,7 @@ int send_over_network()
     //it could be a signal of a potentiall server crash, like the case of CVE-2019-7314
     if (prev_buf_size == response_buf_size) likely_buggy = 1;
     else likely_buggy = 0;
+    }
   }
 
 HANDLE_RESPONSES:
@@ -2976,6 +2978,8 @@ void init_ipsm(char** argv) {
 
     /* AFLNet delete the kl_messages */
     delete_kl_messages(kl_messages);
+  kl_messages = NULL;
+    kl_messages = NULL;
 
     if (stop_soon) break;
 
@@ -4654,6 +4658,8 @@ static void perform_dry_run(char** argv) {
 
     /* AFLNet delete the kl_messages */
     delete_kl_messages(kl_messages);
+  kl_messages = NULL;
+    kl_messages = NULL;
 
     if (stop_soon) return;
 
@@ -9252,6 +9258,7 @@ abandon_entry:
   ck_free(eff_map);
 
   delete_kl_messages(kl_messages);
+  kl_messages = NULL;
 
   ck_free(mutated_regions);
   mutated_regions = NULL;
@@ -9364,6 +9371,33 @@ static void sync_fuzzers(char** argv) {
 
         if (mem == MAP_FAILED) PFATAL("Unable to mmap '%s'", path);
 
+        /* P08: Construct an independent, validated message context for the imported testcase. */
+        u32 sync_region_count = 0;
+        region_t *sync_regions = (*extract_requests)(mem, st.st_size, &sync_region_count);
+
+        if (!sync_regions || sync_region_count == 0) {
+          if (sync_regions) ck_free(sync_regions);
+          munmap(mem, st.st_size);
+          close(fd);
+          ck_free(path);
+          continue;
+        }
+
+        kl_messages = construct_kl_messages(path, sync_regions, sync_region_count);
+        ck_free(sync_regions);
+        sync_regions = NULL;
+
+        if (!kl_messages || kl_messages->size == 0) {
+          if (kl_messages) {
+            delete_kl_messages(kl_messages);
+            kl_messages = NULL;
+          }
+          munmap(mem, st.st_size);
+          close(fd);
+          ck_free(path);
+          continue;
+        }
+
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */
 
@@ -9371,7 +9405,14 @@ static void sync_fuzzers(char** argv) {
 
         fault = run_target(argv, exec_tmout, afl_fsrv);
 
-        if (stop_soon) return;
+        if (stop_soon) {
+          delete_kl_messages(kl_messages);
+          kl_messages = NULL;
+          munmap(mem, st.st_size);
+          close(fd);
+          ck_free(path);
+          return;
+        }
 
         /* AFLNet: set this flag to enable request extractions while adding new seed to the queue */
         corpus_read_or_sync = 2;
@@ -9382,6 +9423,9 @@ static void sync_fuzzers(char** argv) {
 
         /* AFLNet: unset this flag to disable request extractions while adding new seed to the queue */
         corpus_read_or_sync = 0;
+
+        delete_kl_messages(kl_messages);
+        kl_messages = NULL;
 
         munmap(mem, st.st_size);
 
