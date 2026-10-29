@@ -199,6 +199,8 @@ static s32 shm_id;                    /* ID of the SHM region             */
 
 static s32 shm_state_id;
 volatile struct state_shared * state_shared_ptr;
+static u32 state_tracer_truncated = 0;
+static u32 state_exec_id = 0;
 
 unsigned int* extract_response_state_tracer(unsigned char* buf, unsigned int buf_size, unsigned int* state_count_ref);
 
@@ -919,7 +921,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
           }
         }
 
-        if(diff == 0) {
+        if(diff == 0 && !state_tracer_truncated) {
           is_repeatable = 1;
           ck_free(repeated_state_sequence);
           break;
@@ -953,6 +955,12 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     response_bytes = bak_response_bytes;
   }
 
+
+  if (state_tracer_truncated) {
+    WARNF("State trace truncated; rejecting from full path acceptance");
+    is_interesting = 0;
+    is_repeatable = 0;
+  }
 
   if ((!dry_run && is_repeatable) || (dry_run && is_interesting)) {
 
@@ -1540,14 +1548,19 @@ int send_over_network()
   }
 
 
-  // Wait for termination - reset indicator
-  state_shared_ptr->iterations = 0;
-
-  // Set initial state sequence length to 1 (first int)
-  state_shared_ptr->seq_len = 1;
-
-  // Set initial state to 0 (dummy value)
-  state_shared_ptr->seq[0] = 0;
+  // Wait for termination - reset indicator and state shared tracking
+  if (state_shared_ptr) {
+    state_shared_ptr->magic = STATE_SHARED_MAGIC;
+    state_shared_ptr->version = STATE_SHARED_VERSION;
+    state_shared_ptr->capacity = MAX_NUM_STATES;
+    state_shared_ptr->exec_id = ++state_exec_id;
+    state_shared_ptr->status = STATE_TRACER_STATUS_IDLE;
+    state_shared_ptr->truncated = 0;
+    state_shared_ptr->total_states = 1;
+    state_shared_ptr->seq_len = 1;
+    state_shared_ptr->seq[0] = 0;
+    state_shared_ptr->iterations = 0;
+  }
 
 
 
@@ -2859,7 +2872,12 @@ EXP_ST void setup_shm(void) {
 
   state_shared_ptr = shmat(shm_state_id, NULL, 0);
 
-  if (!state_shared_ptr) PFATAL("shmat() failed");
+  if (!state_shared_ptr || state_shared_ptr == (void *)-1) PFATAL("shmat() failed");
+
+  memset((void *)state_shared_ptr, 0, sizeof(struct state_shared));
+  state_shared_ptr->magic = STATE_SHARED_MAGIC;
+  state_shared_ptr->version = STATE_SHARED_VERSION;
+  state_shared_ptr->capacity = MAX_NUM_STATES;
 
 
 #ifndef DISABLE_TLSH_CALIBRATION
@@ -3052,12 +3070,50 @@ void tlsh_set_distance() {
 
 unsigned int* extract_response_state_tracer(unsigned char* buf, unsigned int buf_size, unsigned int* state_count_ref) {
 
-  unsigned int state_tracer_count_all = state_shared_ptr->seq_len;
+  if (!state_shared_ptr) {
+    *state_count_ref = 0;
+    state_tracer_truncated = 0;
+    return NULL;
+  }
 
-  *state_count_ref = state_tracer_count_all;
+  /* Independent check of magic and version */
+  if (state_shared_ptr->magic != STATE_SHARED_MAGIC ||
+      state_shared_ptr->version != STATE_SHARED_VERSION) {
+    WARNF("state_shared magic or version mismatch (magic=0x%08x, ver=%u)",
+          state_shared_ptr->magic, state_shared_ptr->version);
+    *state_count_ref = 0;
+    state_tracer_truncated = 0;
+    return NULL;
+  }
 
-  unsigned int * state_sequence = ck_alloc( (*state_count_ref)*sizeof(int) );
-  memcpy(state_sequence, state_shared_ptr->seq, *state_count_ref * sizeof(unsigned int));
+  u32 cap = state_shared_ptr->capacity;
+  if (cap == 0 || cap > MAX_NUM_STATES) cap = MAX_NUM_STATES;
+
+  u32 count = state_shared_ptr->seq_len;
+  if (count > cap) {
+    WARNF("state_shared seq_len %u exceeds capacity %u; clamping to capacity", count, cap);
+    count = cap;
+  }
+
+  /* Truncation flag: check explicit truncated field as well as total_states > cap */
+  if (state_shared_ptr->truncated || state_shared_ptr->total_states > cap ||
+      state_shared_ptr->status == STATE_TRACER_STATUS_TRUNCATED) {
+    state_tracer_truncated = 1;
+  } else {
+    state_tracer_truncated = 0;
+  }
+
+  *state_count_ref = count;
+  if (count == 0) return NULL;
+
+  /* Safe allocation with multiplication and capacity bounds */
+  if (count > MAX_NUM_STATES || (uint64_t)count * sizeof(unsigned int) > MAX_ALLOC) {
+    *state_count_ref = 0;
+    return NULL;
+  }
+
+  unsigned int * state_sequence = ck_alloc(count * sizeof(unsigned int));
+  memcpy(state_sequence, (void *)state_shared_ptr->seq, count * sizeof(unsigned int));
 
 
 #ifdef LOG_STATE_TRACER

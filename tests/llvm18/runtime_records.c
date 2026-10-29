@@ -16,9 +16,18 @@ static void expect_ignored(void *address, size_t size) {
 }
 
 int main(void) {
-  assert(sizeof(struct state_shared) == 408);
+  assert(sizeof(struct state_shared) == 436);
   assert(sizeof(struct calibration) == 407324);
   assert(offsetof(struct calibration, dist) == 7316);
+
+  /* P03 bounds and capacity tests for struct state_shared */
+  struct state_shared dummy_shm;
+  memset(&dummy_shm, 0, sizeof(dummy_shm));
+  dummy_shm.magic = STATE_SHARED_MAGIC;
+  dummy_shm.version = STATE_SHARED_VERSION;
+  dummy_shm.capacity = MAX_NUM_STATES;
+  assert(dummy_shm.capacity == 100);
+  assert(dummy_shm.truncated == 0);
 
   char *heap = malloc(4096);
   assert(heap);

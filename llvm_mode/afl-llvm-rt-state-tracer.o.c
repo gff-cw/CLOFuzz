@@ -1509,13 +1509,21 @@ void end_state_tracer() {
 
   if(num_dumps == 0) {
     LOG_DEBUG("No dumps found, skipping analysis...\n");
+    if (state_shared_ptr) {
+      state_shared_ptr->magic = STATE_SHARED_MAGIC;
+      state_shared_ptr->version = STATE_SHARED_VERSION;
+      state_shared_ptr->capacity = MAX_NUM_STATES;
+      state_shared_ptr->status = STATE_TRACER_STATUS_UNAVAILABLE;
+      state_shared_ptr->truncated = 0;
+      state_shared_ptr->total_states = 0;
+      state_shared_ptr->seq_len = 0;
+    }
     goto end_analysis;
   }
 
 
   unsigned int current_state_value = 0;
   unsigned int current_state_number = 0;
-  unsigned int * state_sequence = state_shared_ptr->seq;
 
   // Set number of iterations to be computed
   // (for syncing with the fuzzer)
@@ -1591,11 +1599,17 @@ void end_state_tracer() {
 
 
 
-  // Add initial state "zero"
+  // Add initial state "zero" with explicit bounds and capacity tracking
   LOG_INFO("SAVING STATE [# 0]: 0\n");
-  *state_sequence = 0;
-  state_sequence++;
-  current_state_number++;
+  state_shared_ptr->magic = STATE_SHARED_MAGIC;
+  state_shared_ptr->version = STATE_SHARED_VERSION;
+  state_shared_ptr->capacity = MAX_NUM_STATES;
+  state_shared_ptr->status = STATE_TRACER_STATUS_ANALYZING;
+  state_shared_ptr->truncated = 0;
+  state_shared_ptr->seq[0] = 0;
+  current_state_number = 1;
+  state_shared_ptr->total_states = current_state_number;
+  state_shared_ptr->seq_len = current_state_number;
 
 
   Tlsh * tlsh = Tlsh_new();
@@ -1675,12 +1689,16 @@ void end_state_tracer() {
 
       LOG_INFO("SAVING STATE [# %d]: %08x\n", current_state_number, current_state_value);
 
-      *state_sequence = current_state_value;
-      state_sequence++;
+      if (current_state_number < MAX_NUM_STATES) {
+        state_shared_ptr->seq[current_state_number] = current_state_value;
+      } else {
+        state_shared_ptr->truncated = 1;
+      }
       current_state_number++;
 
-      // update state sequence length
-      state_shared_ptr->seq_len = current_state_number;
+      // update state sequence length with capacity bounds
+      state_shared_ptr->total_states = current_state_number;
+      state_shared_ptr->seq_len = (current_state_number <= MAX_NUM_STATES) ? current_state_number : MAX_NUM_STATES;
 
       current_state_value = 0;
 
@@ -1795,17 +1813,29 @@ void end_state_tracer() {
     }
   }
 
-  // save the last state of the sequence
+  // save the last state of the sequence with capacity bounds
   current_state_value = compute_state_value(tlsh, curr_state_buffer_data, tree, &unique_states, current_state_number-1);
-  *state_sequence = current_state_value;
+  if (current_state_number < MAX_NUM_STATES) {
+    state_shared_ptr->seq[current_state_number] = current_state_value;
+  } else {
+    state_shared_ptr->truncated = 1;
+  }
 
   LOG_INFO("SAVING STATE [# %d]: %08x\n\n", current_state_number, current_state_value);
 
+  current_state_number++;
 
-  // save the state sequence length
-  state_shared_ptr->seq_len = current_state_number+1;
+  // save the state sequence length and publication status
+  state_shared_ptr->total_states = current_state_number;
+  state_shared_ptr->seq_len = (current_state_number <= MAX_NUM_STATES) ? current_state_number : MAX_NUM_STATES;
+  if (state_shared_ptr->truncated) {
+    state_shared_ptr->status = STATE_TRACER_STATUS_TRUNCATED;
+  } else {
+    state_shared_ptr->status = STATE_TRACER_STATUS_COMPLETE;
+  }
 
-  LOG_DEBUG("TOTAL STATES: %d\n", state_shared_ptr->seq_len);
+  LOG_DEBUG("TOTAL STATES: %d (stored: %d, truncated: %d)\n",
+            state_shared_ptr->total_states, state_shared_ptr->seq_len, state_shared_ptr->truncated);
 
 
 

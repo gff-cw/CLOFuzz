@@ -42,6 +42,12 @@ int main(int argc, char** argv) {
       exit(1);
     }
 
+    printf("MAGIC: 0x%08x\n", p->magic);
+    printf("VERSION: %u\n", p->version);
+    printf("CAPACITY: %u\n", p->capacity);
+    printf("STATUS: %u\n", p->status);
+    printf("TRUNCATED: %u\n", p->truncated);
+    printf("TOTAL STATES: %u\n", p->total_states);
     printf("ITERATIONS: %d\n", p->iterations);
 
     printf("SEQ LEN: %d\n", p->seq_len);

@@ -41,6 +41,7 @@ afl-llvm-rt.o
 /protocol_runtime.o
 /tools/__pycache__/
 /tests/protocol/__pycache__/
+/tests/generic-wire/__pycache__/
 /tests/protocol/out/
 /tests/protocol/evidence/**/out/
 /tests/protocol/evidence/failure-replay/failure_server

@@ -20,10 +20,29 @@
 
 #define RATE_LIMIT 5
 
+#define STATE_SHARED_MAGIC   0x53544154U /* "STAT" */
+#define STATE_SHARED_VERSION 2U
+
+enum {
+  STATE_TRACER_STATUS_IDLE        = 0,
+  STATE_TRACER_STATUS_ANALYZING   = 1,
+  STATE_TRACER_STATUS_COMPLETE    = 2,
+  STATE_TRACER_STATUS_TRUNCATED   = 3,
+  STATE_TRACER_STATUS_FAILED      = 4,
+  STATE_TRACER_STATUS_UNAVAILABLE = 5
+};
+
 struct state_shared {
-    unsigned int seq_len;
-    unsigned int seq[MAX_NUM_STATES];
-    unsigned int iterations;
+    uint32_t magic;
+    uint32_t version;
+    uint32_t capacity;
+    uint32_t exec_id;
+    uint32_t status;
+    uint32_t truncated;
+    uint32_t total_states;
+    uint32_t seq_len;
+    uint32_t seq[MAX_NUM_STATES];
+    uint32_t iterations;
 };
 
 enum { TRACER_IDLE, TRACER_ANALYZING, TRACER_DONE };
