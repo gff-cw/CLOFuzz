@@ -1513,10 +1513,12 @@ void end_state_tracer() {
       state_shared_ptr->magic = STATE_SHARED_MAGIC;
       state_shared_ptr->version = STATE_SHARED_VERSION;
       state_shared_ptr->capacity = MAX_NUM_STATES;
-      state_shared_ptr->status = STATE_TRACER_STATUS_UNAVAILABLE;
       state_shared_ptr->truncated = 0;
       state_shared_ptr->total_states = 0;
       state_shared_ptr->seq_len = 0;
+      __sync_synchronize();
+      state_shared_ptr->status = STATE_TRACER_STATUS_UNAVAILABLE;
+      __sync_synchronize();
     }
     goto end_analysis;
   }
@@ -1828,11 +1830,13 @@ void end_state_tracer() {
   // save the state sequence length and publication status
   state_shared_ptr->total_states = current_state_number;
   state_shared_ptr->seq_len = (current_state_number <= MAX_NUM_STATES) ? current_state_number : MAX_NUM_STATES;
+  __sync_synchronize();
   if (state_shared_ptr->truncated) {
     state_shared_ptr->status = STATE_TRACER_STATUS_TRUNCATED;
   } else {
     state_shared_ptr->status = STATE_TRACER_STATUS_COMPLETE;
   }
+  __sync_synchronize();
 
   LOG_DEBUG("TOTAL STATES: %d (stored: %d, truncated: %d)\n",
             state_shared_ptr->total_states, state_shared_ptr->seq_len, state_shared_ptr->truncated);

@@ -202,6 +202,9 @@ volatile struct state_shared * state_shared_ptr;
 static u32 state_tracer_truncated = 0;
 static u32 state_exec_id = 0;
 
+static u64 get_cur_time(void);
+int wait_for_state_sequence(u32 timeout_ms);
+
 unsigned int* extract_response_state_tracer(unsigned char* buf, unsigned int buf_size, unsigned int* state_count_ref);
 
 unsigned int* (*orig_extract_response_codes)(unsigned char* buf, unsigned int buf_size, unsigned int* state_count_ref) = NULL;
@@ -1478,18 +1481,28 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 }
 
 
-void wait_for_state_sequence(void) {
+int wait_for_state_sequence(u32 timeout_ms) {
 
-    usleep(10000);
+  if (!state_shared_ptr) return STATE_TRACER_STATUS_UNAVAILABLE;
 
-    int trials = 1000;
-    while(state_shared_ptr->iterations == 0 && --trials > 0) { usleep(5000); }
+  /* Check execution identity and terminal publication status using bounded wait */
+  u64 start_time = get_cur_time();
+  if (timeout_ms == 0) timeout_ms = 1000;
 
-    // waiting for state tracer done
-    if(state_shared_ptr->iterations > 0) {
-      trials = 1000;
-      while(state_shared_ptr->seq_len < state_shared_ptr->iterations && --trials > 0) { usleep(1000); }
+  while (get_cur_time() - start_time < timeout_ms) {
+    if (state_shared_ptr->exec_id == state_exec_id) {
+      uint32_t st = state_shared_ptr->status;
+      if (st == STATE_TRACER_STATUS_COMPLETE ||
+          st == STATE_TRACER_STATUS_TRUNCATED ||
+          st == STATE_TRACER_STATUS_FAILED ||
+          st == STATE_TRACER_STATUS_UNAVAILABLE) {
+        return (int)st;
+      }
     }
+    usleep(1000);
+  }
+
+  return STATE_TRACER_STATUS_FAILED;
 }
 
 
@@ -1722,7 +1735,12 @@ HANDLE_RESPONSES:
 
   if (likely_buggy && false_negative_reduction) return 0;
 
-  if (terminate_child && (child_pid > 0)) kill(child_pid, SIGTERM);
+  if (terminate_child && (child_pid > 0)) {
+    kill(child_pid, SIGTERM);
+    if (current_fsrv == stateafl_fsrv) {
+      wait_for_state_sequence(poll_wait_msecs_total);
+    }
+  }
 
   //give the server a bit more time to gracefully terminate
 
@@ -3076,11 +3094,37 @@ unsigned int* extract_response_state_tracer(unsigned char* buf, unsigned int buf
     return NULL;
   }
 
+  /* Reject if execution timed out (target was forcefully killed) */
+  if (child_timed_out) {
+    *state_count_ref = 0;
+    state_tracer_truncated = 0;
+    return NULL;
+  }
+
   /* Independent check of magic and version */
   if (state_shared_ptr->magic != STATE_SHARED_MAGIC ||
       state_shared_ptr->version != STATE_SHARED_VERSION) {
     WARNF("state_shared magic or version mismatch (magic=0x%08x, ver=%u)",
           state_shared_ptr->magic, state_shared_ptr->version);
+    *state_count_ref = 0;
+    state_tracer_truncated = 0;
+    return NULL;
+  }
+
+  /* P04: Verify execution identity to prevent stale execution data */
+  if (state_shared_ptr->exec_id != state_exec_id) {
+    WARNF("state_shared exec_id mismatch (%u != %u); rejecting stale execution data",
+          state_shared_ptr->exec_id, state_exec_id);
+    *state_count_ref = 0;
+    state_tracer_truncated = 0;
+    return NULL;
+  }
+
+  /* P04: Verify publication terminal status */
+  uint32_t status = state_shared_ptr->status;
+  if (status != STATE_TRACER_STATUS_COMPLETE && status != STATE_TRACER_STATUS_TRUNCATED) {
+    WARNF("state_shared status %u is not terminal/complete; rejecting incomplete execution",
+          status);
     *state_count_ref = 0;
     state_tracer_truncated = 0;
     return NULL;
@@ -9395,7 +9439,6 @@ static void handle_timeout(int sig) {
 
     if(stateafl_fsrv != NULL && current_fsrv == stateafl_fsrv) {
       kill(child_pid, SIGTERM);
-      wait_for_state_sequence();
     }
 
     kill(child_pid, SIGKILL);

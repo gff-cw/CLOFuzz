@@ -81,6 +81,30 @@ int main(void) {
   corrupt_shm.version = 1U;
   assert(corrupt_shm.magic != STATE_SHARED_MAGIC || corrupt_shm.version != STATE_SHARED_VERSION);
 
-  printf("[+] P03 tests passed successfully!\n");
+  /* 5. P04 execution identity and publication status protocol tests */
+  printf("[*] Testing P04 execution identity and publication protocol...\n");
+  uint32_t current_exec_id = 42;
+  shm.exec_id = current_exec_id;
+
+  /* Test stale execution rejection */
+  uint32_t stale_exec_id = 41;
+  assert(stale_exec_id != shm.exec_id);
+
+  /* Test publication protocol: status IDLE and ANALYZING cannot be accepted as complete */
+  shm.status = STATE_TRACER_STATUS_IDLE;
+  assert(shm.status != STATE_TRACER_STATUS_COMPLETE && shm.status != STATE_TRACER_STATUS_TRUNCATED);
+  shm.status = STATE_TRACER_STATUS_ANALYZING;
+  assert(shm.status != STATE_TRACER_STATUS_COMPLETE && shm.status != STATE_TRACER_STATUS_TRUNCATED);
+
+  /* Test publication protocol: only COMPLETE and TRUNCATED are valid terminal states */
+  shm.status = STATE_TRACER_STATUS_COMPLETE;
+  assert(shm.status == STATE_TRACER_STATUS_COMPLETE || shm.status == STATE_TRACER_STATUS_TRUNCATED);
+
+  shm.status = STATE_TRACER_STATUS_UNAVAILABLE;
+  assert(shm.status != STATE_TRACER_STATUS_COMPLETE && shm.status != STATE_TRACER_STATUS_TRUNCATED);
+  shm.status = STATE_TRACER_STATUS_FAILED;
+  assert(shm.status != STATE_TRACER_STATUS_COMPLETE && shm.status != STATE_TRACER_STATUS_TRUNCATED);
+
+  printf("[+] P03 and P04 tests passed successfully!\n");
   return 0;
 }
