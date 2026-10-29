@@ -15,6 +15,19 @@ arrays, bitfields or session bindings beyond these primitives still require
 general language extensions. The six industrial packages are scoped migration
 subsets; see [their status](generic-wire-profile-scope.md) before use.
 
+The existing YAML compiler and `run_protocol_campaign.py` emit and load the old
+ICP-IR pair only. `build_generic_wire_profiles.py` is a six-profile fixture
+migration, with selected messages, state edges and correlations supplied by its
+own fixed tables. It does not translate the old state IR or all dependency
+semantics. The passive native-layout format is a third, separate language.
+See the [template format comparison](../protocols/templates/README.md).
+
+The diagram below shows the implemented interfaces, not a claim that every
+StateAFL state can reach them. In the reviewed source, the first region always
+has a zero state count, while nonzero-state M2 selection rejects that count;
+that path exits before generic mutation. Message-to-memory-state boundary
+mapping also remains unresolved. See [current gaps](current-integration-gaps.md).
+
 ```mermaid
 flowchart LR
     D[JSON description] --> G[C grammar compiler]
@@ -42,6 +55,17 @@ selection `weight`, a complete `example_hex`, and a `grammar`. The runtime
 compiles and parses each example at load time. Request and response matching
 are separate; a wire message matching multiple grammars in its direction is
 rejected. Constants should distinguish message families explicitly.
+The production loader and offline profile checker both cross-parse every
+declared example against same-direction grammars and reject example ambiguity.
+This moves known example failures to package loading. Neither finite check
+proves that two grammars are disjoint for all possible wire values; actual
+message matching continues to reject ambiguity.
+
+The offline checker now also applies the native JSON input bounds before
+decoding: at most 1 MiB of UTF-8 input, 65,536 nodes including object keys, and
+value depth at most 96 with the root at zero. It rejects floating-point and
+non-JSON numeric constants, out-of-range integers, duplicate decoded keys and
+invalid Unicode scalars. These defensive checks do not extend the wire grammar.
 
 A grammar is `{"kind":"struct","fields":[...]}`. Fields appear in wire
 order and have unique IDs. The grammar consumes the entire message.
@@ -69,6 +93,22 @@ TCP framing is a declared `length_field` with `offset`, `width` (1..4),
 arrive fragmented or coalesced. UDP uses `{"kind":"datagram"}`. The online
 runtime bounds each message at 65,507 bytes and a serialized replay at
 StateAFL's `MAX_FILE`. Limits also bound message count and repetitions.
+The global TCP framing rule applies to request and response examples alike.
+The C loader checks that the length field fits inside each complete example
+and that its value plus `add` equals the example's byte length. This tightens
+loading to match the offline profile checker; v1 has no per-direction framing
+override. A custom package previously accepted with differently framed request
+examples can now be rejected. This example check does not establish that every
+grammar-accepted candidate obeys framing; the grammar must declare the needed
+length dependency itself.
+Request examples must also fit `limits.max_bytes` including their four-byte
+replay prefix. Both loaders reject a package whose request template already
+exceeds that budget. Response examples are not replay records and are not
+charged against this request-sequence limit.
+The host receive function currently concatenates UDP datagrams before calling
+the generic runtime, which expects one datagram per call. Multiple datagrams in
+one receive batch can therefore fail matching. The existing online fixture
+does not model responses and does not validate this boundary.
 
 ## Three mutation layers and feedback
 
@@ -97,6 +137,23 @@ It does not implement pipelining, retransmission recovery or server-issued
 session-value bindings. Sequence message, repetition and byte budgets include
 the captured M1 prefix; the integration separately enforces `MAX_FILE` for
 the full M1/M2/M3 replay.
+The retained M3 suffix is not included in the semantic graph or profile-budget
+check. Its pre-send failure does not abort execution as a structured M2 failure
+does. Consequently `valid` does not guarantee semantic validity of the full
+M1/M2/M3 session. This limitation is separate from the full replay byte cap.
+
+New generic statistics declare `stats_version:2`. `completed_responses` counts
+pending requests completed by their expected response. `correlated_responses`
+counts only completions with at least one applicable field equality rule checked
+and all applicable rules passing. An expected response without rules can still
+complete the request, but increments only `completed_responses`. Neither metric
+counts individual field comparisons. Pending and semantic-state behavior is
+unchanged by this accounting correction.
+
+Historical statistics without `stats_version` have v1 semantics: their
+`correlated_responses` includes completions without field rules. The report
+writer distinguishes versions and does not infer field verification from old
+counts. Unknown statistics versions remain uninterpreted.
 
 `--protocol-schedule adaptive` uses the existing C scheduler for all three
 layers. It keys weights by the selected StateAFL memory state, explores every
@@ -106,6 +163,13 @@ gets an unsuccessful observation. Coverage credit requires delivery of the
 whole structured M2; calibration/replay executions do not choose another
 layer or produce duplicate candidate observations. Protocol response states
 are not inserted into StateAFL's inferred memory-state graph.
+Memory-state discovery is performed only after the ordinary coverage novelty
+gate retains a candidate. The memory reward is therefore additional feedback
+after that gate, not an independent retention path for memory-only novelty.
+The recorded loopback run attributes every layer observation to state 0;
+an injected nonzero-ID harness does not validate natural nonzero-state M2
+selection. Adaptive scheduling is applied in havoc/splice; deterministic
+stages keep the ordinary AFL candidates.
 
 ## Running and verification
 

@@ -4,6 +4,8 @@
 Independent of the generator and old protocol compiler/codecs. Package identity,
 source inventories, fixture correlation and online scope are additional profile
 policy checks, not a claim of full protocol conformance or C runtime execution.
+Cross-parsing rejects ambiguity at the declared examples only; it does not prove
+that two grammars cannot overlap at some other wire value.
 """
 import json
 import re
@@ -14,6 +16,8 @@ NAMES = ("bacnet_ip", "iec60870_5_104", "iec61850_mms_tcp",
          "modbus_tcp", "ethernet_ip_cip_tcp", "opcua_tcp")
 MAX_WIRE = 1048576
 MAX_FRAME = 65507
+MAX_JSON_NODES = 65536
+MAX_JSON_DEPTH = 96
 
 
 def need(ok, what):
@@ -47,15 +51,90 @@ def unhex(s, limit=MAX_WIRE, example=False):
 def unique_object(pairs):
     obj = {}
     for key, item in pairs:
-        need(key not in obj, "duplicate JSON key: " + key)
+        need(key not in obj, "duplicate JSON key")
         obj[key] = item
     return obj
 
 
+def json_integer(token):
+    digits = token[1:] if token.startswith("-") else token
+    need(len(digits) <= 20, "JSON integer exceeds C numeric range")
+    return integer(int(token), -(1 << 63), (1 << 64)-1)
+
+
+def reject_json_number(_token):
+    raise ValueError("only integer JSON numbers are supported")
+
+
+def check_json_budget(source):
+    """Bound allocation before decoding; object keys count as C JSON nodes.
+
+    This is a lexical resource check, not a second JSON parser. The standard
+    decoder validates syntax afterward. At most 97 containers can be open:
+    the root value has depth zero, and the last empty container can be at 96.
+    A post-decode walk checks the exact depth of every non-key value as well.
+    """
+    depth = nodes = 0
+    quoted = escaped = primitive = False
+    for char in source:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quoted = False
+            continue
+        if char == '"':
+            nodes += 1
+            quoted = True
+            primitive = False
+        elif char in "[{":
+            nodes += 1
+            depth += 1
+            primitive = False
+            need(depth <= MAX_JSON_DEPTH + 1, "JSON nesting depth exceeds C budget")
+        elif char in "]}":
+            depth -= 1
+            primitive = False
+        elif char in " \t\r\n,:":
+            primitive = False
+        elif not primitive:
+            nodes += 1
+            primitive = True
+        need(nodes <= MAX_JSON_NODES, "JSON node budget exceeded")
+
+
+def check_decoded_json(document):
+    """Reject lone Unicode surrogates and enforce the native parser's depth."""
+    pending = [(document, 0)]
+    while pending:
+        item, depth = pending.pop()
+        need(depth <= MAX_JSON_DEPTH, "JSON nesting depth exceeds C budget")
+        if type(item) is dict:
+            for key, child in item.items():
+                key.encode("utf-8")
+                pending.append((child, depth + 1))
+        elif type(item) is list:
+            pending.extend((child, depth + 1) for child in item)
+        elif type(item) is str:
+            item.encode("utf-8")
+
+
 def load(path):
-    raw = path.read_bytes()
+    with path.open("rb") as stream:
+        raw = stream.read(MAX_WIRE + 1)
     need(len(raw) <= MAX_WIRE, "JSON file exceeds C input budget")
-    return json.loads(raw, object_pairs_hook=unique_object)
+    source = raw.decode("utf-8")
+    check_json_budget(source)
+    try:
+        document = json.loads(source, object_pairs_hook=unique_object,
+                              parse_int=json_integer, parse_float=reject_json_number,
+                              parse_constant=reject_json_number)
+        check_decoded_json(document)
+    except RecursionError as error:
+        raise ValueError("JSON nesting depth exceeds decoder capacity") from error
+    return document
 
 
 def value(wire, offset, width, order):
@@ -63,7 +142,7 @@ def value(wire, offset, width, order):
     return int.from_bytes(wire[offset:offset+width], order)
 
 
-def parse_grammar(grammar, wire):
+def _parse_grammar(grammar, wire):
     """Validate ordered leaves as gw_compile/gw_parse do; return values/sizes.
 
     Enum 'values' are mutation choices in C, not a parse-time membership rule.
@@ -151,11 +230,66 @@ def parse_grammar(grammar, wire):
     return ids
 
 
+def parse_grammar(grammar, wire):
+    """Report malformed grammar attributes with the same ValueError contract."""
+    try:
+        return _parse_grammar(grammar, wire)
+    except (KeyError, TypeError) as error:
+        raise ValueError(f"invalid grammar: {error}") from error
+
+
+def check_example_matches(messages):
+    """Require each example to match exactly its own same-direction grammar.
+
+    All grammars must have been validated against their own examples first.
+    This is a finite example check, not a proof of grammar disjointness. The C
+    runtime still checks ambiguity for every actual message it receives.
+    """
+    for message in messages:
+        wire = unhex(message["example_hex"], MAX_FRAME, example=True)
+        matches = []
+        for candidate in messages:
+            if candidate["direction"] != message["direction"]:
+                continue
+            try:
+                parse_grammar(candidate["grammar"], wire)
+            except ValueError:
+                continue
+            matches.append(candidate["id"])
+        need(matches == [message["id"]],
+             f"{message['id']}: example must match only its own same-direction grammar; "
+             f"matched {matches}")
+
+
+def check_correlation_pairs(messages, transitions):
+    """Apply the C loader's two-way request/response correlation checks.
+
+    Reference kinds and fields must already be validated. A response may omit
+    correlations entirely, as in C. Once it declares any, every transition to
+    that response must have a rule for its request, and every rule must belong
+    to an actual request/response transition.
+    """
+    pairs = {(t["message"], t["response"]) for t in transitions if "response" in t}
+    for message in messages:
+        correlations = message.get("correlate", [])
+        if not correlations:
+            continue
+        response = message["id"]
+        requests = {c["request"] for c in correlations}
+        for request in sorted(requests):
+            need((request, response) in pairs,
+                 f"{response}: correlation for {request} has no request/response transition")
+        for request, target in sorted(pairs):
+            if target == response:
+                need(request in requests,
+                     f"{response}: transition for {request} lacks request correlation")
+
+
 def check(path):
     name = path.parent.name
     try:
         return check_profile(path, name)
-    except (ValueError, KeyError, TypeError) as error:
+    except (ValueError, KeyError, TypeError, OSError) as error:
         raise ValueError(f"{name}: {error}") from error
 
 
@@ -202,6 +336,9 @@ def check_profile(path, name):
         integer(m["weight"], 1, 1000)
         wire = unhex(m["example_hex"], MAX_FRAME, example=True)
         need(wire == bytes.fromhex(examples[mid]["example"]), f"{mid}: fixture changed")
+        if m["direction"] == "request":
+            need(len(wire) + 4 <= lim["max_bytes"],
+                 f"{mid}: request example exceeds max_bytes including replay prefix")
         try:
             parsed[mid] = parse_grammar(m["grammar"], wire)
         except (ValueError, KeyError, TypeError) as error:
@@ -210,6 +347,7 @@ def check_profile(path, name):
             need(value(wire, framing["offset"], framing["width"], framing["byte_order"])+
                  framing["add"] == len(wire), f"{mid}: framing length")
         seen[mid] = m
+    check_example_matches(messages)
     request = sum(m["direction"] == "request" for m in messages)
     response = len(messages)-request
     need(request > 0 and response > 0, "request+response required")
@@ -241,12 +379,14 @@ def check_profile(path, name):
     states = data["states"]
     keys(states, ("initial", "transitions"))
     initial = text(states["initial"])
+    need(initial, "empty initial state")
     transitions = states["transitions"]
     need(type(transitions) is list and 1 <= len(transitions) <= 256, "invalid transitions")
     state_names, edges = set(), set()
     for t in transitions:
         keys(t, ("from", "to", "message"), ("response",))
         origin, target, mid = (text(t[k]) for k in ("from", "to", "message"))
+        need(origin and target, "empty transition state")
         need(mid in seen and seen[mid]["direction"] == "request", "transition request")
         if "response" in t:
             rid = text(t["response"])
@@ -255,10 +395,14 @@ def check_profile(path, name):
         edges.add((origin, mid))
         state_names.update((origin, target))
     need(initial in state_names and len(state_names) <= 64, "initial state or state count")
+    check_correlation_pairs(messages, transitions)
     return {"protocol": name, "online": data["online"], "requests": request,
             "responses": response, "unsupported": len(missing)}
 
 
 if __name__ == "__main__":
-    results = [check(ROOT/name/"generic_wire.json") for name in NAMES]
+    try:
+        results = [check(ROOT/name/"generic_wire.json") for name in NAMES]
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     print(json.dumps(results, indent=2))

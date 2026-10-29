@@ -7,6 +7,17 @@ Three independent audit tasks covered wire rules, runtime sessions, and the
 six profile descriptions. The root integration checked production CLI,
 scheduler attribution, compatibility regressions and local network execution.
 
+This is a historical execution record for the source hashes in its saved
+report. Subsequent static review identified the nonzero-state selection
+blocker, memory-novelty gate, UDP boundary mismatch and incomplete M3 semantic
+checking documented in [current gaps](current-integration-gaps.md). The checks
+below do not establish that these paths work. Later changes to offline checks,
+report metadata and documentation have not been tested or built in this repair
+pass; the historical pass results are not results for those changes.
+The repair also changes generic statistics to version 2 and adds loader
+example-ambiguity rejection. The saved unversioned report retains its original
+v1 counter semantics; it is not retroactively rewritten as a new validation.
+
 ## Executed checks
 
 | Check | Observed result |
@@ -59,6 +70,19 @@ semantic transition. Actual response framing and correlation are exercised by
 the separate generic runtime and Modbus TCP harnesses. StateAFL's inferred
 memory states supplied the observed memory reward; it was not a description
 state being counted as target feedback.
+
+Every saved layer observation is attributed to state ID 0. A memory discovery
+event does not prove that the fuzzer later selected that nonzero state and
+reached generic mutation. The Modbus response harness calls APIs directly; it
+does not establish socket-level compatibility with an industrial server.
+
+The saved report hashes five source files, but not the executed fuzzer or target
+binaries, complete build dependencies, toolchain or dynamic libraries. Its
+committed evidence directory omits candidate replay files, binaries and build
+logs; the wire log records validity and size rather than packet bytes. Counts
+can be reconciled, but readers cannot independently re-inspect the reported
+100 candidate contents from that directory. Reporting changes can describe
+future artifacts accurately; they cannot fill these historical gaps.
 
 ## Remaining acceptance gaps
 

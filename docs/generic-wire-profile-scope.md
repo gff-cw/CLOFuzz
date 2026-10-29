@@ -57,12 +57,26 @@ selected fields instead of silently emitting a reduced grammar. Run it without
 `--check` to regenerate the files; that operation does not authorize expanding
 online eligibility.
 
+This is not a general YAML-to-generic-wire compiler. The script reads old
+`protocol_ir.json` fixtures but not `state_ir.json`; it obtains state edges and
+correlations from its own six-profile tables. Derived fields are approximated
+as fixture total-size additions, and unsupported structure is frozen into exact
+byte slices. Editing old YAML state, dependency or binding declarations does
+not establish an equivalent new grammar. The templates and schemas retain
+their [separate format scopes](../protocols/templates/README.md).
+
 Run `python3 tools/check_generic_wire_profiles.py` to verify the six package
 IDs, selected fixture bytes, field bounds, derived lengths, framing, correlation
 references, deterministic state edges and exhaustive unsupported-message
 inventories. It rejects unknown schema attributes, invalid integer encodings,
 invalid byte lengths and violations of constraints on non-fixed leaves as the C
-grammar compiler/parser do. Profile checks additionally require matching source
+grammar compiler/parser do. It also rejects orphan correlation rules, missing
+request-pair coverage on shared responses and same-direction grammar ambiguity
+at each declared example. This finite example check is not a proof that all
+possible accepted messages are unambiguous. JSON loading also rejects non-UTF-8
+input, floats and non-JSON numeric constants, out-of-range integers, duplicate
+decoded keys and invalid Unicode scalars, with native byte/node/depth budgets.
+Profile checks additionally require matching source
 fixtures, equal example correlation values, explicit limitations and the current
 online policy. It is an independent Python check, not an invocation of the C loader.
 

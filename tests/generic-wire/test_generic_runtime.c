@@ -36,7 +36,15 @@ static int valid(const unsigned char *wire,size_t n){
 static int status(proto_engine *e,const char *path,const char *needle){
   proto_write_stats(e,path);FILE *f=fopen(path,"rb");if(!f)return 0;
   char buffer[1024];size_t n=fread(buffer,1,sizeof(buffer)-1,f);fclose(f);buffer[n]=0;
-  return strstr(buffer,needle)!=NULL;
+  const char *found=strstr(buffer,needle);size_t length=strlen(needle);
+  if(!found)return 0;
+  /* Numeric fragments must end at a JSON delimiter: 1 must not match 10. */
+  if(length&&needle[length-1]>='0'&&needle[length-1]<='9'){
+    const char *end=found+length;
+    while(*end&&strchr(" \t\r\n",*end))end++;
+    return *end==','||*end=='}';
+  }
+  return 1;
 }
 static proto_engine *variant(const char *source,const char *needle,const char *replacement,
                              int all,char *error,size_t cap){
@@ -69,6 +77,60 @@ static int json_stream(FILE *stream){
     nj_document *d=NULL;if(nj_parse_buffer((const unsigned char *)line,strlen(line),&d,error,sizeof(error))<0)return 0;
     nj_free(d);lines++;
   }return lines>0&&!ferror(stream);
+}
+static proto_engine *matching_package(unsigned requests,unsigned responses,char *error,size_t cap){
+  /* All one-byte grammars overlap. Opposite directions must remain separate. */
+  char path[]="/tmp/stateafl-generic-matching-XXXXXX";int fd=mkstemp(path);
+  if(fd<0){snprintf(error,cap,"matching fixture creation failed");return NULL;}
+  FILE *f=fdopen(fd,"wb");
+  if(!f){close(fd);remove(path);snprintf(error,cap,"matching fixture open failed");return NULL;}
+  fputs("{\"format\":\"stateafl.generic-wire\",\"version\":1,\"protocol_id\":\"matching\","
+        "\"online\":true,\"transport\":\"udp\",\"framing\":{\"kind\":\"datagram\"},\"messages\":[",f);
+  for(unsigned i=0;i<requests+responses;i++){
+    int response=i>=requests;unsigned ordinal=response?i-requests:i;
+    if(i)fputc(',',f);
+    fprintf(f,"{\"id\":\"%s%u\",\"direction\":\"%s\",\"weight\":1,\"example_hex\":\"%02x\","
+      "\"grammar\":{\"kind\":\"struct\",\"fields\":["
+      "{\"id\":\"value\",\"kind\":\"uint\",\"width\":1,\"byte_order\":\"big\","
+      "\"role\":\"content\",\"min\":0,\"max\":255}]}}",
+      response?"response":"request",ordinal,response?"response":"request",ordinal+1);
+  }
+  fputs("],\"states\":{\"initial\":\"ready\",\"transitions\":["
+        "{\"from\":\"ready\",\"to\":\"done\",\"message\":\"request0\",\"response\":\"response0\"}]},"
+        "\"limits\":{\"max_messages\":8,\"max_repeat\":4,\"max_bytes\":256}}",f);
+  int ok=!ferror(f);if(fclose(f))ok=0;
+  proto_engine *e=NULL;
+  if(ok)e=proto_load_generic(path,error,cap);
+  else snprintf(error,cap,"matching fixture write failed");
+  remove(path);return e;
+}
+static int matching_regressions(void){
+  char error[512];proto_engine *e=matching_package(2,1,error,sizeof(error));
+  CHECK(e==NULL&&strstr(error,"example for request0")&&strstr(error,"ambiguous message grammars"));
+  e=matching_package(1,2,error,sizeof(error));
+  CHECK(e==NULL&&strstr(error,"example for response0")&&strstr(error,"ambiguous message grammars"));
+  /* Equal request/response examples are legal because direction disambiguates.
+   * Without equality rules, completion must not claim field correlation. */
+  e=matching_package(1,1,error,sizeof(error));CHECK(e!=NULL);
+  const char *stats="/tmp/stateafl-generic-matching-stats.json";
+  unsigned char wire[]={1},wrong_size[]={1,2};
+  CHECK(status(e,stats,"\"stats_version\":2"));
+  CHECK(status(e,stats,"\"completed_responses\":0"));
+  CHECK(proto_before_send(e,wire,sizeof(wire),error,sizeof(error))==0);
+  proto_after_response(e,wrong_size,sizeof(wrong_size));
+  CHECK(status(e,stats,"\"responses\":0"));
+  CHECK(status(e,stats,"\"completed_responses\":0"));
+  CHECK(status(e,stats,"\"correlated_responses\":0"));
+  CHECK(status(e,stats,"\"protocol_semantic_state\":\"ready\""));
+  proto_after_response(e,wire,sizeof(wire));
+  CHECK(status(e,stats,"\"completed_responses\":1"));
+  CHECK(status(e,stats,"\"correlated_responses\":0"));
+  CHECK(status(e,stats,"\"protocol_semantic_state\":\"done\""));
+  proto_after_response(e,wire,sizeof(wire));
+  CHECK(status(e,stats,"\"responses\":2"));
+  CHECK(status(e,stats,"\"completed_responses\":1"));
+  CHECK(status(e,stats,"\"correlated_responses\":0"));
+  proto_free(e);remove(stats);return 0;
 }
 static int limit_regressions(const char *path){
   char error[512];unsigned char records[128],candidate[32];const unsigned char *out;
@@ -164,16 +226,22 @@ static int session_regressions(void){
   CHECK(status(e,stats,"\"protocol_semantic_state\":\"ready\""));
   CHECK(proto_before_send(e,notice,sizeof(notice),error,sizeof(error))<0&&strstr(error,"outstanding"));
   reply[1]=18;proto_after_response(e,reply,sizeof(reply));
+  CHECK(status(e,stats,"\"completed_responses\":0"));
   CHECK(status(e,stats,"\"correlated_responses\":0"));
   CHECK(proto_before_send(e,a,sizeof(a),error,sizeof(error))<0&&strstr(error,"outstanding"));
   reply[1]=17;proto_after_response(e,reply,sizeof(reply));
+  CHECK(status(e,stats,"\"completed_responses\":1"));
+  CHECK(status(e,stats,"\"correlated_responses\":1"));
   CHECK(status(e,stats,"\"protocol_semantic_state\":\"waiting\""));
   CHECK(proto_before_send(e,a,sizeof(a),error,sizeof(error))<0);
   CHECK(proto_before_send(e,b,sizeof(b),error,sizeof(error))==0);
   reply[1]=17;proto_after_response(e,reply,sizeof(reply));
+  CHECK(status(e,stats,"\"completed_responses\":1"));
+  CHECK(status(e,stats,"\"correlated_responses\":1"));
   CHECK(proto_before_send(e,b,sizeof(b),error,sizeof(error))<0&&strstr(error,"outstanding"));
   reply[1]=34;proto_after_response(e,reply,sizeof(reply));
   CHECK(status(e,stats,"\"protocol_semantic_state\":\"ready\""));
+  CHECK(status(e,stats,"\"completed_responses\":2"));
   CHECK(status(e,stats,"\"correlated_responses\":2"));
   proto_session_begin(e);reply[1]=17;proto_after_response(e,reply,sizeof(reply));
   CHECK(status(e,stats,"\"protocol_semantic_state\":\"ready\""));proto_free(e);
@@ -184,6 +252,7 @@ static int session_regressions(void){
 }
 int main(int argc,char **argv){
   CHECK(argc==2);char error[512]={0};
+  CHECK(matching_regressions()==0);
   CHECK(limit_regressions(argv[1])==0);
   CHECK(diagnostics_regressions(argv[1])==0);
   CHECK(session_regressions()==0);
@@ -191,6 +260,9 @@ int main(int argc,char **argv){
   CHECK(bad_package(argv[1],"\"message\": \"pulse\"","\"message\": \"missing_request\""));
   CHECK(bad_package(argv[1],"\"initial\": \"ready\"","\"initial\": \"unreachable\""));
   CHECK(bad_package(argv[1],"\"kind\": \"datagram\"","\"kind\": \"unknown\""));
+  CHECK(bad_package(argv[1],"\"max_bytes\": 1048576","\"max_bytes\": 8"));
+  proto_engine *exact_budget=variant(argv[1],"\"max_bytes\": 1048576","\"max_bytes\": 12",0,error,sizeof(error));
+  CHECK(exact_budget!=NULL);proto_free(exact_budget);
   proto_engine *e=proto_load_generic(argv[1],error,sizeof(error));
   if(!e)fprintf(stderr,"generic load failed: %s\n",error);
   CHECK(e!=NULL);CHECK(!strcmp(proto_transport(e),"udp"));

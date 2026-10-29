@@ -1,17 +1,25 @@
-# 统一描述模板 → 具体协议描述 → 加载定向变异
+# 现有 codec 配置模板与离线检查模板
 
-[native_layout.template.json](native_layout.template.json) 和 [native_observations.template.json](native_observations.template.json) 用于 [C 原生本地检查](../../docs/native-inspection.md)。前者是虚构结构示例，后者需填写实际摘要及作用域；均不启动目标，不等于旧在线 codec 描述。
+本目录包含两套用途不同的模板。下表另列新在线引擎的格式，供区分；当前目录没有该格式的模板。
+
+| 格式 | 输入与执行路径 | 能力边界 |
+| --- | --- | --- |
+| ICP-IR v1 YAML | 两份 YAML → `proto_spec_compiler.py` → `protocol_ir.json` / `state_ir.json` → 六种已有 C codec | 统一配置结构；新增编码或服务仍依赖 codec 实现。 |
+| `stateafl.offline-layout` / 原生观测 JSON | `native_layout.template.json` / `native_observations.template.json` → 本地检查 | 被动解码与观测检查；没有在线编码、变异或网络执行能力。 |
+| `stateafl.generic-wire` v1 JSON | 独立 JSON 描述 → 通用 C wire 引擎 | 独立格式；YAML 编译器和本目录的离线 JSON 模板均不能作为其前端。能力范围见[语言文档](../../docs/generic-wire-language.md)。 |
+
+[native_layout.template.json](native_layout.template.json) 和 [native_observations.template.json](native_observations.template.json) 用于 [C 原生本地检查](../../docs/native-inspection.md)。前者是虚构结构示例，后者需填写实际摘要及作用域；均不启动目标。离线布局支持某种结构，不代表在线引擎具备相应解析、编码或变异能力。
 
 旧的独立 Python 布局和编辑计划模板已移除。C 本地检查使用上述两个 JSON 模板；下面的 YAML 模板仍用于现有 ICP-IR 编译流程，不能把两种格式混用。
 
-这里是用户填写协议描述的起点。JSON Schema 是格式检查规则；本目录的带注释 YAML 才是可复制、填写的模板。
+下面是填写已有 codec 配置的起点。`protocols/schema` 中两份 JSON Schema 检查 ICP-IR YAML 的字段结构，不适用于 `stateafl.generic-wire` 或离线布局 JSON。本目录的带注释 YAML 是可复制、填写的配置骨架。
 
 - [protocol_spec.template.yaml](protocol_spec.template.yaml)：消息、HEAD/CONTENT、字段、取值策略、长度/跨消息依赖、协议来源。
 - [state_transition.template.yaml](state_transition.template.yaml)：独立语义状态、消息边、请求/响应关系、序列上限。
 
 `{{...}}` 必须替换为真实协议内容；模板中的 command/length/payload 是字段形状示例，不是任意工控协议通用的线格式。空白模板不能直接启动测试。两份 YAML 的 protocol_id 必须相同。
 
-## 1. 根据模板生成某个协议的完整描述包
+## 1. 复制已有 profile 的描述包
 
 在 stateafl 根目录运行：
 
@@ -24,9 +32,9 @@ python3 tools/init_protocol_spec.py \
   --output-dir ./my-specs/bacnet_ip
 ```
 
-工具按统一模板的顶层结构，填入现有 BACnet 的真实字段、定位器、消息和状态定义，同时生成初始 IR、来源和种子。输出目录必须尚不存在；不会覆盖现有描述。生成的字段独立展开，不使用 YAML 引用别名，修改一个消息不会意外修改另一个消息。
+工具按模板的顶层结构，复制现有 BACnet profile 的字段、定位器、消息和状态定义，同时生成初始旧版 IR、来源和种子。它不会根据骨架推导新协议；更换 `protocol_id` 也不会增加编码能力。输出目录必须尚不存在；不会覆盖现有描述。生成的字段独立展开，不使用 YAML 引用别名，修改一个消息不会意外修改另一个消息。
 
-`--base` 可选六种已有协议配置：bacnet_ip、modbus_tcp、iec60870_5_104、iec61850_mms_tcp、ethernet_ip_cip_tcp、opcua_tcp。它不会自动从标准网页推导协议；真实字段由各协议配置提供。六种参考 profile 均有有界 C runtime codec，`--require-runtime` 可用于任一配置；显式设为 runtime=false 的静态描述仍会被拒绝。BACnet 使用 UDP，其余五种使用 TCP。支持的是描述中列出的服务与叶字段，新增服务仍需相应 codec 实现。
+`--base` 可选六种已有协议配置：bacnet_ip、modbus_tcp、iec60870_5_104、iec61850_mms_tcp、ethernet_ip_cip_tcp、opcua_tcp。它不会自动从标准网页推导协议；真实字段由各协议配置提供。六种参考 profile 均有有界旧版 C runtime codec，`--require-runtime` 可用于任一配置；显式设为 runtime=false 的静态描述仍会被拒绝。这里的 runtime 能力声明属于旧 codec 路径，不是对应 `generic_wire.json` 的在线资格。BACnet 使用 UDP，其余五种使用 TCP。支持的是描述中列出的服务与叶字段，新增服务仍需相应 codec 实现。
 
 ## 2. 按被测实现修改生成的 YAML
 
@@ -39,7 +47,7 @@ python3 tools/init_protocol_spec.py \
 5. 长度、计数、复制和响应绑定等 `dependencies`。
 6. 真实状态与迁移、请求响应关联、序列上限。
 
-例如，在生成的 BACnet ReadProperty 消息中，将 invoke_id 的允许枚举策略改为：
+例如，在生成的 BACnet ReadProperty 消息中，将 invoke_id 的枚举变异候选改为：
 
 ```yaml
 id: invoke_id
@@ -48,7 +56,7 @@ values: [33]
 strategies: [enum]
 ```
 
-当 HEAD 选择该字段时会使用描述中的 33；改为 `[77]` 后会使用 77。其他可变 HEAD 字段仍可能被选择。固定字段受保护，派生长度由依赖修复。测试已通过 C runtime 验证“只允许 invoke_id 变异”的两份配置分别得到 33 和 77，其他报文和外层封装字节不变。
+当 HEAD 选择该字段时会使用描述中的 33；改为 `[77]` 后会使用 77。其他可变 HEAD 字段仍可能被选择。这里的 `values` 是枚举策略的候选集合，不能单独代替输入解析的值域约束。固定字段受保护，派生长度由依赖修复。既有旧版 C runtime 测试记录验证了“只允许 invoke_id 变异”的两份配置分别得到 33 和 77，其他报文和外层封装字节不变；这不是新通用引擎的验证结果。
 
 消息 ID 可以更名，但必须同步更新状态边和跨消息引用；编码器按实际协议类型/服务选择，已验证 Who-Is 更名后 CONTENT 变异不受影响。
 
@@ -56,7 +64,7 @@ strategies: [enum]
 
 ## 3. 直接选择描述目录启动
 
-推荐入口每次从所选目录读取两个 YAML，校验并重编译 IR，然后用这些 IR 启动原 afl-fuzz。无需手工修改 C 代码来切换已支持的描述包：
+旧 codec 路径的入口每次从所选目录读取两个 YAML，校验并重编译旧版 IR，然后用 `--protocol-spec` / `--state-spec` 启动原 afl-fuzz。它不会改用 `--generic-spec`。无需手工修改 C 代码来切换已有 codec 所支持的描述包：
 
 ```bash
 BACNET_IFACE=lo BACNET_IP_PORT=47818 \
@@ -99,7 +107,9 @@ python3 tools/proto_spec_compiler.py \
 # --state-spec ./my-specs/bacnet_ip/state_ir.json
 ```
 
-统一模板的结构在六种具体协议配置中相同；各协议的字段、编码和状态定义不同。六种已有 profile 可加载并进行限定范围的在线变异。五种 TCP 路径新增仪器化 C fixture double 和本地功能测试；它们用于检查真实 fuzzer/socket 路径、字段变化和响应绑定。真实工业服务目标的既有证据仍是 BACnet Stack，不把 C 夹具当作其他五种工业产品的互通或标准合规证明。
+模板的结构在六种旧 codec 配置中相同；各协议的字段、编码和状态定义不同。六种已有 profile 可通过旧路径加载并进行限定范围的在线变异。五种 TCP 路径的既有仪器化 C fixture double 和本地功能测试用于检查 fuzzer/socket 路径、字段变化和响应绑定。真实工业服务目标的既有证据仍是 BACnet Stack，不把 C 夹具当作其他五种工业产品的互通或标准合规证明，也不据此认定六份新通用描述已经在线验证。
+
+`tools/build_generic_wire_profiles.py` 是六份迁移子集的专用生成脚本，不是 YAML 到通用语法的编译器。它读取旧 `protocol_ir.json`，不读取 `state_ir.json`；消息选择、状态边和关联规则由脚本中的固定配置给出，部分复杂结构保留为样例固定字节。因此修改 YAML 的状态图、依赖或绑定，并不保证在新 JSON 中得到等价转换。六份新描述的在线资格与遗漏服务见[迁移范围](../../docs/generic-wire-profile-scope.md)。
 
 ## 5. 配置的执行边界
 

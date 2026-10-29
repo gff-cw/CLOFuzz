@@ -1,4 +1,6 @@
-# ICP-IR v1 通用协议描述模板。
+# ICP-IR v1 已有六种 codec 的配置模板。
+# 本文件编译为旧 protocol_ir.json，不是 stateafl.generic-wire 的前端。
+# 修改 protocol_id 仅更名配置；不会生成新协议的编码器。
 # {{...}} 是待填写项；本文件不能直接作为某个真实协议的线格式。
 # 推荐用 tools/init_protocol_spec.py 按下述结构填入已有协议配置，避免手填遗漏。
 format_version: 1
@@ -7,7 +9,7 @@ name: "{{name}}"
 version: "{{version}}"
 scope: "{{scope}}"               # 精确写明服务、编码和测试范围
 transport: "{{transport}}"       # udp / tcp
-framing: "{{framing}}"
+framing: "{{framing}}"           # 旧格式中的说明字符串，不是通用引擎的framing对象
 codec: "{{codec}}"               # bacnet / modbus / iec104 / mms / enip / opcua
 support:
   runtime: false                  # 只有已经实现 C codec 的配置才能改为 true
@@ -47,7 +49,7 @@ messages:
         default: 0                 # 描述性默认值；执行器从example取模板，不按default重写
         min: 0
         max: 255
-        values: []                 # 枚举策略可选择的合法标量值
+        values: []                 # 枚举变异候选；不单独构成解析时的枚举值域约束
         strategies: [enum, boundary, bitflip, arithmetic] # HEAD标量策略；空列表使用这四种默认值
         evidence: wire
         confidence: implementation
@@ -102,3 +104,5 @@ messages:
 # 描述结构并不代表运行时已经实现对应编码器。
 # dependencies.scope和dependencies.when仅记录说明；不会创建独立缓存或执行条件。
 # 静态协议完整性由fixture_status声明；编译通过不代表已通过真实服务器交换。
+# match/path/default/structure_model及状态guard/actions不是可执行表达式。
+# 迁移脚本不是通用编译器；本文件修改不保证等价更新generic_wire.json。

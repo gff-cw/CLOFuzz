@@ -1,4 +1,6 @@
-# ICP-IR v1 通用语义状态模板；与 protocol_spec.template.yaml 配套。
+# ICP-IR v1 已有 codec 的语义状态配置；与 protocol_spec.template.yaml 配套。
+# 本文件编译为旧 state_ir.json，不是stateafl.generic-wire的states对象。
+# 六profile迁移脚本不读取state_ir.json；修改本文件不会自动更新其固定状态图。
 format_version: 1
 protocol_id: "{{protocol_id}}"
 initial: ready

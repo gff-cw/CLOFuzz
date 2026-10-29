@@ -1,4 +1,4 @@
-/* Stateful TCP integration for the limited description-only Modbus FC03 pair. */
+/* File-only API checks for the limited Modbus FC03 pair; no server is started. */
 #include "protocol_runtime.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -16,13 +16,22 @@ static size_t append(unsigned char *out,const unsigned char *wire,size_t n){
 static int stat_has(proto_engine *e,const char *value){
   const char *path="/tmp/stateafl-generic-modbus-stats.json";proto_write_stats(e,path);
   FILE *f=fopen(path,"rb");if(!f)return 0;char text[1024];
-  size_t n=fread(text,1,sizeof(text)-1,f);fclose(f);text[n]=0;return strstr(text,value)!=NULL;
+  size_t n=fread(text,1,sizeof(text)-1,f);fclose(f);text[n]=0;
+  const char *found=strstr(text,value);size_t length=strlen(value);
+  if(!found)return 0;
+  if(length&&value[length-1]>='0'&&value[length-1]<='9'){
+    const char *end=found+length;
+    while(*end&&strchr(" \t\r\n",*end))end++;
+    return *end==','||*end=='}';
+  }
+  return 1;
 }
 int main(int argc,char **argv){
   CHECK(argc==2);char err[512]={0};
   proto_engine *e=proto_load_generic(argv[1],err,sizeof(err));
   if(!e)fprintf(stderr,"Modbus generic load: %s\n",err);
   CHECK(e!=NULL);
+  CHECK(stat_has(e,"\"stats_version\":2"));
   CHECK(!strcmp(proto_transport(e),"tcp"));
   unsigned char record[32],candidate[32],wire[sizeof(request)];
   size_t input_n=append(record,request,sizeof(request)),n=0;const unsigned char *out=NULL;
@@ -34,10 +43,12 @@ int main(int argc,char **argv){
   CHECK(proto_before_send(e,wire,0,err,sizeof(err))<0);
   memcpy(wire,request,sizeof(request));CHECK(proto_before_send(e,wire,sizeof(wire),err,sizeof(err))==0);
   CHECK(stat_has(e,"\"correlated_responses\":0"));
+  CHECK(stat_has(e,"\"completed_responses\":0"));
   proto_after_response(e,response,3);CHECK(stat_has(e,"\"responses\":0"));
   proto_after_response(e,response+3,sizeof(response)-3);
   CHECK(stat_has(e,"\"responses\":1"));
   CHECK(stat_has(e,"\"correlated_responses\":1"));
+  CHECK(stat_has(e,"\"completed_responses\":1"));
   /* A second send cannot replace an outstanding transaction's cache. */
   memcpy(wire,request,sizeof(wire));CHECK(proto_before_send(e,wire,sizeof(wire),err,sizeof(err))==0);
   wire[1]=2;CHECK(proto_before_send(e,wire,sizeof(wire),err,sizeof(err))<0);
@@ -45,6 +56,7 @@ int main(int argc,char **argv){
   unsigned char reply[sizeof(response)];memcpy(reply,response,sizeof(reply));reply[1]=2;
   proto_after_response(e,reply,sizeof(reply));
   CHECK(stat_has(e,"\"correlated_responses\":1"));
+  CHECK(stat_has(e,"\"completed_responses\":1"));
   memcpy(wire,request,sizeof(wire));CHECK(proto_before_send(e,wire,sizeof(wire),err,sizeof(err))<0);
   proto_after_response(e,response,sizeof(response));
   CHECK(stat_has(e,"\"correlated_responses\":2"));
@@ -78,6 +90,7 @@ int main(int argc,char **argv){
   proto_after_response(e,joined,sizeof(joined));
   CHECK(stat_has(e,"\"responses\":10"));
   CHECK(stat_has(e,"\"correlated_responses\":5"));
+  CHECK(stat_has(e,"\"completed_responses\":5"));
   proto_session_begin(e);CHECK(stat_has(e,"\"protocol_semantic_state\":\"ready\""));
   proto_free(e);printf("PASS: generic Modbus FC03 TCP response framing/correlation (%u checks)\n",checks);return 0;
 }

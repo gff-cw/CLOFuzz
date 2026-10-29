@@ -46,6 +46,8 @@ def build_bundle(destination):
                  'native_json.c','native_json.h',
                  'tools/build_generic_wire_profiles.py','tools/check_generic_wire_profiles.py',
                  'docs/generic-wire-language.md','docs/generic-wire-profile-scope.md',
+                 'docs/current-integration-gaps.md','docs/generic-wire-validation-20261027.md',
+                 'docs/method-validation-contract.md',
                  'tests/protocol/test_model_completeness.py','tools/proto_spec_compiler.py',
                  'tools/init_protocol_spec.py','tools/run_protocol_campaign.py','tools/requirements-protocol.txt'):
         files[name]=(ROOT/name).read_bytes()
@@ -65,11 +67,18 @@ All six declared profiles have scoped C codecs. Non-BACnet compilation checks
 build the bundled codecs with a C11 compiler (CC or cc) in a private temporary
 directory. This does not run Python inside StateAFL's mutation loop.
 MANIFEST.json contains SHA-256 of every bundled content file.
+Exporting does not run runtime tests. Bundled historical validation notes refer
+to their original source hashes and do not certify this archive. Source-code
+links and historical evidence not listed in MANIFEST.json require the original
+repository; the archive does not claim to preserve those external references.
 ''').encode()
     manifest=dict(bundle_version=1,format='ICP-IR v1',profiles=packages,
         completeness='Complete messages within each explicitly declared profile; not whole-standard coverage.',
         runtime_scope='Six bounded C codecs; see each profile for supported services and external prerequisites.',
         generic_scope='Description-driven C grammar; 14 fixture messages, five offline-only profiles and one scoped online Modbus FC03 pair.',
+        runtime_tests_executed_by_exporter=False,
+        historical_validation_scope='Original recorded sources only; not an acceptance result for this bundle.',
+        external_references='Source and historical evidence absent from files require the original repository.',
         files={name:hashlib.sha256(data).hexdigest() for name,data in sorted(files.items())})
     files['MANIFEST.json']=(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n').encode()
     output=io.BytesIO()

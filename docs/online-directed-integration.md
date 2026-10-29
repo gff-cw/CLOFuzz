@@ -158,7 +158,10 @@ state ID 0；`cycles_done=0`、`cur_path=0`表明短跑尚在首个`fuzz_one`，
 
 ## 当前边界
 
-在线生产路径仍是 ICP-IR 与六种有界 codec。`native_layout_inspect_buffer` 的
-通用布局入口提供只读检查，不能作为通用在线字段编辑器使用。不同 wire alias
+本文件记录的是 ICP-IR 与六种有界 codec 的历史集成。后续提交 `ba45263` 已加入
+独立的 generic-wire 在线 C 引擎，不能继续用本文旧记录证明它未实现，也不能用
+本文实验作为新引擎的工业验证。当前阻断与证据范围见[现状审查](current-integration-gaps.md)
+和[通用引擎验证记录](generic-wire-validation-20261027.md)。
+`native_layout_inspect_buffer` 的通用布局入口仍提供只读检查，不能作为通用在线字段编辑器使用。不同 wire alias
 的状态迁移冲突、模型文件整体原子发布、分布式导入和恢复格式仍需独立审阅。
 当前修改不证明五个工业目标的互通、覆盖率提升或所有恢复场景正常。

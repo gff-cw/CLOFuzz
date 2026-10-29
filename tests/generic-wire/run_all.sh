@@ -9,6 +9,8 @@ generic_test_flags=(-std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,und
 generic_test_sources=(protocol_runtime.c generic_runtime.c generic_wire.c native_json.c protocol_codec_*.c)
 export ASAN_OPTIONS="detect_leaks=1:abort_on_error=1"
 export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
+python3 tests/generic-wire/test_profile_checker.py > "$generic_test_output/profile-checker.log" 2>&1
+python3 tests/generic-wire/test_evidence_provenance.py > "$generic_test_output/evidence-provenance.log" 2>&1
 python3 tools/check_generic_wire_profiles.py > "$generic_test_output/descriptions.json"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_generic_wire.c generic_wire.c native_json.c -o "$generic_test_output/wire"
 "$generic_test_output/wire" tests/generic-wire/fictional_protocol.json > "$generic_test_output/wire.log"
@@ -17,6 +19,8 @@ python3 tools/check_generic_wire_profiles.py > "$generic_test_output/description
 for generic_test_name in runtime modbus; do
   "$generic_test_cc" "${generic_test_flags[@]}" "tests/generic-wire/test_generic_${generic_test_name}.c" "${generic_test_sources[@]}" -o "$generic_test_output/$generic_test_name"
 done
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_generic_load.c "${generic_test_sources[@]}" -o "$generic_test_output/load"
+"$generic_test_output/load" > "$generic_test_output/load.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

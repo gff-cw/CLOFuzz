@@ -12,11 +12,18 @@ StateAFL automatically infers the current protocol state of the server. At compi
 StateAFL has been implemented on top of the codebase of [AFL](http://lcamtuf.coredump.cx/afl/) and [AFLnet](https://github.com/aflnet/aflnet). To fuzz a server, it should be compiled using `afl-clang-fast` (using the modified version that is included in this project, not the one from AFL), to perform a compiler pass for instrumenting the target.
 
 The optional [description-driven C mutation engine](docs/generic-wire-language.md)
-loads a JSON wire grammar with `--generic-spec`, applies HEAD/CONTENT/SEQUENCE
-mutation and connects to coverage and memory-state feedback. New protocols
-within its grammar can be added without a new C codec. The [six industrial
+loads a JSON wire grammar with `--generic-spec` and implements
+HEAD/CONTENT/SEQUENCE mutation. Its online insertion points are present, but the
+[current integration review](docs/current-integration-gaps.md) identifies a
+nonzero-memory-state selection blocker, response-boundary issues and limits on
+whole-session validation. The separate YAML templates configure existing codecs;
+they are not a compiler front end for the new JSON format. The [six industrial
 protocol migration subsets](docs/generic-wire-profile-scope.md) have explicit
-limits; five are currently offline-only.
+limits; five are currently offline-only. Existing loopback evidence does not
+establish complete StateAFL integration or industrial protocol conformance.
+The [method validation contract](docs/method-validation-contract.md) separates
+integration correctness from comparative effectiveness and records the evidence
+needed for each; crash discovery is not an acceptance requirement.
 
 
 # Reference
@@ -333,8 +340,9 @@ StateAFL uses the [Trend Micro Locality Sensitive Hash (TLSH) library](https://g
 Native C [local-file inspection](docs/native-inspection.md) is linked into the
 afl-fuzz source entry point and a standalone afl-protocol-inspect build target.
 The --inspect-layout/--inspect-input and --inspect-observations modes return
-before target setup and require no Python. These additions have not been built
-or run in this change; the generic directed mutation engine is not implemented.
+before target setup and require no Python. These passive inspection modes are
+separate from the bounded online generic-wire engine described above. Their
+layout format does not supply an online encoder or mutation callback.
 
 A protocol-independent [C layout interpreter](docs/generic-offline-decoder.md)
 reads existing binary files using the [JSON template](protocols/templates/native_layout.template.json).
@@ -346,7 +354,8 @@ The earlier standalone Python decoder, field editor and observation analyzer,
 and their obsolete templates, have been removed. The native path is read-only;
 it does not replace the removed editor's byte-writing functionality. Existing
 YAML compilation, tests and evidence tools remain available. The six existing
-profiles and online mutation runtime still use their scoped codecs.
+ICP-IR profiles use their scoped codecs; the separate generic-wire migration
+files retain the narrower eligibility and service scope stated above.
 
 ## Optional protocol description mutation (ICP-IR v1)
 

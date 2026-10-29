@@ -28,7 +28,7 @@ struct gr_engine {
   unsigned frame_offset,frame_width,frame_little;int64_t frame_add;
   uint8_t *receive;size_t receive_size;
   uint8_t *output;size_t output_size;
-  uint64_t attempts,success,errors,layer_count[3],responses,correlated;
+  uint64_t attempts,success,errors,layer_count[3],responses,completed,correlated;
   unsigned pending,pending_request,pending_response,pending_next;
   uint64_t cache[GR_CORRELATIONS];
   FILE *log;
@@ -140,6 +140,16 @@ static int gr_message_load(gr_engine *e,const nj_value *v,unsigned i,char *err,s
   char detail[256];gw_packet *packet=NULL;
   int valid=gw_parse(m->schema,m->example,m->size,&packet,detail,sizeof(detail));gw_packet_free(packet);
   if(valid<0)return gr_error(err,cap,"invalid example for %s: %s",m->id,detail);
+  if(!m->response&&m->size>e->max_bytes-4)
+    return gr_error(err,cap,"request example for %s exceeds max_bytes including replay prefix",m->id);
+  if(!strcmp(e->transport,"tcp")){
+    if(e->frame_offset>m->size||e->frame_width>m->size-e->frame_offset)
+      return gr_error(err,cap,"invalid TCP framing for %s: length field outside example",m->id);
+    uint64_t value=gr_integer(m->example+e->frame_offset,e->frame_width,e->frame_little);
+    __int128 framed=(__int128)value+e->frame_add;
+    if(framed!=(__int128)m->size)
+      return gr_error(err,cap,"invalid TCP framing for %s: declared length differs from example",m->id);
+  }
   return 0;
 }
 
@@ -187,6 +197,16 @@ gr_engine *gr_load(const char *path,char *err,size_t cap){
   if(!messages||messages->type!=NJ_ARRAY||!messages->count||messages->count>GR_MESSAGES)goto bad;
   e->count=(unsigned)messages->count;for(unsigned i=0;i<e->count;i++)
     if(gr_message_load(e,messages->items[i],i,err,cap)<0)goto bad;
+  /* Reject ambiguity at each declared example before accepting a package.
+   * This finite check is not a proof that the grammars never overlap; gr_match
+   * still rejects ambiguity for every actual request or response. */
+  for(unsigned i=0;i<e->count;i++){
+    gr_message *m=&e->messages[i];unsigned model;char detail[256];
+    if(gr_match(e,m->example,m->size,m->response,&model,detail,sizeof(detail))<0){
+      gr_error(err,cap,"example for %s cannot match uniquely: %s",m->id,detail);goto bad;
+    }
+    if(model!=i){gr_error(err,cap,"example for %s matched another message",m->id);goto bad;}
+  }
   const nj_value *states=nj_get(root,"states");static const char *sr[]={"initial","transitions"};
   const nj_value *trs=nj_get(states,"transitions");
   if(nj_keys(states,sr,2,NULL,0,err,cap)<0||!trs||trs->type!=NJ_ARRAY||
@@ -349,12 +369,13 @@ static void gr_response_frame(gr_engine *e,const uint8_t *wire,size_t length){
   e->responses++;gr_message *m=&e->messages[model];gw_packet *packet=NULL;
   if(gw_parse(m->schema,wire,length,&packet,err,sizeof(err))<0)return;
   if(e->pending&&e->pending_response==model){
-    int fits=1;for(size_t j=0;j<m->correlation_count;j++){gr_correlation *c=&m->correlations[j];
+    int fits=1,checked=0;for(size_t j=0;j<m->correlation_count;j++){gr_correlation *c=&m->correlations[j];
       if(c->request!=e->pending_request)continue;
+      checked=1;
       uint64_t observed;if(gw_get_u64(packet,c->field,&observed)<0||
          observed!=e->cache[j]){fits=0;break;}
     }
-    if(fits){e->pending=0;e->state=e->pending_next;e->correlated++;}
+    if(fits){e->pending=0;e->state=e->pending_next;e->completed++;if(checked)e->correlated++;}
   }gw_packet_free(packet);
 }
 void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
@@ -371,8 +392,8 @@ void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
 }
 void gr_write_stats(gr_engine *e,const char *path){
   if(!e||!path)return;FILE *f=fopen(path,"w");if(!f)return;
-  fprintf(f,"{\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ",\"protocol_semantic_state\":",
+  fprintf(f,"{\"stats_version\":2,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ",\"protocol_semantic_state\":",
     e->attempts,e->success,e->errors,e->layer_count[0],e->layer_count[1],e->layer_count[2],
-    e->responses,e->correlated);nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
+    e->responses,e->completed,e->correlated);nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
   fputs(",\"engine\":\"generic-wire\"}\n",f);fclose(f);
 }
