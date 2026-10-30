@@ -1945,10 +1945,10 @@ int send_over_network()
 
   //Set timeout for socket data sending/receiving -- otherwise it causes a big delay
   //if the server is still alive after processing all the requests
-  struct timeval timeout;
-  timeout.tv_sec = 0;
-  timeout.tv_usec = socket_timeout_usecs;
-  setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
+  struct timeval timeout = usecs_to_timeval(socket_timeout_usecs);
+  if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
+    WARNF("Failed to set SO_SNDTIMEO on socket");
+  }
 
   memset(&serv_addr, '0', sizeof(serv_addr));
 
@@ -11282,6 +11282,7 @@ int main(int argc, char** argv) {
         if (poll_wait) FATAL("Multiple -W options not supported");
 
         if (sscanf(optarg, "%u", &poll_wait_msecs) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -W");
+        if (poll_wait_msecs > 600000) FATAL("Poll wait configured with -W exceeds 600s maximum");
         poll_wait = 1;
         break;
 
@@ -11289,6 +11290,7 @@ int main(int argc, char** argv) {
         if (poll_wait_stateafl) FATAL("Multiple -r options not supported");
 
         if (sscanf(optarg, "%u", &poll_wait_msecs_stateafl) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -r");
+        if (poll_wait_msecs_stateafl > 600000) FATAL("StateAFL wait configured with -r exceeds 600s maximum");
         poll_wait_stateafl = 1;
         break;
 
@@ -11296,6 +11298,7 @@ int main(int argc, char** argv) {
         if (socket_timeout) FATAL("Multiple -w options not supported");
 
         if (sscanf(optarg, "%u", &socket_timeout_usecs) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -w");
+        if (socket_timeout_usecs > 600000000ULL) FATAL("Timeout configured with -w exceeds 600s maximum");
         socket_timeout = 1;
         break;
 

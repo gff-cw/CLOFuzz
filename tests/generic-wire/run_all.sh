@@ -64,6 +64,8 @@ done
 "$generic_test_output/udp_datagram_boundaries" > "$generic_test_output/udp_datagram_boundaries.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_tcp_response_buffer_bounds.c "$generic_test_output/aflnet.o" -o "$generic_test_output/tcp_response_bounds"
 "$generic_test_output/tcp_response_bounds" > "$generic_test_output/tcp_response_bounds.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_timeout_budget_consistency.c "$generic_test_output/aflnet.o" -o "$generic_test_output/timeout_budget"
+"$generic_test_output/timeout_budget" > "$generic_test_output/timeout_budget.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

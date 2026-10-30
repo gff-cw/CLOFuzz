@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -1692,30 +1693,116 @@ region_t* convert_kl_messages_to_regions(klist_t(lms) *kl_messages, u32* region_
   return regions;
 }
 
+static net_io_status_t net_last_io_status = NET_IO_STATUS_NONE;
+
+net_io_status_t net_get_last_io_status(void) {
+  return net_last_io_status;
+}
+
+const char *net_io_status_to_str(net_io_status_t status) {
+  switch (status) {
+    case NET_IO_STATUS_OK: return "ok";
+    case NET_IO_STATUS_EOF: return "eof";
+    case NET_IO_STATUS_TIMEOUT: return "timeout";
+    case NET_IO_STATUS_SYSCALL_ERR: return "syscall_error";
+    case NET_IO_STATUS_BUDGET_EXCEEDED: return "budget_exceeded";
+    default: return "none";
+  }
+}
+
+static inline uint64_t net_monotonic_ms(void) {
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+    return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)ts.tv_nsec / 1000000ULL;
+  }
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (uint64_t)tv.tv_sec * 1000ULL + (uint64_t)tv.tv_usec / 1000ULL;
+}
+
 // Network communication functions
 
 int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
+  if (sockfd < 0) {
+    net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+    return -1;
+  }
   unsigned int byte_count = 0;
   int n;
   struct pollfd pfd[1];
   pfd[0].fd = sockfd;
   pfd[0].events = POLLOUT;
-  int rv = poll(pfd, 1, 1);
 
-  setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
+  /* P18: Normalize timeout and respect configured timeout rather than hardcoding 1ms */
+  struct timeval norm_tv = normalize_timeval(timeout);
+  int poll_ms = timeval_to_poll_ms(norm_tv);
+  if (poll_ms <= 0 && (timeout.tv_sec > 0 || timeout.tv_usec > 0)) {
+    poll_ms = 1;
+  }
+
+  if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&norm_tv, sizeof(norm_tv)) < 0) {
+    net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+  }
+
+  int rv = poll(pfd, 1, poll_ms);
   if (rv > 0) {
     if (pfd[0].revents & POLLOUT) {
       int kind; socklen_t size = sizeof(kind);
-      if (!getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &kind, &size) && kind == SOCK_DGRAM)
-        return send(sockfd, mem, len, MSG_NOSIGNAL);
+      if (!getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &kind, &size) && kind == SOCK_DGRAM) {
+        int sent = send(sockfd, mem, len, MSG_NOSIGNAL);
+        if (sent < 0) {
+          net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+        } else {
+          net_last_io_status = NET_IO_STATUS_OK;
+        }
+        return sent;
+      }
+
+      /* Stream send with monotonic deadline budget */
+      uint64_t start_ms = net_monotonic_ms();
+      uint64_t send_budget_ms = (poll_ms > 0) ? (uint64_t)poll_ms : 1000ULL;
       while (byte_count < len) {
-        usleep(10);
+        uint64_t elapsed = net_monotonic_ms() - start_ms;
+        if (elapsed >= send_budget_ms) {
+          net_last_io_status = NET_IO_STATUS_TIMEOUT;
+          break;
+        }
         n = send(sockfd, &mem[byte_count], len - byte_count, MSG_NOSIGNAL);
-        if (n == 0) return byte_count;
-        if (n == -1) return (byte_count > 0) ? (int)byte_count : -1;
-        byte_count += n;
+        if (n > 0) {
+          byte_count += n;
+          net_last_io_status = NET_IO_STATUS_OK;
+          continue;
+        }
+        if (n == 0) {
+          net_last_io_status = NET_IO_STATUS_EOF;
+          return byte_count;
+        }
+        if (n == -1) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            uint64_t rem_ms = send_budget_ms - (net_monotonic_ms() - start_ms);
+            if (rem_ms == 0) {
+              net_last_io_status = NET_IO_STATUS_TIMEOUT;
+              break;
+            }
+            struct pollfd pfd_wait[1];
+            pfd_wait[0].fd = sockfd;
+            pfd_wait[0].events = POLLOUT;
+            int p_res = poll(pfd_wait, 1, (rem_ms > 10) ? 10 : (int)rem_ms);
+            if (p_res <= 0) {
+              net_last_io_status = NET_IO_STATUS_TIMEOUT;
+              break;
+            }
+            continue;
+          }
+          net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+          return (byte_count > 0) ? (int)byte_count : -1;
+        }
       }
     }
+  } else if (rv == 0) {
+    net_last_io_status = NET_IO_STATUS_TIMEOUT;
+  } else {
+    net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
   }
   return byte_count;
 }
@@ -1733,8 +1820,12 @@ unsigned int net_get_response_budget(void) {
 int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
                      char **response_buf, unsigned int *len,
                      net_recv_cb_t cb, void *user) {
-  if (!response_buf || !len) return NET_RECV_ERROR;
+  if (sockfd < 0 || !response_buf || !len) {
+    net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+    return NET_RECV_ERROR;
+  }
   if (*len >= max_response_budget) {
+    net_last_io_status = NET_IO_STATUS_BUDGET_EXCEEDED;
     return NET_RECV_BUDGET_EXCEEDED;
   }
 
@@ -1747,16 +1838,33 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
   struct pollfd pfd[1];
   pfd[0].fd = sockfd;
   pfd[0].events = POLLIN;
-  int rv = poll(pfd, 1, poll_w);
 
-  setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+  /* P18: Normalize timeout */
+  struct timeval norm_tv = normalize_timeval(timeout);
+  if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&norm_tv, sizeof(norm_tv)) < 0) {
+    net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+  }
+
+  int rv = poll(pfd, 1, poll_w);
   // data received
   if (rv > 0) {
     if (pfd[0].revents & POLLIN) {
       n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
-      if ((n < 0) && (errno != EAGAIN)) {
+      if (n == 0) {
+        net_last_io_status = NET_IO_STATUS_EOF;
+        return NET_RECV_OK;
+      }
+      if ((n < 0) && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+        net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
         return NET_RECV_ERROR;
       }
+
+      /* Monotonic deadline budget across subsequent chunk receptions:
+         cannot re-grant full timeout on each retry */
+      uint64_t io_budget_ms = (uint64_t)norm_tv.tv_sec * 1000ULL + (uint64_t)norm_tv.tv_usec / 1000ULL;
+      if (io_budget_ms == 0) io_budget_ms = 50; /* minimum bounded drain window */
+      uint64_t start_ms = net_monotonic_ms();
+
       while (n > 0) {
         int truncated = 0;
         size_t dgram_len = (size_t)n;
@@ -1769,6 +1877,7 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
         if ((unsigned)dgram_len > max_response_budget ||
             *len > max_response_budget - (unsigned)dgram_len ||
             (size_t)(*len) + dgram_len + 1 < (size_t)(*len)) {
+          net_last_io_status = NET_IO_STATUS_BUDGET_EXCEEDED;
           return NET_RECV_BUDGET_EXCEEDED;
         }
         usleep(10);
@@ -1776,18 +1885,44 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
         memcpy(&(*response_buf)[*len], temp_buf, dgram_len);
         (*response_buf)[(*len) + dgram_len] = '\0';
         *len = *len + dgram_len;
+        net_last_io_status = NET_IO_STATUS_OK;
         if (cb) {
           cb((const uint8_t *)temp_buf, dgram_len, is_dgram, truncated, user);
         }
+
+        /* Check remaining monotonic time budget before next recv */
+        uint64_t elapsed_ms = net_monotonic_ms() - start_ms;
+        if (elapsed_ms >= io_budget_ms) {
+          net_last_io_status = NET_IO_STATUS_TIMEOUT;
+          break;
+        }
+        uint64_t remaining_ms = io_budget_ms - elapsed_ms;
+        struct timeval rem_tv;
+        rem_tv.tv_sec = remaining_ms / 1000;
+        rem_tv.tv_usec = (remaining_ms % 1000) * 1000;
+        setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&rem_tv, sizeof(rem_tv));
+
         n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
-        if ((n < 0) && (errno != EAGAIN)) {
+        if (n == 0) {
+          net_last_io_status = NET_IO_STATUS_EOF;
+          break;
+        }
+        if (n < 0) {
+          if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            net_last_io_status = NET_IO_STATUS_TIMEOUT;
+            break;
+          }
+          net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
           return NET_RECV_ERROR;
         }
       }
     }
-  } else
-    if (rv < 0) // an error was returned
-      return NET_RECV_ERROR;
+  } else if (rv < 0) {
+    net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+    return NET_RECV_ERROR;
+  } else {
+    net_last_io_status = NET_IO_STATUS_TIMEOUT;
+  }
 
   // rv == 0 poll timeout or all data pending after poll has been received successfully
   return NET_RECV_OK;

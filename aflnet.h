@@ -96,11 +96,50 @@ typedef void (*net_recv_cb_t)(const uint8_t *buf, size_t len, int is_dgram, int 
 #define NET_RECV_OK              0
 #define NET_RECV_ERROR           1
 #define NET_RECV_BUDGET_EXCEEDED 2
+#define NET_RECV_TIMED_OUT       3
 
 #define DEFAULT_MAX_RESPONSE_BUDGET (1 * 1024 * 1024)
 
 void net_set_response_budget(unsigned int budget);
 unsigned int net_get_response_budget(void);
+
+/* P18: Time normalization and I/O status accounting */
+typedef enum {
+  NET_IO_STATUS_NONE = 0,
+  NET_IO_STATUS_OK,
+  NET_IO_STATUS_EOF,
+  NET_IO_STATUS_TIMEOUT,
+  NET_IO_STATUS_SYSCALL_ERR,
+  NET_IO_STATUS_BUDGET_EXCEEDED
+} net_io_status_t;
+
+net_io_status_t net_get_last_io_status(void);
+const char *net_io_status_to_str(net_io_status_t status);
+
+static inline struct timeval normalize_timeval(struct timeval tv) {
+  struct timeval norm;
+  norm.tv_sec = tv.tv_sec + (tv.tv_usec / 1000000);
+  norm.tv_usec = tv.tv_usec % 1000000;
+  return norm;
+}
+
+static inline struct timeval usecs_to_timeval(uint64_t usecs) {
+  struct timeval tv;
+  tv.tv_sec = (time_t)(usecs / 1000000ULL);
+  tv.tv_usec = (suseconds_t)(usecs % 1000000ULL);
+  return tv;
+}
+
+static inline uint64_t timeval_to_usecs(struct timeval tv) {
+  struct timeval norm = normalize_timeval(tv);
+  return (uint64_t)norm.tv_sec * 1000000ULL + (uint64_t)norm.tv_usec;
+}
+
+static inline int timeval_to_poll_ms(struct timeval tv) {
+  struct timeval norm = normalize_timeval(tv);
+  int ms = (int)(norm.tv_sec * 1000 + (norm.tv_usec + 999) / 1000);
+  return ms;
+}
 
 int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len);
 int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len);
