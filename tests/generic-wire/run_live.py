@@ -216,7 +216,12 @@ def run(args):
     candidates = []
     head = content = sequence = False
     for metadata in sorted((output / 'protocol-candidates').glob('*.json')):
-        if not json.loads(metadata.read_text())['structured']:
+        sidecar = json.loads(metadata.read_text())
+        if not sidecar.get('structured'):
+            continue
+        # P24: Filter by execution purpose; replays and calibrations are not independent candidate mutations
+        purpose = sidecar.get('purpose', 'coverage')
+        if purpose not in ('coverage', 'original'):
             continue
         packets = records(metadata.with_suffix('.replay'))
         candidates.append(metadata.stem)
@@ -235,6 +240,10 @@ def run(args):
                                       schedule['new_tuples'] + schedule['new_buckets'] > 0,
         'feedback_attribution_matches': schedule['observations'] == sum(item['event'] == 'layer_feedback' for item in feedback),
         'memory_feedback_received': not args.state_aware or schedule['memory_events'] > 0,
+        'candidate_identity_boundary_maintained': all(
+            json.loads(meta.read_text()).get('execution_identity_verified') is False
+            for meta in (output / 'protocol-candidates').glob('*.json')
+        ) if list((output / 'protocol-candidates').glob('*.json')) else True,
     }
     binaries_after = {name: file_snapshot(path) for name, path in binary_paths.items()}
     source_after = source_inventory()

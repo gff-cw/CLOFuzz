@@ -24,6 +24,16 @@
 #define EXEC_PURPOSE_CALIBRATION  3
 #define EXEC_PURPOSE_SYNC         4
 
+static inline const char *exec_purpose_to_str(u8 purpose) {
+  switch (purpose) {
+    case EXEC_PURPOSE_ORIGINAL:     return "coverage";
+    case EXEC_PURPOSE_CONFIRMATION: return "confirmation";
+    case EXEC_PURPOSE_CALIBRATION:  return "calibration";
+    case EXEC_PURPOSE_SYNC:         return "sync";
+    default:                        return "unknown";
+  }
+}
+
 /* State observation providers */
 #define STATE_OBS_PROVIDER_NONE   0
 #define STATE_OBS_PROVIDER_TRACER 1

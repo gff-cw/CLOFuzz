@@ -137,6 +137,13 @@ static u32 protocol_new_tuples, protocol_new_buckets;
 static u8 fixed_random_seed, experiment_active;
 static u32 experiment_seed, protocol_candidate_limit, protocol_candidates_saved;
 static u8 *protocol_candidate_dir;
+
+/* P24: Candidate and execution context tracking for experiment candidate records */
+static u32 current_candidate_id = 0;
+static u8  current_exec_purpose = EXEC_PURPOSE_ORIGINAL;
+static u32 current_target_state_id = 0;
+static u32 current_seed_id = 0;
+static int current_feedback_layer = 0;
 static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
 
 EXP_ST u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
@@ -989,7 +996,10 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 
     for(int k=0; k<repetitions; k++) {
 
+      u8 prev_purpose = current_exec_purpose;
+      current_exec_purpose = EXEC_PURPOSE_CONFIRMATION;
       run_target(argv, exec_tmout * 2, stateafl_fsrv);
+      current_exec_purpose = prev_purpose;
 
       if (!response_buf_size || !response_bytes) {
         continue;
@@ -1840,9 +1850,49 @@ HANDLE_RESPONSES:
     u8 *metadata = alloc_printf("%s/%06u.json", protocol_candidate_dir, protocol_candidates_saved);
     FILE *record = fopen((char *)metadata, "w");
     if (!record) PFATAL("Cannot write experiment candidate metadata");
-    fprintf(record, "{\"structured\":%s,\"sent_messages\":%u,\"execution_counter\":%llu,\"forkserver\":\"%s\"}\n",
-            protocol_structured_run ? "true" : "false", complete_messages, total_execs,
-            current_fsrv == stateafl_fsrv ? "state" : "coverage");
+
+    const char *layer_str = "NONE";
+    if (protocol_structured_run) {
+      if (current_feedback_layer == 1) layer_str = "HEAD";
+      else if (current_feedback_layer == 2) layer_str = "CONTENT";
+      else if (current_feedback_layer == 4) layer_str = "SEQUENCE";
+    }
+
+    /* P24: Link candidate execution identity and tag execution purpose in candidate records */
+    fprintf(record,
+            "{\"format_version\":2,"
+            "\"candidate_id\":%u,"
+            "\"exec_id\":%u,"
+            "\"execution_counter\":%llu,"
+            "\"purpose\":\"%s\","
+            "\"forkserver\":\"%s\","
+            "\"structured\":%s,"
+            "\"target_state\":%u,"
+            "\"parent_seed_id\":%u,"
+            "\"layer\":\"%s\","
+            "\"stage\":\"%s\","
+            "\"sent_messages\":%u,"
+            "\"attempted_messages\":%u,"
+            "\"total_bytes_sent\":%u,"
+            "\"partial_bytes_tail\":%u,"
+            "\"is_transmission_complete\":%s,"
+            "\"execution_identity_verified\":false}\n",
+            current_candidate_id,
+            state_exec_id,
+            total_execs,
+            exec_purpose_to_str(current_exec_purpose),
+            current_fsrv == stateafl_fsrv ? "state" : "coverage",
+            protocol_structured_run ? "true" : "false",
+            current_target_state_id,
+            current_seed_id,
+            layer_str,
+            stage_name ? (char *)stage_name : "none",
+            complete_messages,
+            messages_sent,
+            total_bytes_sent,
+            partial_bytes_tail,
+            is_transmission_complete ? "true" : "false");
+
     if (fclose(record)) PFATAL("Cannot close experiment candidate metadata");
     ck_free(metadata);
     protocol_candidates_saved++;
@@ -3084,7 +3134,10 @@ void init_ipsm(char** argv) {
     write_to_testcase(use_mem, q->len);
     ck_free(use_mem);
 
+    u8 prev_purpose = current_exec_purpose;
+    current_exec_purpose = EXEC_PURPOSE_CALIBRATION;
     run_target(argv, exec_tmout * 2, stateafl_fsrv);
+    current_exec_purpose = prev_purpose;
 
     /* Update state-aware variables (e.g., state machine, regions and their annotations */
     if (state_aware_mode) update_state_aware_variables(q, 1, argv);
@@ -4539,6 +4592,13 @@ static void show_stats(void);
 static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 len,
                          u32 handicap, u8 from_queue) {
 
+  u8 prev_purpose = current_exec_purpose;
+  current_exec_purpose = EXEC_PURPOSE_CALIBRATION;
+  if (q) {
+    current_seed_id = q->index;
+    current_target_state_id = q->generating_state_id;
+  }
+
   static u8 first_trace[MAP_SIZE];
 
   u8  fault = 0, new_bits = 0, var_detected = 0,
@@ -4674,6 +4734,7 @@ abort_calibration:
 
   if (!first_run) show_stats();
 
+  current_exec_purpose = prev_purpose;
   return fault;
 
 }
@@ -6799,12 +6860,20 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   u32 feedback_state = 0;
   protocol_structured_run = 0;
 
+  /* P24: Track logical candidate identity, purpose, and target context */
+  current_candidate_id++;
+  current_exec_purpose = EXEC_PURPOSE_ORIGINAL;
+  current_target_state_id = target_state_id;
+  current_seed_id = queue_cur ? queue_cur->index : 0;
+  current_feedback_layer = 0;
+
   if (protocol_engine && protocol_mode != PROTO_RAW &&
       (!protocol_adaptive || (stage_short &&
        (!strcmp((char *)stage_short, "havoc") || !strcmp((char *)stage_short, "splice")))) &&
       (protocol_mode != PROTO_HYBRID || UR(100) < protocol_ratio)) {
     protocol_regions = protocol_prepare(&out_buf, &len, &protocol_count,
                                         &feedback_layer, &feedback_state);
+    current_feedback_layer = feedback_layer;
     if (!protocol_regions) {
       protocol_observe_candidate(feedback_state, feedback_layer, 0, 0, 0);
       feedback_layer = 0;
@@ -9522,7 +9591,10 @@ static void sync_fuzzers(char** argv) {
 
         write_to_testcase(mem, st.st_size);
 
+        u8 prev_purpose = current_exec_purpose;
+        current_exec_purpose = EXEC_PURPOSE_SYNC;
         fault = run_target(argv, exec_tmout, afl_fsrv);
+        current_exec_purpose = prev_purpose;
 
         if (stop_soon) {
           delete_kl_messages(kl_messages);
