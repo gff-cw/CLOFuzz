@@ -283,6 +283,53 @@ static int model_for(proto_engine *e,const uint8_t *b,size_t n,int response) {
     if(ok)return e->canonical[m];
   }return -1;
 }
+int proto_validate_message_fields(const proto_engine *e, int mi, const uint8_t *b, size_t n, char *err, size_t cap) {
+  if (!e || !b || !n) return fail(err, cap, "missing engine/packet for field validation");
+  if (mi < 0 || mi >= e->nm) return fail(err, cap, "invalid message model index %d", mi);
+
+  if (e->codec) {
+    if (codecs[e->codec].validate(b, n, err, cap) < 0) return -1;
+  } else {
+    layout v;
+    if (bacnet_layout(b, n, &v, err, cap) < 0) return -1;
+    if (content_valid(b, n, &v) < 0) return fail(err, cap, "malformed BACnet content");
+  }
+
+  const pm *m = &e->m[mi];
+  for (int f = 0; f < m->nf; f++) {
+    pf *p = (pf *)&m->f[f];
+    size_t o = 0, w = 0;
+    int present = locate((proto_engine *)e, b, n, p, &o, &w, err, cap);
+    if (present < 0) return -1;
+    if (present == 0) {
+      if (p->mut == 3) continue; /* conditional field may be absent */
+      return fail(err, cap, "required field %s.%s is absent", m->id, p->id);
+    }
+    if (p->width > 0) {
+      if (w > 8) return fail(err, cap, "field %s.%s width %zu exceeds scalar capacity", m->id, p->id, w);
+      uint64_t val = getint(b + o, w, p->little);
+      if (val < p->min || val > p->max)
+        return fail(err, cap, "field %s.%s value %llu outside bounds [%llu, %llu]",
+                    m->id, p->id, (unsigned long long)val,
+                    (unsigned long long)p->min, (unsigned long long)p->max);
+      if (p->role == 3 /* fixed */ && p->nv > 0) {
+        int match = 0;
+        for (int v = 0; v < p->nv; v++) {
+          if (val == p->values[v]) { match = 1; break; }
+        }
+        if (!match) return fail(err, cap, "fixed field %s.%s value %llu does not match expected",
+                                m->id, p->id, (unsigned long long)val);
+      }
+    } else {
+      /* Variable-length field */
+      if (w < p->min || w > p->max)
+        return fail(err, cap, "variable field %s.%s length %zu outside bounds [%llu, %llu]",
+                    m->id, p->id, w,
+                    (unsigned long long)p->min, (unsigned long long)p->max);
+    }
+  }
+  return 0;
+}
 static int cycle(proto_engine *e,int mi,int fi,uint8_t visited[PMAX][FMAX]) {
   if(visited[mi][fi]==1)return -1;if(visited[mi][fi]==2)return 0;visited[mi][fi]=1;
   pm *m=&e->m[mi];for(int i=0;i<m->nd;i++){pd *d=&m->d[i];if(d->target==fi && d->source>=0 && d->op!=6 && d->op!=7 && cycle(e,d->message,d->source,visited)<0)return -1;}
@@ -592,6 +639,7 @@ static int bind_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t
   /* Only session bindings here. Wire-invalid tests must never be repaired again. */
   pm *m=&e->m[mi];for(int i=0;i<m->nd;i++){pd *d=&m->d[i];if(d->op==4 || d->op==5 || d->op==7){uint8_t done[FMAX]={0};if(repair_field(e,mi,d->target,b,n,done,err,cap)<0)return -1;}}
   if(e->codec && (codecs[e->codec].validate(b,n,err,cap)<0 || model_for(e,b,n,0)<0))return fail(err,cap,"live binding violates wire structure or model bounds");
+  if(proto_validate_message_fields(e,mi,b,n,err,cap)<0)return fail(err,cap,"live binding violates field bounds: %s",err);
   remember(e,mi,b,n);for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi])e->pending[model]=1;layout v;if(!e->codec && bacnet_layout(b,n,&v,err,cap)==0 && v.kind==0)e->outstanding[b[v.invoke]]=1;
   e->semantic_state=e->tr[target_tr].to;
   return 0;
@@ -827,7 +875,23 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       else if(op==1){uint64_t boundary[]={f->min,f->max,f->min+1,f->max?f->max-1:0,0};val=boundary[draw(rng,5)];}
       else if(op==2)val^=1ULL<<draw(rng,w*8);else val+=draw(rng,2)?1:(uint64_t)-1;
       if(val<f->min || val>f->max)val=f->min;
-      if(!strcmp(f->loc,"npdu.control"))val=(b[o]&~7u)|(val&7u); /* preserve optional layout bits */
+      if(!strcmp(f->loc,"npdu.control")) {
+        uint64_t candidate_val = (b[o] & ~7u) | (val & 7u);
+        if (candidate_val < f->min || candidate_val > f->max) {
+          uint64_t clamped = (b[o] & ~7u) | (f->min & 7u);
+          if (clamped >= f->min && clamped <= f->max) candidate_val = clamped;
+          else {
+            clamped = (b[o] & ~7u) | (f->max & 7u);
+            if (clamped >= f->min && clamped <= f->max) candidate_val = clamped;
+            else {
+              fail(err, cap, "npdu.control cannot satisfy bounds [%llu, %llu] with layout bits 0x%02x",
+                   (unsigned long long)f->min, (unsigned long long)f->max, b[o] & ~7u);
+              goto bad;
+            }
+          }
+        }
+        val = candidate_val;
+      }
       if(e->codec==3 && !strncmp(f->loc,"ber:",4)){
         uint8_t integer[5];size_t iw=1;while(iw<4 && val>=(1ULL<<(8*iw)))iw++;
         putint(integer,iw,0,val);if(integer[0]&128){memmove(integer+1,integer,iw);integer[0]=0;iw++;}
@@ -840,7 +904,17 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       /* A concatenated AFL candidate has no message delimiters. Never consume
        * the following datagram as newly inserted content for this request. */
       if(ri+1<e->count && available>r->size-o)available=r->size-o;
-      size_t newwidth=candidate && available>=8 && draw(rng,2)?8:0;
+      int can_0 = (0 >= f->min && 0 <= f->max);
+      int can_8 = (8 >= f->min && 8 <= f->max && candidate && available >= 8);
+      size_t newwidth = 0;
+      if (can_0 && can_8) newwidth = draw(rng, 2) ? 8 : 0;
+      else if (can_8) newwidth = 8;
+      else if (can_0) newwidth = 0;
+      else {
+        fail(err, cap, "Who-Is content length cannot satisfy bounds [%llu, %llu]",
+             (unsigned long long)f->min, (unsigned long long)f->max);
+        goto bad;
+      }
       if(resize_record(e,ri,o+newwidth,err,cap)<0)goto bad;b=e->work+r->offset;
       if(newwidth){uint32_t low=0,high=4194303;low=(uint32_t)getint(candidate+base+1,3,0)&0x3fffff;high=(uint32_t)getint(candidate+base+5,3,0)&0x3fffff;if(low>high){uint32_t tmp=low;low=high;high=tmp;}b[o]=0x0b;putint(b+o+1,3,0,low);b[o+4]=0x1b;putint(b+o+5,3,0,high);}
     } else if(e->codec){
@@ -863,7 +937,9 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   if(sequence_ok(e)<0){fail(err,cap,"semantic transition or repeat constraint rejects sequence");goto bad;}
   /* Derive fields, then cache explicit message.field values in sequence order. */
   for(size_t i=0;i<e->count;i++){pr *x=&e->records[i];uint8_t *b=e->work+x->offset;if(repair(e,x->model,b,x->size,err,cap)<0)goto bad;
-    if(e->codec && (!codecs[e->codec].same(b,x->size,e->m[x->model].example,e->m[x->model].size) || model_for(e,b,x->size,0)<0)){fail(err,cap,"mutation changed request semantic family or violated model bounds");goto bad;}
+    if(e->codec && !codecs[e->codec].same(b,x->size,e->m[x->model].example,e->m[x->model].size)){fail(err,cap,"mutation changed request semantic family");goto bad;}
+    if(model_for(e,b,x->size,0)!=e->canonical[x->model]){fail(err,cap,"mutation changed message model");goto bad;}
+    if(proto_validate_message_fields(e,x->model,b,x->size,err,cap)<0){fail(err,cap,"mutation violated field constraints: %s",err);goto bad;}
     remember(e,x->model,b,x->size);
   }
   if(broken){ri=ri<e->count?ri:0;pr *x=&e->records[ri];uint8_t *b=e->work+x->offset;

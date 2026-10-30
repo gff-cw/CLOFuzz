@@ -40,6 +40,10 @@ int proto_validate_sequence(proto_engine *engine,
                             const uint8_t *m2, size_t m2_len,
                             const uint8_t *m3, size_t m3_len,
                             char *error, size_t cap);
+/* P13: Independent complete field constraint verification for message models. */
+int proto_validate_message_fields(const proto_engine *engine, int message_index,
+                                  const uint8_t *wire, size_t length,
+                                  char *error, size_t cap);
 /* One cache per engine, cleared for EVERY connection/execution. */
 void proto_session_begin(proto_engine *engine);
 /* Bind a supported request atomically. Failure preserves both caller bytes
