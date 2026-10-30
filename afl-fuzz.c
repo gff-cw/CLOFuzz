@@ -672,49 +672,98 @@ u8 is_state_sequence_interesting(unsigned int *state_sequence, unsigned int stat
 }
 
 /* Update the annotations of regions (i.e., state sequence received from the server)
-   P05: Derived strictly from the immutable original execution observation */
+   P05: Derived strictly from the immutable original execution observation
+   P02: Establish verified boundary mapping contract between messages and state snapshots */
 void update_region_annotations(struct queue_entry* q, const execution_observation_t *obs)
 {
   u32 i = 0;
 
+  if (!q) return;
+
   if (!obs) {
     for (i = 0; i < q->region_count; i++) {
-      q->regions[i].state_sequence = NULL;
+      if (q->regions[i].state_sequence) {
+        ck_free(q->regions[i].state_sequence);
+        q->regions[i].state_sequence = NULL;
+      }
       q->regions[i].state_count = 0;
     }
     return;
   }
 
   for (i = 0; i < q->region_count; i++) {
-    if (i >= obs->messages_sent || !obs->response_bytes || (obs->response_bytes[i] == 0) || ( i > 0 && (obs->response_bytes[i] - obs->response_bytes[i - 1] == 0))) {
+    /* Always free existing annotation before updating */
+    if (q->regions[i].state_sequence) {
+      ck_free(q->regions[i].state_sequence);
       q->regions[i].state_sequence = NULL;
-      q->regions[i].state_count = 0;
-    } else {
-      unsigned int state_count = 0;
-      unsigned int *state_sequence = NULL;
+    }
+    q->regions[i].state_count = 0;
 
-      if (obs->provider == STATE_OBS_PROVIDER_TRACER) {
-        /* In StateAFL mode, state sequence is cloned from the immutable original observation */
-        if (obs->state_sequence && obs->state_count > 0) {
-          state_count = obs->state_count;
-          state_sequence = (unsigned int *)ck_alloc(state_count * sizeof(unsigned int));
-          memcpy(state_sequence, obs->state_sequence, state_count * sizeof(unsigned int));
-        }
-      } else if (orig_extract_response_codes && obs->response_buf) {
-        state_sequence = (*orig_extract_response_codes)((unsigned char *)obs->response_buf, obs->response_bytes[i], &state_count);
-      } else if (extract_response_codes && obs->response_buf) {
-        state_sequence = (*extract_response_codes)((unsigned char *)obs->response_buf, obs->response_bytes[i], &state_count);
+    /* P02 Boundary Evidence Verification:
+       1. Region message must have been actually transmitted: i < obs->messages_sent
+       2. Response boundary data must be recorded for this message index:
+          obs->response_bytes != NULL and i < obs->response_bytes_count
+       3. Positive response bytes increment:
+          i == 0: obs->response_bytes[0] > 0
+          i > 0:  obs->response_bytes[i] > obs->response_bytes[i - 1]
+       If any condition fails, there is no verified boundary evidence that message i
+       was processed and triggered a response. Leave as unknown (NULL / 0). */
+    if (i >= obs->messages_sent || !obs->response_bytes || i >= obs->response_bytes_count) {
+      continue;
+    }
+
+    if (i == 0) {
+      if (obs->response_bytes[0] == 0) continue;
+    } else {
+      if (obs->response_bytes[i] <= obs->response_bytes[i - 1]) continue;
+    }
+
+    if (obs->provider == STATE_OBS_PROVIDER_TRACER) {
+      /* P02/P03: In StateAFL tracer mode, sequence layout starts with State 0 (initial
+         pre-message context at index 0) followed by snapshots after each message:
+         seq[0] = 0 (initial state)
+         seq[1] = state after message 0
+         ...
+         seq[i+1] = state after message i.
+         Therefore, snapshot boundary for region i requires at least i + 2 states:
+         obs->has_state_observation == 1, status COMPLETE or TRUNCATED, and
+         obs->state_count >= i + 2. */
+      if (!obs->has_state_observation || !obs->state_sequence ||
+          (obs->status != STATE_TRACER_STATUS_COMPLETE && obs->status != STATE_TRACER_STATUS_TRUNCATED) ||
+          obs->state_count < i + 2) {
+        /* Missing or incomplete state observation boundary; mark unknown */
+        continue;
       }
 
-      if (state_sequence && i <= state_count) {
+      u32 regional_state_count = i + 2;
+      unsigned int *state_sequence = (unsigned int *)ck_alloc(regional_state_count * sizeof(unsigned int));
+      memcpy(state_sequence, obs->state_sequence, regional_state_count * sizeof(unsigned int));
+      q->regions[i].state_sequence = state_sequence;
+      q->regions[i].state_count = regional_state_count;
+
+    } else {
+      /* In AFLNet ASCII response code mode, extract codes up to response_bytes[i] */
+      unsigned int parsed_count = 0;
+      unsigned int *state_sequence = NULL;
+
+      if (orig_extract_response_codes && obs->response_buf) {
+        state_sequence = (*orig_extract_response_codes)((unsigned char *)obs->response_buf,
+                                                        obs->response_bytes[i],
+                                                        &parsed_count);
+      } else if (extract_response_codes && obs->response_buf) {
+        state_sequence = (*extract_response_codes)((unsigned char *)obs->response_buf,
+                                                    obs->response_bytes[i],
+                                                    &parsed_count);
+      }
+
+      if (state_sequence && parsed_count > 0) {
         q->regions[i].state_sequence = state_sequence;
-        q->regions[i].state_count = i;
+        q->regions[i].state_count = parsed_count;
       } else {
         if (state_sequence) ck_free(state_sequence);
         q->regions[i].state_sequence = NULL;
         q->regions[i].state_count = 0;
       }
-
     }
   }
 }

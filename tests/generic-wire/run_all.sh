@@ -40,6 +40,8 @@ done
 "$generic_test_output/reachability_dedup" > "$generic_test_output/reachability_dedup.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_no_response_observation.c -o "$generic_test_output/no_response_obs"
 "$generic_test_output/no_response_obs" > "$generic_test_output/no_response_obs.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_message_snapshot_boundary_mapping.c -o "$generic_test_output/boundary_mapping"
+"$generic_test_output/boundary_mapping" > "$generic_test_output/boundary_mapping.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"
