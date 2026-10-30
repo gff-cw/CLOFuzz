@@ -457,6 +457,9 @@ u32 selected_state_index = 0;
 u32 state_cycles = 0;
 u32 messages_sent = 0;
 u32 complete_messages = 0;
+u32 total_bytes_sent = 0;
+u32 partial_bytes_tail = 0;
+u8  is_transmission_complete = 1;
 EXP_ST u8 session_virgin_bits[MAP_SIZE];     /* Regions yet untouched while the SUT is still running */
 EXP_ST u8 *cleanup_script; /* script to clean up the environment of the SUT -- make fuzzing more deterministic */
 char **was_fuzzed_map = NULL; /* A 2D array keeping state-specific was_fuzzed information */
@@ -889,6 +892,9 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
   obs->exec_purpose = exec_purpose;
   obs->messages_sent = messages_sent;
   obs->complete_messages = complete_messages;
+  obs->total_bytes_sent = total_bytes_sent;
+  obs->partial_bytes_tail = partial_bytes_tail;
+  obs->is_transmission_complete = is_transmission_complete;
 
   /* Network response buffer snapshot */
   if (response_buf && response_buf_size > 0) {
@@ -1026,6 +1032,9 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     }
     messages_sent = orig_obs->messages_sent;
     complete_messages = orig_obs->complete_messages;
+    total_bytes_sent = orig_obs->total_bytes_sent;
+    partial_bytes_tail = orig_obs->partial_bytes_tail;
+    is_transmission_complete = orig_obs->is_transmission_complete;
     state_tracer_truncated = orig_obs->is_truncated;
   }
 
@@ -1040,7 +1049,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     //Save the current kl_messages to a file which can be used to replay the newly discovered paths on the ipsm
     u8 *temp_str = state_sequence_to_string(orig_obs->state_sequence, orig_obs->state_count);
     u8 *fname = alloc_printf("%s/replayable-new-ipsm-paths/id:%s:%s", out_dir, temp_str, dry_run ? basename(q->fname) : "new");
-    save_kl_messages_to_file(kl_messages, fname, 1, orig_obs->messages_sent);
+    save_kl_messages_to_file(kl_messages, fname, 1, orig_obs->complete_messages);
 
 
 #ifdef GRAPHVIZ_EDGE_LABELS
@@ -1610,6 +1619,9 @@ int send_over_network()
   struct sockaddr_in local_serv_addr;
   protocol_structured_sent = 0;
   complete_messages = 0;
+  total_bytes_sent = 0;
+  partial_bytes_tail = 0;
+  is_transmission_complete = 1;
 
   //Clean up the server if needed
   if (cleanup_script) system(cleanup_script);
@@ -1710,12 +1722,18 @@ int send_over_network()
   //retrieve early server response if needed
   messages_sent = 0;
   complete_messages = 0;
+  total_bytes_sent = 0;
+  partial_bytes_tail = 0;
+  is_transmission_complete = 1;
   if (receive_network_responses(sockfd, timeout, poll_wait_msecs_total)) goto HANDLE_RESPONSES;
 
   //write the request messages
   kliter_t(lms) *it;
   messages_sent = 0;
   complete_messages = 0;
+  total_bytes_sent = 0;
+  partial_bytes_tail = 0;
+  is_transmission_complete = 1;
 
   if (kl_messages) {
     for (it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it)) {
@@ -1744,9 +1762,15 @@ int send_over_network()
 
     //Jump out if something wrong leading to incomplete message sent
     if (n != kl_val(it)->msize) {
+      if (n > 0) {
+        total_bytes_sent += n;
+        partial_bytes_tail = n;
+      }
+      is_transmission_complete = 0;
       goto HANDLE_RESPONSES;
     }
     complete_messages++;
+    total_bytes_sent += n;
     if (kl_val(it)->protocol_structured && protocol_message_in_current_m2(it))
       protocol_structured_sent++;
 
@@ -2335,8 +2359,8 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
     if ((corpus_read_or_sync == 1) && (q->region_count > max_seed_region_count)) max_seed_region_count = q->region_count;
 
   } else {
-    //Convert the linked list kl_messages to regions
-    q->regions = convert_kl_messages_to_regions(kl_messages, &q->region_count, messages_sent);
+    //Convert the linked list kl_messages to regions using completely transmitted messages
+    q->regions = convert_kl_messages_to_regions(kl_messages, &q->region_count, complete_messages);
   }
 
   /* save the regions' information to file for debugging purpose */
@@ -4723,9 +4747,9 @@ static void perform_dry_run(char** argv) {
     }
 
 
-    /* save the seed to file for replaying */
+    /* save the seed to file for replaying using completely transmitted messages */
     u8 *fn_replay = alloc_printf("%s/replayable-queue/%s", out_dir, basename(q->fname));
-    save_kl_messages_to_file(kl_messages, fn_replay, 1, messages_sent);
+    save_kl_messages_to_file(kl_messages, fn_replay, 1, complete_messages);
     ck_free(fn_replay);
 
     /* AFLNet delete the kl_messages */
@@ -5220,7 +5244,13 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
 #endif /* ^!SIMPLE_FILES */
 
-    u32 full_len = save_kl_messages_to_file(kl_messages, fn, 0, messages_sent);
+    if (complete_messages == 0) {
+      /* P19: No complete messages transmitted; reject from queue */
+      ck_free(fn);
+      return keeping;
+    }
+
+    u32 full_len = save_kl_messages_to_file(kl_messages, fn, 0, complete_messages);
 
     /* We use the actual length of all messages (full_len), not the len of the mutated message subsequence (len)*/
     add_to_queue(fn, full_len, 0);
@@ -5231,9 +5261,9 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       update_state_aware_variables(queue_top, 0, argv);
     }
 
-    /* save the seed to file for replaying */
+    /* save the seed to file for replaying using completely transmitted messages */
     u8 *fn_replay = alloc_printf("%s/replayable-queue/%s", out_dir, basename(queue_top->fname));
-    save_kl_messages_to_file(kl_messages, fn_replay, 1, messages_sent);
+    save_kl_messages_to_file(kl_messages, fn_replay, 1, complete_messages);
     ck_free(fn_replay);
 
     if (hnb == 2) {
@@ -5377,9 +5407,9 @@ keep_as_crash:
   }
 
   /* If we're here, we apparently want to save the crash or hang
-     test case, too. */
+     test case, too. Save using completely transmitted messages. */
 
-  save_kl_messages_to_file(kl_messages, fn, 1, messages_sent);
+  save_kl_messages_to_file(kl_messages, fn, 1, complete_messages);
 
   /*fd = open(fn, O_WRONLY | O_CREAT | O_EXCL, 0600);
   if (fd < 0) PFATAL("Unable to create '%s'", fn);

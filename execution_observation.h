@@ -32,8 +32,11 @@
 typedef struct {
   u32 exec_id;                  /* Execution identifier */
   u8  exec_purpose;             /* EXEC_PURPOSE_* */
-  u32 messages_sent;            /* Number of messages attempted/sent */
+  u32 messages_sent;            /* Number of messages attempted */
   u32 complete_messages;        /* Number of messages fully submitted */
+  u32 total_bytes_sent;         /* Total wire bytes actually submitted */
+  u32 partial_bytes_tail;       /* Submitted bytes of incomplete final message */
+  u8  is_transmission_complete; /* 1 if all attempted messages were fully sent */
 
   /* Network response observation */
   char *response_buf;           /* Copy of network responses */
@@ -91,6 +94,21 @@ static inline int compare_execution_observations(const execution_observation_t *
     if (reason && reason_sz > 0)
       snprintf(reason, reason_sz, "complete messages mismatch: orig %u vs rep %u",
                orig->complete_messages, rep->complete_messages);
+    return 0;
+  }
+
+  /* Transmission completeness and volume check */
+  if (orig->is_transmission_complete != rep->is_transmission_complete) {
+    if (reason && reason_sz > 0)
+      snprintf(reason, reason_sz, "transmission completeness flag mismatch: orig %u vs rep %u",
+               orig->is_transmission_complete, rep->is_transmission_complete);
+    return 0;
+  }
+
+  if (orig->total_bytes_sent != rep->total_bytes_sent) {
+    if (reason && reason_sz > 0)
+      snprintf(reason, reason_sz, "total bytes sent mismatch: orig %u vs rep %u",
+               orig->total_bytes_sent, rep->total_bytes_sent);
     return 0;
   }
 

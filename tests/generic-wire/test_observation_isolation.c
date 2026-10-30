@@ -24,6 +24,9 @@ int main(void) {
   orig->exec_purpose = EXEC_PURPOSE_ORIGINAL;
   orig->messages_sent = 3;
   orig->complete_messages = 3;
+  orig->total_bytes_sent = 120;
+  orig->partial_bytes_tail = 0;
+  orig->is_transmission_complete = 1;
   orig->response_buf_size = 12;
   orig->response_buf = (char *)malloc(12);
   memcpy(orig->response_buf, "RESP1RESP2OK", 12);
@@ -50,6 +53,9 @@ int main(void) {
   rep_match->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
   rep_match->messages_sent = 3;
   rep_match->complete_messages = 3;
+  rep_match->total_bytes_sent = 120;
+  rep_match->partial_bytes_tail = 0;
+  rep_match->is_transmission_complete = 1;
   rep_match->has_state_observation = 1;
   rep_match->provider = STATE_OBS_PROVIDER_TRACER;
   rep_match->is_truncated = 0;
@@ -73,6 +79,8 @@ int main(void) {
   rep_state_diff->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
   rep_state_diff->messages_sent = 3;
   rep_state_diff->complete_messages = 3;
+  rep_state_diff->total_bytes_sent = 120;
+  rep_state_diff->is_transmission_complete = 1;
   rep_state_diff->has_state_observation = 1;
   rep_state_diff->state_count = 3;
   rep_state_diff->state_sequence = (unsigned int *)malloc(3 * sizeof(unsigned int));
@@ -91,6 +99,8 @@ int main(void) {
   rep_len_diff->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
   rep_len_diff->messages_sent = 3;
   rep_len_diff->complete_messages = 3;
+  rep_len_diff->total_bytes_sent = 120;
+  rep_len_diff->is_transmission_complete = 1;
   rep_len_diff->has_state_observation = 1;
   rep_len_diff->state_count = 2;
   rep_len_diff->state_sequence = (unsigned int *)malloc(2 * sizeof(unsigned int));
@@ -108,6 +118,8 @@ int main(void) {
   rep_tx_diff->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
   rep_tx_diff->messages_sent = 2; /* 2 instead of 3 */
   rep_tx_diff->complete_messages = 2;
+  rep_tx_diff->total_bytes_sent = 80;
+  rep_tx_diff->is_transmission_complete = 1;
   rep_tx_diff->has_state_observation = 1;
   rep_tx_diff->state_count = 3;
   rep_tx_diff->state_sequence = (unsigned int *)malloc(3 * sizeof(unsigned int));
@@ -126,6 +138,8 @@ int main(void) {
   rep_trunc->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
   rep_trunc->messages_sent = 3;
   rep_trunc->complete_messages = 3;
+  rep_trunc->total_bytes_sent = 120;
+  rep_trunc->is_transmission_complete = 1;
   rep_trunc->has_state_observation = 1;
   rep_trunc->is_truncated = 1;
   rep_trunc->state_count = 3;
@@ -139,7 +153,47 @@ int main(void) {
   assert(strstr(reason, "state trace truncated") != NULL);
   free_execution_observation(rep_trunc);
 
-  /* 8. Verify original observation was never modified (immutability check) */
+  /* 8. Transmission completeness flag mismatch */
+  execution_observation_t *rep_comp_diff = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
+  rep_comp_diff->exec_id = 1007;
+  rep_comp_diff->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
+  rep_comp_diff->messages_sent = 3;
+  rep_comp_diff->complete_messages = 3;
+  rep_comp_diff->total_bytes_sent = 120;
+  rep_comp_diff->is_transmission_complete = 0; /* Mismatch */
+  rep_comp_diff->has_state_observation = 1;
+  rep_comp_diff->state_count = 3;
+  rep_comp_diff->state_sequence = (unsigned int *)malloc(3 * sizeof(unsigned int));
+  rep_comp_diff->state_sequence[0] = 0;
+  rep_comp_diff->state_sequence[1] = 42;
+  rep_comp_diff->state_sequence[2] = 88;
+
+  reason[0] = '\0';
+  assert(compare_execution_observations(orig, rep_comp_diff, reason, sizeof(reason)) == 0);
+  assert(strstr(reason, "transmission completeness flag mismatch") != NULL);
+  free_execution_observation(rep_comp_diff);
+
+  /* 9. Total bytes sent mismatch */
+  execution_observation_t *rep_bytes_diff = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
+  rep_bytes_diff->exec_id = 1008;
+  rep_bytes_diff->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
+  rep_bytes_diff->messages_sent = 3;
+  rep_bytes_diff->complete_messages = 3;
+  rep_bytes_diff->total_bytes_sent = 100; /* 100 vs 120 */
+  rep_bytes_diff->is_transmission_complete = 1;
+  rep_bytes_diff->has_state_observation = 1;
+  rep_bytes_diff->state_count = 3;
+  rep_bytes_diff->state_sequence = (unsigned int *)malloc(3 * sizeof(unsigned int));
+  rep_bytes_diff->state_sequence[0] = 0;
+  rep_bytes_diff->state_sequence[1] = 42;
+  rep_bytes_diff->state_sequence[2] = 88;
+
+  reason[0] = '\0';
+  assert(compare_execution_observations(orig, rep_bytes_diff, reason, sizeof(reason)) == 0);
+  assert(strstr(reason, "total bytes sent mismatch") != NULL);
+  free_execution_observation(rep_bytes_diff);
+
+  /* 10. Verify original observation was never modified (immutability check) */
   assert(orig->exec_id == 1001);
   assert(orig->messages_sent == 3);
   assert(orig->complete_messages == 3);

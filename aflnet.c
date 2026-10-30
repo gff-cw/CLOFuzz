@@ -1712,7 +1712,7 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
         usleep(10);
         n = send(sockfd, &mem[byte_count], len - byte_count, MSG_NOSIGNAL);
         if (n == 0) return byte_count;
-        if (n == -1) return -1;
+        if (n == -1) return (byte_count > 0) ? (int)byte_count : -1;
         byte_count += n;
       }
     }
