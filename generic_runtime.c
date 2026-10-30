@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define GR_MESSAGES 128u
 #define GR_STATES 64u
@@ -651,8 +652,11 @@ void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
   else gr_after_stream(e,wire,length);
 }
 void gr_write_stats(gr_engine *e,const char *path){
-  if(!e||!path)return;FILE *f=fopen(path,"w");if(!f)return;
-  fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"changed\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unchanged\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unavailable\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ","
+  if(!e||!path)return;
+  char tmp_path[512];
+  snprintf(tmp_path,sizeof(tmp_path),"%s.tmp.%d",path,(int)getpid());
+  FILE *f=fopen(tmp_path,"w");if(!f)return;
+  int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"changed\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unchanged\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unavailable\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ","
             "\"response_diagnostics\":{\"incomplete_frames\":%" PRIu64 ",\"framing_errors\":%" PRIu64 ",\"grammar_mismatches\":%" PRIu64 ",\"unrelated_responses\":%" PRIu64 ",\"correlation_mismatches\":%" PRIu64 ",\"expected_complete\":%" PRIu64 "},"
             "\"responses_by_purpose\":{\"original\":%" PRIu64 ",\"confirmation\":%" PRIu64 ",\"calibration\":%" PRIu64 ",\"sync\":%" PRIu64 ",\"unknown\":%" PRIu64 "},"
             "\"protocol_semantic_state\":",
@@ -663,7 +667,9 @@ void gr_write_stats(gr_engine *e,const char *path){
     e->responses,e->completed,e->correlated,
     e->resp_incomplete_frames,e->resp_framing_errors,e->resp_grammar_mismatches,
     e->resp_unrelated,e->resp_correlation_mismatches,e->resp_expected_complete,
-    e->resp_by_purpose[1],e->resp_by_purpose[2],e->resp_by_purpose[3],e->resp_by_purpose[4],e->resp_by_purpose[0]);
-  nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
-  fputs(",\"engine\":\"generic-wire\"}\n",f);fclose(f);
+    e->resp_by_purpose[1],e->resp_by_purpose[2],e->resp_by_purpose[3],e->resp_by_purpose[4],e->resp_by_purpose[0]) > 0);
+  if(ok) nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
+  if(ok) ok = (fputs(",\"engine\":\"generic-wire\"}\n",f) >= 0);
+  if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return; }
+  rename(tmp_path, path);
 }

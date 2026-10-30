@@ -75,8 +75,8 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	ln -sf afl-as as
 
 PROTOCOL_CODECS = $(wildcard protocol_codec_*.c)
-GENERIC_WIRE_SOURCES = generic_wire.c generic_runtime.c
-GENERIC_WIRE_HEADERS = generic_wire.h generic_runtime.h
+GENERIC_WIRE_SOURCES = generic_wire.c generic_runtime.c run_manifest.c
+GENERIC_WIRE_HEADERS = generic_wire.h generic_runtime.h run_manifest.h
 NATIVE_INSPECT_SOURCES = native_json.c native_layout.c native_observation.c native_inspect.c
 NATIVE_INSPECT_HEADERS = native_json.h native_inspect.h
 NATIVE_INSPECT_TEST_SOURCE = tests/native-inspection/test_native_inspection.c

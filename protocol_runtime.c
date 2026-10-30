@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <errno.h>
+#include <unistd.h>
 
 #define PMAX 128
 #define FMAX 64
@@ -1062,8 +1063,11 @@ bad:e->errors++;if(e->log)fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%
 }
 void proto_write_stats(proto_engine *e,const char *path){
   if(e&&e->generic){gr_write_stats(e->generic,path);return;}
-  if(!e || !path)return;FILE *f=fopen(path,"w");if(!f)return;
-  fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"completed_responses\":%llu,\"correlated_responses\":%llu,"
+  if(!e || !path)return;
+  char tmp_path[512];
+  snprintf(tmp_path,sizeof(tmp_path),"%s.tmp.%d",path,(int)getpid());
+  FILE *f=fopen(tmp_path,"w");if(!f)return;
+  int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"completed_responses\":%llu,\"correlated_responses\":%llu,"
             "\"response_diagnostics\":{\"incomplete_frames\":%llu,\"framing_errors\":%llu,\"grammar_mismatches\":%llu,\"unrelated_responses\":%llu,\"correlation_mismatches\":%llu,\"expected_complete\":%llu},"
             "\"responses_by_purpose\":{\"original\":%llu,\"confirmation\":%llu,\"calibration\":%llu,\"sync\":%llu,\"unknown\":%llu},"
             "\"protocol_semantic_state\":\"%s\"}\n",
@@ -1076,6 +1080,7 @@ void proto_write_stats(proto_engine *e,const char *path){
     (unsigned long long)e->resp_incomplete_frames,(unsigned long long)e->resp_framing_errors,(unsigned long long)e->resp_grammar_mismatches,
     (unsigned long long)e->resp_unrelated,(unsigned long long)e->resp_correlation_mismatches,(unsigned long long)e->resp_expected_complete,
     (unsigned long long)e->resp_by_purpose[1],(unsigned long long)e->resp_by_purpose[2],(unsigned long long)e->resp_by_purpose[3],(unsigned long long)e->resp_by_purpose[4],(unsigned long long)e->resp_by_purpose[0],
-    e->state[e->semantic_state]);
-  fclose(f);
+    e->state[e->semantic_state]) > 0);
+  if(!ok || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return; }
+  rename(tmp_path, path);
 }

@@ -6,13 +6,15 @@ mkdir -p "$generic_test_output"
 generic_test_output="$(realpath "$generic_test_output")"
 generic_test_cc="${CC:-clang}"
 generic_test_flags=(-std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I.)
-generic_test_sources=(protocol_runtime.c generic_runtime.c generic_wire.c native_json.c protocol_codec_*.c)
+generic_test_sources=(protocol_runtime.c generic_runtime.c generic_wire.c native_json.c run_manifest.c protocol_codec_*.c)
 export ASAN_OPTIONS="detect_leaks=1:abort_on_error=1"
 export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
 generic_test_objs=()
 for src in "${generic_test_sources[@]}"; do
   obj="$generic_test_output/$(basename "${src%.c}.o")"
-  "$generic_test_cc" "${generic_test_flags[@]}" -c "$src" -o "$obj"
+  if [ ! -f "$obj" ] || [ "$src" -nt "$obj" ]; then
+    "$generic_test_cc" "${generic_test_flags[@]}" -c "$src" -o "$obj"
+  fi
   generic_test_objs+=("$obj")
 done
 python3 tests/generic-wire/test_profile_checker.py > "$generic_test_output/profile-checker.log" 2>&1
@@ -78,6 +80,8 @@ done
 "$generic_test_output/layer_operability" > "$generic_test_output/layer_operability.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_versioned_metrics_dictionary.c "${generic_test_objs[@]}" -o "$generic_test_output/versioned_metrics"
 "$generic_test_output/versioned_metrics" > "$generic_test_output/versioned_metrics.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_cold_start_segment_manifest.c "${generic_test_objs[@]}" -o "$generic_test_output/cold_start_manifest"
+"$generic_test_output/cold_start_manifest" > "$generic_test_output/cold_start_manifest.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

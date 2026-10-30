@@ -73,6 +73,7 @@
 #include "protocol_schedule.h"
 #include "native_inspect.h"
 #include "execution_observation.h"
+#include "run_manifest.h"
 #include <graphviz/gvc.h>
 #include <math.h>
 
@@ -148,6 +149,8 @@ static u8  current_exec_purpose = EXEC_PURPOSE_ORIGINAL;
 static u32 current_target_state_id = 0;
 static u32 current_seed_id = 0;
 static int current_feedback_layer = 0;
+/* P26: Cold-start segment and manifest tracking */
+static run_manifest *manifest_ctx = NULL;
 static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
 
 EXP_ST u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
@@ -2177,6 +2180,8 @@ HANDLE_RESPONSES:
     if (fclose(record)) PFATAL("Cannot close experiment candidate metadata");
     ck_free(metadata);
     protocol_candidates_saved++;
+    if (manifest_ctx && manifest_ctx->num_segments > 0)
+      manifest_ctx->segments[manifest_ctx->num_segments - 1].candidates_saved++;
   }
 
   if (exec_msgs) {
@@ -5873,14 +5878,13 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
   static struct rusage usage;
 
   u8* fn = alloc_printf("%s/fuzzer_stats", out_dir);
+  u8* tmp_fn = alloc_printf("%s/.fuzzer_stats.tmp.%d", out_dir, (int)getpid());
   s32 fd;
   FILE* f;
 
-  fd = open(fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  fd = open((char *)tmp_fn, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 
-  if (fd < 0) PFATAL("Unable to create '%s'", fn);
-
-  ck_free(fn);
+  if (fd < 0) PFATAL("Unable to create '%s'", tmp_fn);
 
   f = fdopen(fd, "w");
 
@@ -5992,7 +5996,14 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
 #endif /* ^__APPLE__ */
   }
 
+  if (manifest_ctx) {
+    manifest_save_atomic(manifest_ctx, (char *)out_dir, NULL, 0);
+  }
+
   fclose(f);
+  rename((char *)tmp_fn, (char *)fn);
+  ck_free(tmp_fn);
+  ck_free(fn);
 
 }
 
@@ -11594,14 +11605,53 @@ int main(int argc, char** argv) {
   setup_ipsm();
 
   setup_dirs_fds();
+
+  /* P26: Validate cold-start segment lineage and manifest attribution */
+  if (protocol_engine) {
+    const char *spec_file = generic_spec_path ? (const char *)generic_spec_path : (const char *)protocol_spec_path;
+    const char *proto_name = generic_spec_path ? "generic-wire" : "protocol-ir";
+    const char *mode_str = protocol_mode == PROTO_VALID ? "valid" :
+                           protocol_mode == PROTO_NEAR_VALID ? "near_valid" :
+                           protocol_mode == PROTO_INVALID ? "invalid" :
+                           protocol_mode == PROTO_RAW ? "raw" : "hybrid";
+    char merr[256];
+    if (manifest_init_or_resume((char *)out_dir, proto_name, spec_file, mode_str,
+                                fixed_random_seed ? experiment_seed : 0,
+                                &manifest_ctx, merr, sizeof(merr)) < 0) {
+      FATAL("Run manifest validation: %s", merr);
+    }
+  }
+
   if (protocol_candidate_limit) {
     protocol_candidate_dir = alloc_printf("%s/protocol-candidates", out_dir);
-    if (mkdir((char *)protocol_candidate_dir, 0700)) PFATAL("Cannot create protocol candidate directory");
+    if (mkdir((char *)protocol_candidate_dir, 0700) && errno != EEXIST)
+      PFATAL("Cannot create protocol candidate directory");
+    if (manifest_ctx && manifest_ctx->num_segments > 0) {
+      protocol_candidates_saved = manifest_ctx->segments[manifest_ctx->num_segments - 1].candidate_id_start;
+    }
   }
+
   if (protocol_engine) {
     u8 *log_path = alloc_printf("%s/protocol_mutations.jsonl", out_dir);
-    protocol_log = fopen((char *)log_path, "w");
-    if (!protocol_log) PFATAL("Cannot create protocol mutation log");
+    if (manifest_ctx && manifest_ctx->current_segment_id > 0) {
+      char rerr[256];
+      if (manifest_repair_torn_log((char *)log_path, rerr, sizeof(rerr)) < 0) {
+        WARNF("Log repair: %s", rerr);
+      }
+      protocol_log = fopen((char *)log_path, "a");
+      if (!protocol_log) PFATAL("Cannot open protocol mutation log for append");
+      run_segment_entry *cur_seg = &manifest_ctx->segments[manifest_ctx->num_segments - 1];
+      fprintf(protocol_log, "{\"event\":\"segment_transition\",\"segment_id\":%u,\"parent_segment_id\":%d,\"learning_state\":\"%s\",\"reset_reason\":\"%s\",\"timestamp_ms\":%llu}\n",
+              cur_seg->segment_id, cur_seg->parent_segment_id, cur_seg->learning_state, cur_seg->reset_reason, (unsigned long long)cur_seg->start_time_ms);
+    } else {
+      protocol_log = fopen((char *)log_path, "w");
+      if (!protocol_log) PFATAL("Cannot create protocol mutation log");
+      if (manifest_ctx && manifest_ctx->num_segments > 0) {
+        run_segment_entry *cur_seg = &manifest_ctx->segments[0];
+        fprintf(protocol_log, "{\"event\":\"segment_transition\",\"segment_id\":%u,\"parent_segment_id\":%d,\"learning_state\":\"%s\",\"reset_reason\":\"%s\",\"timestamp_ms\":%llu}\n",
+                cur_seg->segment_id, cur_seg->parent_segment_id, cur_seg->learning_state, cur_seg->reset_reason, (unsigned long long)cur_seg->start_time_ms);
+      }
+    }
     setvbuf(protocol_log, NULL, _IOLBF, 0);
     proto_set_log(protocol_engine, protocol_log);
     ck_free(log_path);
@@ -11839,6 +11889,11 @@ stop_fuzzing:
   destroy_ipsm();
 
   if (protocol_log) fclose(protocol_log);
+  if (manifest_ctx) {
+    manifest_save_atomic(manifest_ctx, (char *)out_dir, NULL, 0);
+    manifest_free(manifest_ctx);
+    manifest_ctx = NULL;
+  }
   proto_free(protocol_engine);
   ck_free(protocol_candidate_dir);
 
