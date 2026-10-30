@@ -572,11 +572,13 @@ int proto_records_validate(const uint8_t *b,size_t n,size_t *count,char *err,siz
 }
 static int unpack(proto_engine *e,const uint8_t *b,size_t n,char *err,size_t cap){
   if(proto_records_validate(b,n,&e->count,err,cap)<0)return -1;
+  if(!e->count)return fail(err,cap,"empty replay records sequence");
   size_t p=0,o=0;for(size_t i=0;i<e->count;i++){size_t z=getint(b+p,4,1);p+=4;pr *r=&e->records[i];r->offset=o;r->wire_offset=o;r->size=z;memcpy(e->work+o,b+p,z);r->model=model_for(e,e->work+o,z,0);if(r->model<0)return fail(err,cap,"message %zu has no supported model or malformed BVLC/NPDU",i);o+=z;p+=z;}
   return 0;
 }
 static int pack(proto_engine *e,const uint8_t **out,size_t *len,char *err,size_t cap){
-  size_t p=0;for(size_t i=0;i<e->count;i++){pr *r=&e->records[i];if(p>e->max_bytes || r->size>e->max_bytes-p || e->max_bytes-p-r->size<4)return fail(err,cap,"serialized sequence exceeds max_bytes");putint(e->output+p,4,1,r->size);memcpy(e->output+p+4,e->work+r->offset,r->size);p+=4+r->size;}
+  if(!e->count)return fail(err,cap,"empty sequence cannot be packed");
+  size_t p=0;for(size_t i=0;i<e->count;i++){pr *r=&e->records[i];if(!r->size || p>e->max_bytes || r->size>e->max_bytes-p || e->max_bytes-p-r->size<4)return fail(err,cap,"serialized sequence exceeds max_bytes");putint(e->output+p,4,1,r->size);memcpy(e->output+p+4,e->work+r->offset,r->size);p+=4+r->size;}
   *out=e->output;*len=p;return 0;
 }
 static uint32_t crc(const uint8_t *b,size_t n){uint32_t c=~0u;for(size_t i=0;i<n;i++){c^=b[i];for(int j=0;j<8;j++)c=(c>>1)^((0u-(c&1))&0xedb88320u);}return ~c;}
@@ -756,6 +758,7 @@ int proto_validate_sequence(proto_engine *e,
   if (e && e->generic)
     return gr_validate_sequence(e->generic, m1, m1_len, m2, m2_len, m3, m3_len, err, cap);
   if (!e) return fail(err, cap, "missing protocol engine");
+  if (!m2 || !m2_len) return fail(err, cap, "M2 candidate record sequence cannot be empty");
 
   const uint8_t *segs[3] = {m1, m2, m3};
   size_t lens[3] = {m1_len, m2_len, m3_len};
@@ -807,6 +810,9 @@ int proto_validate_sequence(proto_engine *e,
     }
   }
 
+  if (!total_messages)
+    return fail(err, cap, "empty sequence across M1/M2/M3");
+
   return 0;
 }
 typedef struct {uint64_t cache[PMAX][FMAX];uint8_t cached[PMAX][FMAX],outstanding[256],pending[PMAX];unsigned state;uint32_t ua_sequence;} session_snapshot;
@@ -834,6 +840,7 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   size_t ri=0,before=0;int fi=-1,mi=-1;const char *strategy="none";int broken=mode==PROTO_NEAR_VALID || mode==PROTO_INVALID;
   e->attempts++;if(mode<0 || mode>PROTO_INVALID || (layer!=1 && layer!=2 && layer!=4)){fail(err,cap,"invalid structured mode/layer");goto bad;}
   if(unpack(e,records,length,err,cap)<0)goto bad;before=e->count;
+  if(!e->count){fail(err,cap,"empty sequence cannot be mutated");goto bad;}
   if(e->count>(size_t)e->max_messages){fail(err,cap,"model max_messages exceeded");goto bad;}
   /* Work in a fresh simulated session, separate from the live connection cache. */
   e->simulating=1;proto_session_begin(e);
@@ -855,6 +862,7 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       if(e->count==(size_t)e->max_messages){fail(err,cap,"sequence insertion max_messages");goto bad;}
       if(op==0){int choices[PMAX],n=0;for(int j=0;j<e->nm;j++)if(!e->m[j].response)choices[n++]=j;if(!n){fail(err,cap,"no request template");goto bad;}mi=choices[draw(rng,n)];m=&e->m[mi];}
       size_t z=op==0?m->size:r->size,end=e->records[e->count-1].offset+e->records[e->count-1].size;
+      if(!z){fail(err,cap,"zero-length template or record cannot be inserted");goto bad;}
       if(z>MAX_FILE-end){fail(err,cap,"sequence insertion max_bytes");goto bad;}
       /* Save repeats before moving a randomly positioned suffix. */
       uint8_t *copy=ck_alloc(z);memcpy(copy,op==0?m->example:e->work+r->offset,z);
@@ -936,7 +944,7 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   }
   if(sequence_ok(e)<0){fail(err,cap,"semantic transition or repeat constraint rejects sequence");goto bad;}
   /* Derive fields, then cache explicit message.field values in sequence order. */
-  for(size_t i=0;i<e->count;i++){pr *x=&e->records[i];uint8_t *b=e->work+x->offset;if(repair(e,x->model,b,x->size,err,cap)<0)goto bad;
+  for(size_t i=0;i<e->count;i++){pr *x=&e->records[i];if(!x->size){fail(err,cap,"zero-length message record produced");goto bad;}uint8_t *b=e->work+x->offset;if(repair(e,x->model,b,x->size,err,cap)<0)goto bad;
     if(e->codec && !codecs[e->codec].same(b,x->size,e->m[x->model].example,e->m[x->model].size)){fail(err,cap,"mutation changed request semantic family");goto bad;}
     if(model_for(e,b,x->size,0)!=e->canonical[x->model]){fail(err,cap,"mutation changed message model");goto bad;}
     if(proto_validate_message_fields(e,x->model,b,x->size,err,cap)<0){fail(err,cap,"mutation violated field constraints: %s",err);goto bad;}

@@ -72,6 +72,7 @@ static void gr_records_free(gr_record records[GR_RECORDS],size_t count){
 }
 static int gr_match(const gr_engine *e,const uint8_t *wire,size_t size,int response,
                     unsigned *model,char *err,size_t cap){
+  if(!wire||!size)return gr_error(err,cap,"wire message cannot be empty");
   int found=-1;for(unsigned i=0;i<e->count;i++){gw_packet *packet=NULL;
     if(e->messages[i].response!=response)continue;
     if(gw_parse(e->messages[i].schema,wire,size,&packet,NULL,0)==0){
@@ -88,6 +89,7 @@ static int gr_next(const gr_engine *e,unsigned state,unsigned model,
 }
 static int gr_sequence(const gr_engine *e,const gr_record *records,size_t count,
                        char *err,size_t cap){
+  if(!count)return gr_error(err,cap,"empty sequence cannot be validated");
   unsigned state=e->prefix_state;unsigned repeats[GR_MESSAGES];
   memcpy(repeats,e->prefix_repeats,sizeof(repeats));
   if(!e->prefix_valid)return gr_error(err,cap,"M1 prefix outside state graph");
@@ -213,13 +215,16 @@ static int gr_unpack(gr_engine *e,const uint8_t *data,size_t length,
     if(gr_validate_framing(e,r->wire,n,"replay message",err,cap)<0)return -1;
     if(gr_match(e,r->wire,n,0,&r->model,err,cap)<0)return -1;
     original+=n;p+=n;
-  }return 0;
+  }
+  if(!*count)return gr_error(err,cap,"empty replay records");
+  return 0;
 }
 static int gr_pack(gr_engine *e,const gr_record *records,size_t count,
                    const uint8_t **out,size_t *length,char *err,size_t cap){
+  if(!count)return gr_error(err,cap,"empty sequence cannot be packed");
   size_t n=0,available=e->max_bytes-e->prefix_bytes;for(size_t i=0;i<count;i++){
-    if(records[i].size>GR_WIRE||records[i].size>available-n||4>available-n-records[i].size)
-      return gr_error(err,cap,"sequence exceeds max_bytes");
+    if(!records[i].size||records[i].size>GR_WIRE||records[i].size>available-n||4>available-n-records[i].size)
+      return gr_error(err,cap,"zero-length record or sequence exceeds max_bytes");
     n+=4+records[i].size;
   }uint8_t *p=realloc(e->output,n?n:1);if(!p)return gr_error(err,cap,"out of memory");
   e->output=p;e->output_size=n;size_t at=0;for(size_t i=0;i<count;i++){
@@ -239,7 +244,13 @@ static int gr_message_load(gr_engine *e,const nj_value *v,unsigned i,char *err,s
   else if(!nj_string_equal(d,"request"))return gr_error(err,cap,"invalid message direction");
   if(gr_unsigned(nj_get(v,"weight"),1,1000,&m->weight,err,cap)<0||
      gr_hex(nj_get(v,"example_hex"),&m->example,&m->size,err,cap)<0)return -1;
+  if(m->size==0)return gr_error(err,cap,"message example for %s cannot be zero-length",m->id);
   m->schema=gw_compile(nj_get(v,"grammar"),err,cap);if(!m->schema)return -1;
+  gw_packet *zero_pkt=NULL;
+  if(gw_parse(m->schema,NULL,0,&zero_pkt,NULL,0)==0){
+    gw_packet_free(zero_pkt);
+    return gr_error(err,cap,"message grammar for %s accepts zero-length wire message",m->id);
+  }
   if(gr_check_framing_grammar_consistency(e,v,m->id,err,cap)<0)return -1;
   char detail[256];gw_packet *packet=NULL;
   int valid=gw_parse(m->schema,m->example,m->size,&packet,detail,sizeof(detail));gw_packet_free(packet);
@@ -381,6 +392,7 @@ int gr_validate_sequence(const gr_engine *e,
                          char *err, size_t cap) {
   if (err && cap) err[0] = 0;
   if (!e) return gr_error(err, cap, "missing generic engine");
+  if (!m2 || !m2_len) return gr_error(err, cap, "M2 candidate record sequence cannot be empty");
 
   const uint8_t *segs[3] = {m1, m2, m3};
   size_t lens[3] = {m1_len, m2_len, m3_len};
@@ -437,6 +449,9 @@ int gr_validate_sequence(const gr_engine *e,
     }
   }
 
+  if (!total_messages)
+    return gr_error(err, cap, "empty sequence across M1/M2/M3");
+
   return 0;
 }
 static void gr_log_rejection(gr_engine *e,int layer,const char *reason){
@@ -475,6 +490,7 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
         if(!eligible){gr_error(err,cap,"no request template");goto done;}
         model=choices[gr_draw(random,eligible)];wire=e->messages[model].example;n=e->messages[model].size;
       }
+      if(!n||n>GR_WIRE){gr_error(err,cap,"zero-length template or record cannot be inserted");goto done;}
       uint8_t *copy=malloc(n);if(!copy){gr_error(err,cap,"out of memory");goto done;}
       memcpy(copy,wire,n);size_t at=gr_draw(random,(uint32_t)count+1);
       memmove(rr+at+1,rr+at,(count-at)*sizeof(*rr));
@@ -490,13 +506,14 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
       if(selected+1<before&&projection_length>r->size)projection_length=r->size;
     }
     if(gw_mutate(packet,layer,projection,projection_length,random,err,cap)<0||
-       gw_encode(packet,encoded,GR_WIRE,&n,err,cap)<0||n>GR_WIRE){
+       gw_encode(packet,encoded,GR_WIRE,&n,err,cap)<0||!n||n>GR_WIRE){
       gw_packet_free(packet);free(encoded);goto done;
     }
     gw_packet_free(packet);free(r->wire);r->wire=encoded;r->size=n;
   }
   if(gr_sequence(e,rr,count,err,cap)<0)goto done;
   for(size_t i=0;i<count;i++){
+    if(!rr[i].size){gr_error(err,cap,"zero-length record in mutated sequence");goto done;}
     unsigned model;
     if(gr_match(e,rr[i].wire,rr[i].size,0,&model,err,cap)<0||model!=rr[i].model){
       gr_error(err,cap,"mutation changed message family");goto done;
