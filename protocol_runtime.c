@@ -395,6 +395,8 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
       field->role=!strcmp(b,"head")?1:!strcmp(b,"content")?2:!strcmp(b,"fixed")?3:!strcmp(b,"derived")?4:0;if(!field->role)goto malformed;
       if(str(&p,key(&p,f,"mutability"),b,sizeof(b))<0)goto bad;
       field->mut=!strcmp(b,"fixed")?0:!strcmp(b,"fuzzable")?1:!strcmp(b,"derived")?2:!strcmp(b,"conditional")?3:!strcmp(b,"runtime_bound")?4:-1;if(field->mut<0)goto malformed;
+      if((field->role==3)!=(field->mut==0)){fail(err,cap,"fixed role and mutability mismatch for %s",field->id);goto bad;}
+      if((field->role==4)!=(field->mut==2)){fail(err,cap,"derived role and mutability mismatch for %s",field->id);goto bad;}
       if(!field->mut && field->min!=field->max)goto malformed;
       int va=key(&p,f,"values");if(!va || p.t[va].type!='[')goto malformed;
       for(int x=va+1;x<p.t[va].next;x=p.t[x].next){uint64_t uv;if(field->nv==32 || unsigned_number(&p,x,&uv)<0 || uv<field->min || uv>field->max)goto malformed;field->values[field->nv++]=uv;}
@@ -438,6 +440,7 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
       if(str(&p,key(&p,d,"target"),b,sizeof(b))<0 || (dst->target=find_field(msg,b))<0)goto malformed;
       if(!msg->f[dst->target].width && !(dst->op==9 && e->codec==3))goto malformed;
       if(dst->op==8 || (dst->op==9 && e->codec!=3))goto malformed;
+      if(dst->op!=6 && dst->op!=8 && msg->f[dst->target].mut==0){fail(err,cap,"dependency cannot write fixed field %s",b);goto bad;}
       for(int old=0;old<msg->nd-1;old++)if(msg->d[old].target==dst->target){fail(err,cap,"multiple dependency writers for %s",b);goto bad;}
       int ref=key(&p,d,"message");if(ref && (str(&p,ref,b,sizeof(b))<0 || (dst->message=find_msg(e,b))<0))goto malformed;
       if(str(&p,key(&p,d,"source"),b,sizeof(b))<0)goto bad;dst->source=!strcmp(b,"$message")?-1:find_field(&e->m[dst->message],b);if(dst->source<0 && strcmp(b,"$message"))goto malformed;
@@ -454,6 +457,19 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
       if(dst->op==7 && (dst->message!=mi || (dst->source>=0 && dst->source!=dst->target)))goto malformed;
       if(dst->op==9 && (dst->message!=mi || dst->source!=-1 || strcmp(msg->f[dst->target].loc,"ber:presentation")))goto malformed;
       if(dst->op==3){if(str(&p,key(&p,d,"algorithm"),b,sizeof(b))<0)goto bad;dst->algorithm=!strcmp(b,"sum8")?1:!strcmp(b,"crc32")?2:0;if(!dst->algorithm)goto malformed;}
+    }
+    for(int fi=0;fi<msg->nf;fi++){
+      pf *field=&msg->f[fi];
+      if(field->mut==2 || field->mut==4){
+        int writer_idx=-1;
+        for(int di=0;di<msg->nd;di++){
+          if(msg->d[di].target==fi){writer_idx=di;break;}
+        }
+        if(writer_idx<0){fail(err,cap,"%s: %s field requires a dependency writer",field->id,field->mut==2?"derived":"runtime_bound");goto bad;}
+        int op=msg->d[writer_idx].op;
+        if(field->mut==2 && (op==6 || op==8)){fail(err,cap,"%s: derived field requires value-producing dependency",field->id);goto bad;}
+        if(field->mut==4 && (op<4 || op>7)){fail(err,cap,"%s: runtime_bound field requires binding dependency",field->id);goto bad;}
+      }
     }
   }
   {uint8_t visited[PMAX][FMAX]={{0}};for(int mi=0;mi<e->nm;mi++)for(int f=0;f<e->m[mi].nf;f++)if(cycle(e,mi,f,visited)<0){fail(err,cap,"dependency graph cycle");goto bad;}}
