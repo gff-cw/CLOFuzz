@@ -50,4 +50,5 @@ int gw_set_u64(gw_packet *packet, const char *id, uint64_t value,
                char *error, size_t cap);
 int gw_field_range(const gw_packet *packet, const char *id,
                    size_t *offset, size_t *length);
+int gw_has_role(const gw_schema *schema, int layer);
 #endif

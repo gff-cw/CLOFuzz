@@ -390,3 +390,11 @@ int gw_mutate(gw_packet *p,int layer,const uint8_t *candidate,size_t cn,
   gw_packet_free(verified);gw_packet_free(q);free(wire);return 0;
 bad:gw_packet_free(verified);gw_packet_free(q);free(wire);return -1;
 }
+int gw_has_role(const gw_schema *s, int layer) {
+  if (!s || (layer != 1 && layer != 2)) return 0;
+  enum role req = (layer == 1) ? R_HEAD : R_CONTENT;
+  for (size_t i = 0; i < s->count; i++) {
+    if (s->fields[i].role == req) return 1;
+  }
+  return 0;
+}

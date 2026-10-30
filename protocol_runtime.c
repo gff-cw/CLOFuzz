@@ -151,6 +151,7 @@ struct proto_engine {
   uint64_t cache[PMAX][FMAX];uint8_t cached[PMAX][FMAX];uint8_t outstanding[256];
   uint8_t pending[PMAX];
   uint64_t attempts,success,errors,layer_count[3],responses,correlated;
+  uint64_t changed[3],unchanged[3],unavailable[3];
   unsigned semantic_state;
   uint32_t ua_sequence;
   uint8_t receive[MAX_FILE];size_t receive_size;
@@ -857,8 +858,54 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   if(e->count>(size_t)e->max_messages){fail(err,cap,"model max_messages exceeded");goto bad;}
   /* Work in a fresh simulated session, separate from the live connection cache. */
   e->simulating=1;proto_session_begin(e);
-  unsigned total=0;for(size_t i=0;i<e->count;i++)total+=e->m[e->records[i].model].weight;
-  unsigned pick=draw(rng,total);for(ri=0;ri+1<e->count;ri++){unsigned w=e->m[e->records[ri].model].weight;if(pick<w)break;pick-=w;}
+  int layer_idx = (layer == 1) ? 0 : (layer == 2) ? 1 : 2;
+
+  /* P21: Operability check: verify sequence contains mutable fields for requested layer */
+  if (layer == 1 || layer == 2) {
+    int req_role = (layer == 1) ? 1 : 2;
+    size_t eligible_messages = 0;
+    for (size_t i = 0; i < e->count; i++) {
+      int m_idx = e->records[i].model;
+      pm *m = &e->m[m_idx];
+      uint8_t *b = e->work + e->records[i].offset;
+      for (int f = 0; f < m->nf; f++) {
+        pf *p = &m->f[f];
+        size_t o, w;
+        if (p->role == req_role && (p->mut == 1 || p->mut == 3) && locate(e, b, e->records[i].size, p, &o, &w, NULL, 0) == 1) {
+          eligible_messages++;
+          break;
+        }
+      }
+    }
+    if (!eligible_messages) {
+      e->unavailable[layer_idx]++;
+      if (e->log) {
+        fprintf(e->log, "{\"event\":\"unavailable\",\"layer\":\"%s\",\"reason\":\"no_operable_fields\"}\n",
+                (layer == 1) ? "HEAD" : "CONTENT");
+      }
+      fail(err, cap, "layer unavailable: no operable fields in sequence for requested layer");
+      goto bad;
+    }
+  }
+
+  /* Bounded retry (up to 4 attempts) to draw an operable message if available */
+  for (int retry = 0; retry < 4; retry++) {
+    unsigned total=0;for(size_t i=0;i<e->count;i++)total+=e->m[e->records[i].model].weight;
+    unsigned pick=draw(rng,total);for(ri=0;ri+1<e->count;ri++){unsigned w=e->m[e->records[ri].model].weight;if(pick<w)break;pick-=w;}
+    if (layer == PROTO_SEQUENCE) break;
+    int m_idx = e->records[ri].model;
+    pm *m = &e->m[m_idx];
+    uint8_t *b = e->work + e->records[ri].offset;
+    int has_fields = 0;
+    for (int f = 0; f < m->nf; f++) {
+      pf *p = &m->f[f];
+      size_t o, w;
+      if (p->role == (layer == 1 ? 1 : 2) && (p->mut == 1 || p->mut == 3) && locate(e, b, e->records[ri].size, p, &o, &w, NULL, 0) == 1) {
+        has_fields = 1; break;
+      }
+    }
+    if (has_fields) break;
+  }
   mi=e->records[ri].model;pm *m=&e->m[mi];pr *r=&e->records[ri];
   if(layer==PROTO_SEQUENCE){
     unsigned op=draw(rng,4);strategy=op==0?"insert":op==1?"delete":op==2?"repeat":"reorder";
@@ -969,9 +1016,16 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
     putint(b+offset,width,little,getint(b+offset,width,little)+1);
   }
   if(pack(e,out,olen,err,cap)<0)goto bad;
-  e->success++;e->layer_count[layer==1?0:layer==2?1:2]++;
-  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"layer\":\"%s\",\"message\":\"%s\",\"field\":\"%s\",\"strategy\":\"%s\",\"derived_repaired\":true,\"intentional_violation\":%s,\"constraint\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"parse_failed\":false,\"serialize_failed\":false}\n",layer==1?"HEAD":layer==2?"CONTENT":"SEQUENCE",mi>=0?e->m[mi].id:"none",fi>=0?e->m[mi].f[fi].id:"sequence",strategy,broken?"true":"false",broken?"wire_length":"none",before,e->count);
+  int changed = (e->count != before) || (*olen != length) || (memcmp(*out, records, length) != 0);
+  const char *change_type = !changed ? "none" : (e->count != before) ? "structural" : "field";
+  if (changed) {
+    e->changed[layer_idx]++;
+  } else {
+    e->unchanged[layer_idx]++;
+  }
+  e->success++;e->layer_count[layer_idx]++;
+  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"layer\":\"%s\",\"message\":\"%s\",\"field\":\"%s\",\"strategy\":\"%s\",\"derived_repaired\":true,\"intentional_violation\":%s,\"constraint\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"changed\":%s,\"change_type\":\"%s\",\"parse_failed\":false,\"serialize_failed\":false}\n",layer==1?"HEAD":layer==2?"CONTENT":"SEQUENCE",mi>=0?e->m[mi].id:"none",fi>=0?e->m[mi].f[fi].id:"sequence",strategy,broken?"true":"false",broken?"wire_length":"none",before,e->count,changed ? "true" : "false", change_type);
   restore_session(e,&live);return 0;
 bad:e->errors++;if(e->log)fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%d,\"reason\":\"%s\",\"parse_or_constraint_failed\":true,\"serialize_failed\":false}\n",layer,err && cap?err:"error");restore_session(e,&live);return -1;
 }
-void proto_write_stats(proto_engine *e,const char *path){if(e&&e->generic){gr_write_stats(e->generic,path);return;}if(!e || !path)return;FILE *f=fopen(path,"w");if(!f)return;fprintf(f,"{\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"responses\":%llu,\"correlated_responses\":%llu,\"protocol_semantic_state\":\"%s\"}\n",(unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,(unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],(unsigned long long)e->responses,(unsigned long long)e->correlated,e->state[e->semantic_state]);fclose(f);}
+void proto_write_stats(proto_engine *e,const char *path){if(e&&e->generic){gr_write_stats(e->generic,path);return;}if(!e || !path)return;FILE *f=fopen(path,"w");if(!f)return;fprintf(f,"{\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"correlated_responses\":%llu,\"protocol_semantic_state\":\"%s\"}\n",(unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,(unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],(unsigned long long)e->changed[0],(unsigned long long)e->changed[1],(unsigned long long)e->changed[2],(unsigned long long)e->unchanged[0],(unsigned long long)e->unchanged[1],(unsigned long long)e->unchanged[2],(unsigned long long)e->unavailable[0],(unsigned long long)e->unavailable[1],(unsigned long long)e->unavailable[2],(unsigned long long)e->responses,(unsigned long long)e->correlated,e->state[e->semantic_state]);fclose(f);}

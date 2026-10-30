@@ -29,6 +29,7 @@ struct gr_engine {
   uint8_t *receive;size_t receive_size;
   uint8_t *output;size_t output_size;
   uint64_t attempts,success,errors,layer_count[3],responses,completed,correlated;
+  uint64_t changed[3],unchanged[3],unavailable[3];
   unsigned pending,pending_request,pending_response,pending_next;
   uint64_t cache[GR_CORRELATIONS];
   FILE *log;
@@ -468,9 +469,38 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
      (layer!=PROTO_HEAD&&layer!=PROTO_CONTENT&&layer!=PROTO_SEQUENCE))
     return gr_error(err,cap,"generic-wire structured calls require valid mode and HEAD/CONTENT/SEQUENCE");
   e->attempts++;if(gr_unpack(e,data,length,rr,&count,err,cap)<0)goto done;before=count;
-  unsigned total=0;for(size_t i=0;i<count;i++)total+=e->messages[rr[i].model].weight;
-  unsigned pick=gr_draw(random,total);for(selected=0;selected+1<count;selected++){
-    unsigned w=e->messages[rr[selected].model].weight;if(pick<w)break;pick-=w;
+  int layer_idx = (layer == PROTO_HEAD) ? 0 : (layer == PROTO_CONTENT) ? 1 : 2;
+
+  /* P21: Operability check: verify sequence contains mutable fields for requested layer */
+  if (layer == PROTO_HEAD || layer == PROTO_CONTENT) {
+    size_t eligible_messages = 0;
+    for (size_t i = 0; i < count; i++) {
+      const gw_schema *sch = e->messages[rr[i].model].schema;
+      if (sch && gw_has_role(sch, layer)) {
+        eligible_messages++;
+        break;
+      }
+    }
+    if (!eligible_messages) {
+      e->unavailable[layer_idx]++;
+      if (e->log) {
+        fprintf(e->log, "{\"event\":\"unavailable\",\"layer\":\"%s\",\"reason\":\"no_operable_fields\"}\n",
+                (layer == PROTO_HEAD) ? "HEAD" : "CONTENT");
+      }
+      gr_error(err, cap, "layer unavailable: no operable fields in sequence for requested layer");
+      goto done;
+    }
+  }
+
+  /* Bounded retry (up to 4 attempts) to draw an operable message if available */
+  for (int retry = 0; retry < 4; retry++) {
+    unsigned total=0;for(size_t i=0;i<count;i++)total+=e->messages[rr[i].model].weight;
+    unsigned pick=gr_draw(random,total);for(selected=0;selected+1<count;selected++){
+      unsigned w=e->messages[rr[selected].model].weight;if(pick<w)break;pick-=w;
+    }
+    if (layer == PROTO_SEQUENCE) break;
+    const gw_schema *sch = e->messages[rr[selected].model].schema;
+    if (sch && gw_has_role(sch, layer)) break;
   }
   if(layer==PROTO_SEQUENCE){
     unsigned op=gr_draw(random,4);
@@ -521,9 +551,17 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
     if(gr_validate_framing(e,rr[i].wire,rr[i].size,e->messages[model].id,err,cap)<0)goto done;
   }
   if(gr_pack(e,rr,count,out,out_length,err,cap)<0)goto done;
-  e->success++;e->layer_count[layer==PROTO_HEAD?0:layer==PROTO_CONTENT?1:2]++;status=0;
-  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"layer\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"derived_repaired\":true}\n",
-    layer==PROTO_HEAD?"HEAD":layer==PROTO_CONTENT?"CONTENT":"SEQUENCE",before,count);
+  int changed = (count != before) || (*out_length != length) || (memcmp(*out, data, length) != 0);
+  const char *change_type = !changed ? "none" : (count != before) ? "structural" : "field";
+  if (changed) {
+    e->changed[layer_idx]++;
+  } else {
+    e->unchanged[layer_idx]++;
+  }
+  e->success++;e->layer_count[layer_idx]++;status=0;
+  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"layer\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"changed\":%s,\"change_type\":\"%s\",\"derived_repaired\":true}\n",
+    layer==PROTO_HEAD?"HEAD":layer==PROTO_CONTENT?"CONTENT":"SEQUENCE",before,count,
+    changed ? "true" : "false", change_type);
 done:if(status<0)gr_log_rejection(e,layer,err&&cap?err:"mutation failed");gr_records_free(rr,count);return status;
 }
 int gr_before_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap){
@@ -587,8 +625,11 @@ void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
 }
 void gr_write_stats(gr_engine *e,const char *path){
   if(!e||!path)return;FILE *f=fopen(path,"w");if(!f)return;
-  fprintf(f,"{\"stats_version\":2,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ",\"protocol_semantic_state\":",
+  fprintf(f,"{\"stats_version\":2,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"changed\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unchanged\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unavailable\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ",\"protocol_semantic_state\":",
     e->attempts,e->success,e->errors,e->layer_count[0],e->layer_count[1],e->layer_count[2],
+    e->changed[0],e->changed[1],e->changed[2],
+    e->unchanged[0],e->unchanged[1],e->unchanged[2],
+    e->unavailable[0],e->unavailable[1],e->unavailable[2],
     e->responses,e->completed,e->correlated);nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
   fputs(",\"engine\":\"generic-wire\"}\n",f);fclose(f);
 }

@@ -68,6 +68,8 @@ done
 "$generic_test_output/timeout_budget" > "$generic_test_output/timeout_budget.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_stage_gating_attribution.c -o "$generic_test_output/stage_gating"
 "$generic_test_output/stage_gating" > "$generic_test_output/stage_gating.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_layer_operability_accounting.c "${generic_test_sources[@]}" -o "$generic_test_output/layer_operability"
+"$generic_test_output/layer_operability" > "$generic_test_output/layer_operability.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"
