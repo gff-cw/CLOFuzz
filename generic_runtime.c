@@ -275,6 +275,11 @@ gr_engine *gr_load(const char *path,char *err,size_t cap){
   gr_engine *e=calloc(1,sizeof(*e));if(!e){gr_error(err,cap,"out of memory");return NULL;}
   if(nj_load_file(path,&e->document,err,cap)<0)goto bad;
   const nj_value *root=e->document->root;
+  const nj_value *fmt_val=nj_get(root,"format");
+  if(fmt_val && fmt_val->type==NJ_STRING && !nj_string_equal(fmt_val,"stateafl.generic-wire")){
+    gr_error(err,cap,"incompatible specification format: %s (expected stateafl.generic-wire v1)",fmt_val->text?fmt_val->text:"");
+    goto bad;
+  }
   static const char *required[]={"format","version","protocol_id","transport","online","framing","messages","states","limits"};
   static const char *optional[]={"unsupported","limitations"};unsigned version;uint64_t n;
   if(nj_keys(root,required,9,optional,2,err,cap)<0||

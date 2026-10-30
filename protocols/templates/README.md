@@ -8,6 +8,16 @@
 | `stateafl.offline-layout` / 原生观测 JSON | `native_layout.template.json` / `native_observations.template.json` → 本地检查 | 被动解码与观测检查；没有在线编码、变异或网络执行能力。 |
 | `stateafl.generic-wire` v1 JSON | 独立 JSON 描述 → 通用 C wire 引擎 | 独立格式；YAML 编译器和本目录的离线 JSON 模板均不能作为其前端。能力范围见[语言文档](../../docs/generic-wire-language.md)。 |
 
+完整的三格式十维度能力对比矩阵与边界定义参见 [三种协议描述格式能力矩阵与识别边界](../../docs/format-capability-matrix.md)。
+
+### 模板字段分类契约 (G01)
+
+模板中的所有字段严格划分为四类，**不允许将“能写入文件”解释为“运行时执行”**：
+1. **A 类：运行时执行字段 (Execution)**：`id`, `role`, `mutability`, `type`, `width`, `endian`, `fixed`, `min`, `max`, `values`, `strategies`, `dependencies`, 状态图边 (`from`, `to`, `message`, `response`)。直接由 C 运行时参与变异、字段重算与状态流转。
+2. **B 类：校验元数据字段 (Validation Metadata)**：`protocol_id`, `version`, `scope`, `evidence`, `source`, `bundle_digest`, `sha256`。供编译器和离线检查脚本审计完整性与一致性。
+3. **C 类：说明与注释字段 (Informational / Comments)**：`description`, `doc`, `references`, `meaning`。仅供文档说明，运行时与编译器均不解析。
+4. **D 类：明确拒绝/未实现字段 (Explicitly Unsupported / Rejected)**：`guard`（运行时边必须唯一，不执行 guard 表达式消歧）、`actions`（任意动作不执行，动态值必须通过依赖规则声明）、`when`（不执行条件字段布局）、`dynamic_array`/未定义上界的 `repeat`、`script_hook` 等。若出现且未由专用 Codec 支持，加载器与编译器直接显式拒绝。
+
 [native_layout.template.json](native_layout.template.json) 和 [native_observations.template.json](native_observations.template.json) 用于 [C 原生本地检查](../../docs/native-inspection.md)。前者是虚构结构示例，后者需填写实际摘要及作用域；均不启动目标。离线布局支持某种结构，不代表在线引擎具备相应解析、编码或变异能力。
 
 旧的独立 Python 布局和编辑计划模板已移除。C 本地检查使用上述两个 JSON 模板；下面的 YAML 模板仍用于现有 ICP-IR 编译流程，不能把两种格式混用。

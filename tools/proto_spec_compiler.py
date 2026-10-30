@@ -666,6 +666,8 @@ def compile_spec(protocol, state, output):
     output = Path(output)
     p, s = copy.deepcopy(protocol), copy.deepcopy(state)
     p["ir_version"] = s["ir_version"] = 1
+    p["format"] = "stateafl.protocol-ir"
+    s["format"] = "stateafl.state-ir"
     raw_p = serialize_ir(p)
     raw_s = serialize_ir(s)
     bundle_digest = hashlib.sha256((raw_p + raw_s).encode("utf-8")).hexdigest()

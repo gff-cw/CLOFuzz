@@ -131,6 +131,13 @@ static int parse_file(const char *path,jp *p,char *err,size_t cap) {
   p->t=ck_alloc(JMAX*sizeof(jt));int k=jvalue(p,0);ws(p);
   if(k<0)return -1;
   if(k!=1 || p->pos!=p->len || p->t[1].type!='{')return fail(err,cap,"invalid IR JSON document");
+  int fk=key(p,1,"format");
+  if(fk>0) {
+    char fmt[64];
+    if(str(p,fk,fmt,sizeof(fmt))<0)return fail(err,cap,"invalid format attribute");
+    if(strcmp(fmt,"stateafl.protocol-ir")!=0 && strcmp(fmt,"stateafl.state-ir")!=0)
+      return fail(err,cap,"incompatible specification format: %s (expected ICP-IR v1)",fmt);
+  }
   int64_t version;if(number(p,key(p,1,"ir_version"),&version)<0 || version!=1)return fail(err,cap,"unsupported IR version (expected 1)");
   return 0;
 }
