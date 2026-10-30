@@ -11,6 +11,12 @@ void gr_set_log(gr_engine *engine, FILE *stream);
 void gr_session_begin(gr_engine *engine);
 int gr_set_prefix(gr_engine *engine, const uint8_t *records, size_t length,
                   char *error, size_t cap);
+/* P09: Validate full logical candidate sequence (M1 + M2 + M3). */
+int gr_validate_sequence(const gr_engine *engine,
+                         const uint8_t *m1, size_t m1_len,
+                         const uint8_t *m2, size_t m2_len,
+                         const uint8_t *m3, size_t m3_len,
+                         char *error, size_t cap);
 int gr_mutate(gr_engine *engine, const uint8_t *records, size_t length,
               const uint8_t *candidate, size_t candidate_length, int mode, int layer,
               proto_random random, const uint8_t **result, size_t *result_length,

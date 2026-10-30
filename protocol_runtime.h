@@ -34,6 +34,12 @@ int proto_mutate(proto_engine *engine, const uint8_t *records, size_t length,
                  char *error, size_t error_cap);
 int proto_records_validate(const uint8_t *records, size_t length, size_t *count,
                            char *error, size_t error_cap);
+/* P09: Validate full logical candidate sequence (M1 + M2 + M3). */
+int proto_validate_sequence(proto_engine *engine,
+                            const uint8_t *m1, size_t m1_len,
+                            const uint8_t *m2, size_t m2_len,
+                            const uint8_t *m3, size_t m3_len,
+                            char *error, size_t cap);
 /* One cache per engine, cleared for EVERY connection/execution. */
 void proto_session_begin(proto_engine *engine);
 /* Bind a supported request atomically. Failure preserves both caller bytes

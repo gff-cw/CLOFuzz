@@ -125,7 +125,8 @@ static unsigned protocol_ratio = 70;
 static u8 protocol_options_given, protocol_fallback, protocol_structured_run;
 static FILE *protocol_log;
 static u8 protocol_base[MAX_FILE], protocol_wire[MAX_FILE];
-static size_t protocol_base_len;
+static u8 protocol_prefix[MAX_FILE], protocol_suffix[MAX_FILE];
+static size_t protocol_base_len, protocol_prefix_len, protocol_suffix_len;
 static size_t protocol_surrounding_records;
 static u64 protocol_raw_runs, protocol_structured_runs, protocol_rejections;
 static u32 protocol_structured_sent;
@@ -6917,25 +6918,28 @@ static void show_init_stats(void) {
 
 static uint32_t protocol_random(uint32_t limit) { return limit ? UR(limit) : 0; }
 
-/* Snapshot only M2. Existing memory-state selection and M1/M3 reuse still own
+/* Snapshot M1, M2 and M3. Existing memory-state selection and M1/M3 reuse still own
    the surrounding sequence. Record prefixes never enter AFL's wire buffer. */
 static void protocol_capture(kliter_t(lms) *first, kliter_t(lms) *last) {
   size_t whole = 0;
   for (kliter_t(lms) *it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it))
     whole += 4 + kl_val(it)->msize;
-  size_t prefix = 0;
+
+  protocol_prefix_len = 0;
   for (kliter_t(lms) *it = kl_begin(kl_messages); it != first; it = kl_next(it)) {
     message_t *message = kl_val(it);
-    if (message->msize > MAX_FILE - prefix - 4) FATAL("Protocol M1 exceeds MAX_FILE");
-    for (unsigned j=0;j<4;j++) protocol_wire[prefix+j]=(u32)message->msize>>(8*j);
-    memcpy(protocol_wire+prefix+4,message->mdata,message->msize);prefix+=4+message->msize;
+    if (message->msize > MAX_FILE - protocol_prefix_len - 4) FATAL("Protocol M1 exceeds MAX_FILE");
+    for (unsigned j=0;j<4;j++) protocol_prefix[protocol_prefix_len+j]=(u32)message->msize>>(8*j);
+    memcpy(protocol_prefix+protocol_prefix_len+4,message->mdata,message->msize);
+    protocol_prefix_len += 4 + message->msize;
   }
   char error[256];
-  if (proto_set_prefix(protocol_engine,protocol_wire,prefix,error,sizeof(error))<0 && protocol_log)
+  if (proto_set_prefix(protocol_engine,protocol_prefix,protocol_prefix_len,error,sizeof(error))<0 && protocol_log)
     fprintf(protocol_log,"{\"event\":\"prefix_rejected\",\"reason\":\"%s\"}\n",error);
+
   protocol_base_len = 0;
-  for (; first != last; first = kl_next(first)) {
-    message_t *m = kl_val(first);
+  for (kliter_t(lms) *it = first; it != last; it = kl_next(it)) {
+    message_t *m = kl_val(it);
     size_t n = m->msize;
     if (!n || protocol_base_len > MAX_FILE - 4 ||
         n > MAX_FILE - 4 - protocol_base_len)
@@ -6945,6 +6949,20 @@ static void protocol_capture(kliter_t(lms) *first, kliter_t(lms) *last) {
     memcpy(protocol_base + protocol_base_len + 4, m->mdata, n);
     protocol_base_len += n + 4;
   }
+
+  protocol_suffix_len = 0;
+  for (kliter_t(lms) *it = last; it != kl_end(kl_messages); it = kl_next(it)) {
+    message_t *m = kl_val(it);
+    size_t n = m->msize;
+    if (!n || protocol_suffix_len > MAX_FILE - 4 ||
+        n > MAX_FILE - 4 - protocol_suffix_len)
+      FATAL("Protocol suffix exceeds replayable MAX_FILE limit");
+    for (unsigned j = 0; j < 4; j++)
+      protocol_suffix[protocol_suffix_len + j] = (u32)n >> (8 * j);
+    memcpy(protocol_suffix + protocol_suffix_len + 4, m->mdata, n);
+    protocol_suffix_len += n + 4;
+  }
+
   protocol_surrounding_records = whole - protocol_base_len;
 }
 
@@ -6983,6 +7001,16 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
       fputs("{\"event\":\"integration_rejected\",\"reason\":\"full_sequence_MAX_FILE\"}\n", protocol_log);
     if (protocol_fallback && protocol_log)
       fputs("{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"full_sequence_MAX_FILE\"}\n", protocol_log);
+    return NULL;
+  }
+  if (proto_validate_sequence(protocol_engine, protocol_prefix, protocol_prefix_len,
+                              records, length, protocol_suffix, protocol_suffix_len,
+                              error, sizeof(error)) < 0) {
+    protocol_rejections++;
+    if (protocol_log)
+      fprintf(protocol_log, "{\"event\":\"integration_rejected\",\"reason\":\"%s\"}\n", error);
+    if (protocol_fallback && protocol_log)
+      fprintf(protocol_log, "{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"%s\"}\n", error);
     return NULL;
   }
   region_t *regions = ck_alloc(checked * sizeof(region_t));

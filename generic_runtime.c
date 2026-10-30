@@ -277,6 +277,68 @@ int gr_set_prefix(gr_engine *e,const uint8_t *records,size_t length,char *err,si
   }if(result==0){e->prefix_valid=1;e->prefix_count=count;e->prefix_bytes=length;}
 done:gr_records_free(rr,count);return result;
 }
+int gr_validate_sequence(const gr_engine *e,
+                         const uint8_t *m1, size_t m1_len,
+                         const uint8_t *m2, size_t m2_len,
+                         const uint8_t *m3, size_t m3_len,
+                         char *err, size_t cap) {
+  if (err && cap) err[0] = 0;
+  if (!e) return gr_error(err, cap, "missing generic engine");
+
+  const uint8_t *segs[3] = {m1, m2, m3};
+  size_t lens[3] = {m1_len, m2_len, m3_len};
+  const char *seg_names[3] = {"M1", "M2", "M3"};
+
+  size_t total_messages = 0;
+  size_t total_replay_bytes = 0;
+  unsigned repeats[GR_MESSAGES] = {0};
+  unsigned state = e->initial;
+
+  for (int s = 0; s < 3; s++) {
+    const uint8_t *buf = segs[s];
+    size_t len = lens[s];
+    if (!len) continue;
+
+    size_t p = 0;
+    while (p < len) {
+      if (len - p < 4)
+        return gr_error(err, cap, "%s truncated replay record", seg_names[s]);
+      size_t n = gr_get32(buf + p);
+      p += 4;
+      if (!n || n > GR_WIRE || n > len - p)
+        return gr_error(err, cap, "%s invalid replay length", seg_names[s]);
+
+      total_messages++;
+      total_replay_bytes += 4 + n;
+
+      if (total_messages > e->max_messages)
+        return gr_error(err, cap, "max_messages exceeded across sequence (%zu > %u)",
+                        total_messages, e->max_messages);
+
+      if (total_replay_bytes > e->max_bytes)
+        return gr_error(err, cap, "max_bytes exceeded across sequence (%zu > %zu)",
+                        total_replay_bytes, e->max_bytes);
+
+      unsigned model = 0;
+      if (gr_match(e, buf + p, n, 0, &model, err, cap) < 0)
+        return gr_error(err, cap, "%s message outside description grammar", seg_names[s]);
+
+      if (++repeats[model] > e->max_repeat)
+        return gr_error(err, cap, "max_repeat exceeded across sequence for message %s (%u > %u)",
+                        e->messages[model].id, repeats[model], e->max_repeat);
+
+      unsigned next = 0;
+      int response = 0;
+      if (gr_next(e, state, model, &next, &response) < 0)
+        return gr_error(err, cap, "%s sequence outside state graph", seg_names[s]);
+
+      state = next;
+      p += n;
+    }
+  }
+
+  return 0;
+}
 static void gr_log_rejection(gr_engine *e,int layer,const char *reason){
   e->errors++;if(e->log){fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%d,\"reason\":",layer);
     const char *text=reason?reason:"unknown";nj_write_string(e->log,text,strlen(text));fputs("}\n",e->log);}

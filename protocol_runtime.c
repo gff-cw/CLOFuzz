@@ -143,6 +143,8 @@ typedef struct {size_t offset,size,wire_offset;int model;} pr;
 struct proto_engine {
   gr_engine *generic;
   int codec,simulating,prefix_state,prefix_valid;
+  size_t prefix_count,prefix_bytes;
+  size_t prefix_repeats[PMAX];
   pm m[PMAX];int nm,ns,nt,initial,max_messages,max_repeat,canonical[PMAX];size_t max_bytes;
   char state[SMAX][64];pt tr[TMAX];FILE *log;
   uint8_t work[MAX_FILE],output[MAX_FILE];pr records[NMAX];size_t count;
@@ -660,17 +662,94 @@ static int semantic_step(proto_engine *e,int state,int model){
 int proto_set_prefix(proto_engine *e,const uint8_t *b,size_t n,char *err,size_t cap){
   if(e&&e->generic)return gr_set_prefix(e->generic,b,n,err,cap);
   if(!e)return fail(err,cap,"missing protocol engine");e->prefix_state=e->initial;e->prefix_valid=0;
-  size_t count;if(n && proto_records_validate(b,n,&count,err,cap)<0)return -1;
-  size_t p=0;while(p<n){size_t z=getint(b+p,4,1);p+=4;int m=model_for(e,b+p,z,0);if(m<0 || (e->prefix_state=semantic_step(e,e->prefix_state,m))<0)return fail(err,cap,"M1 prefix outside semantic model");p+=z;}
-  e->prefix_valid=1;return 0;
+  e->prefix_count=0;e->prefix_bytes=0;memset(e->prefix_repeats,0,sizeof(e->prefix_repeats));
+  if(!n){e->prefix_valid=1;return 0;}
+  size_t count;if(proto_records_validate(b,n,&count,err,cap)<0)return -1;
+  size_t p=0;while(p<n){
+    size_t z=getint(b+p,4,1);p+=4;
+    int m=model_for(e,b+p,z,0);
+    if(m<0 || (e->prefix_state=semantic_step(e,e->prefix_state,m))<0)return fail(err,cap,"M1 prefix outside semantic model");
+    int c_model=e->canonical[m];
+    if(++e->prefix_repeats[c_model]>(size_t)e->max_repeat)return fail(err,cap,"M1 max_repeat exceeded");
+    p+=z;
+  }
+  e->prefix_count=count;e->prefix_bytes=n;e->prefix_valid=1;return 0;
 }
 static int sequence_ok(proto_engine *e) {
-  if(!e->prefix_valid)return -1;int state=e->prefix_state;
+  if(!e->prefix_valid)return -1;
+  if(e->prefix_count + e->count > (size_t)e->max_messages)return -1;
+  size_t m2_bytes = 0;
+  for(size_t i=0;i<e->count;i++) m2_bytes += 4 + e->records[i].size;
+  if(e->prefix_bytes + m2_bytes > e->max_bytes)return -1;
+  int state=e->prefix_state;
+  size_t repeats[PMAX];
+  memcpy(repeats, e->prefix_repeats, sizeof(repeats));
   for(size_t i=0;i<e->count;i++){
     int model=e->records[i].model;if((state=semantic_step(e,state,model))<0)return -1;
-    size_t repeats=0;int c_model=e->canonical[model];for(size_t j=0;j<=i;j++)if(e->canonical[e->records[j].model]==c_model)repeats++;
-    if(repeats>(size_t)e->max_repeat)return -1;
+    int c_model=e->canonical[model];
+    if(++repeats[c_model]>(size_t)e->max_repeat)return -1;
   }return 0;
+}
+int proto_validate_sequence(proto_engine *e,
+                            const uint8_t *m1, size_t m1_len,
+                            const uint8_t *m2, size_t m2_len,
+                            const uint8_t *m3, size_t m3_len,
+                            char *err, size_t cap) {
+  if (e && e->generic)
+    return gr_validate_sequence(e->generic, m1, m1_len, m2, m2_len, m3, m3_len, err, cap);
+  if (!e) return fail(err, cap, "missing protocol engine");
+
+  const uint8_t *segs[3] = {m1, m2, m3};
+  size_t lens[3] = {m1_len, m2_len, m3_len};
+  const char *seg_names[3] = {"M1", "M2", "M3"};
+
+  size_t total_messages = 0;
+  size_t total_replay_bytes = 0;
+  size_t repeats[PMAX] = {0};
+  int state = e->initial;
+
+  for (int s = 0; s < 3; s++) {
+    const uint8_t *buf = segs[s];
+    size_t len = lens[s];
+    if (!len) continue;
+
+    size_t count;
+    if (proto_records_validate(buf, len, &count, err, cap) < 0)
+      return -1;
+
+    size_t p = 0;
+    while (p < len) {
+      size_t z = getint(buf + p, 4, 1);
+      p += 4;
+      total_messages++;
+      total_replay_bytes += 4 + z;
+
+      if (total_messages > (size_t)e->max_messages)
+        return fail(err, cap, "max_messages exceeded across sequence (%zu > %d)",
+                    total_messages, e->max_messages);
+
+      if (total_replay_bytes > e->max_bytes)
+        return fail(err, cap, "max_bytes exceeded across sequence (%zu > %zu)",
+                    total_replay_bytes, e->max_bytes);
+
+      int m = model_for(e, buf + p, z, 0);
+      if (m < 0)
+        return fail(err, cap, "%s message outside semantic model", seg_names[s]);
+
+      int c_model = e->canonical[m];
+      if (++repeats[c_model] > (size_t)e->max_repeat)
+        return fail(err, cap, "max_repeat exceeded across sequence for message %s (%zu > %d)",
+                    e->m[m].id, repeats[c_model], e->max_repeat);
+
+      state = semantic_step(e, state, m);
+      if (state < 0)
+        return fail(err, cap, "%s sequence outside state graph", seg_names[s]);
+
+      p += z;
+    }
+  }
+
+  return 0;
 }
 typedef struct {uint64_t cache[PMAX][FMAX];uint8_t cached[PMAX][FMAX],outstanding[256],pending[PMAX];unsigned state;uint32_t ua_sequence;} session_snapshot;
 static void save_session(proto_engine *e,session_snapshot *s){memcpy(s->cache,e->cache,sizeof(s->cache));memcpy(s->cached,e->cached,sizeof(s->cached));memcpy(s->outstanding,e->outstanding,sizeof(s->outstanding));memcpy(s->pending,e->pending,sizeof(s->pending));s->state=e->semantic_state;s->ua_sequence=e->ua_sequence;}
