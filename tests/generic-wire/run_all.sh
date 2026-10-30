@@ -26,6 +26,8 @@ done
 "$generic_test_cc" -O1 -g -Wno-pointer-sign -Wno-unused-result -I. -c aflnet.c -o "$generic_test_output/aflnet.o"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_message_context_lifecycle.c "$generic_test_output/aflnet.o" -o "$generic_test_output/lifecycle"
 "$generic_test_output/lifecycle" > "$generic_test_output/lifecycle.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_observation_isolation.c -o "$generic_test_output/observation_isolation"
+"$generic_test_output/observation_isolation" > "$generic_test_output/observation_isolation.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

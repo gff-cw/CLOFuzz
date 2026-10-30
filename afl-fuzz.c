@@ -72,6 +72,7 @@
 #include "protocol_runtime.h"
 #include "protocol_schedule.h"
 #include "native_inspect.h"
+#include "execution_observation.h"
 #include <graphviz/gvc.h>
 #include <math.h>
 
@@ -455,6 +456,7 @@ u32 state_ids_count = 0;
 u32 selected_state_index = 0;
 u32 state_cycles = 0;
 u32 messages_sent = 0;
+u32 complete_messages = 0;
 EXP_ST u8 session_virgin_bits[MAP_SIZE];     /* Regions yet untouched while the SUT is still running */
 EXP_ST u8 *cleanup_script; /* script to clean up the environment of the SUT -- make fuzzing more deterministic */
 char **was_fuzzed_map = NULL; /* A 2D array keeping state-specific was_fuzzed information */
@@ -605,24 +607,46 @@ u8 is_state_sequence_interesting(unsigned int *state_sequence, unsigned int stat
   }
 }
 
-/* Update the annotations of regions (i.e., state sequence received from the server) */
-void update_region_annotations(struct queue_entry* q)
+/* Update the annotations of regions (i.e., state sequence received from the server)
+   P05: Derived strictly from the immutable original execution observation */
+void update_region_annotations(struct queue_entry* q, const execution_observation_t *obs)
 {
   u32 i = 0;
 
+  if (!obs) {
+    for (i = 0; i < q->region_count; i++) {
+      q->regions[i].state_sequence = NULL;
+      q->regions[i].state_count = 0;
+    }
+    return;
+  }
+
   for (i = 0; i < q->region_count; i++) {
-    if (i >= messages_sent || (response_bytes[i] == 0) || ( i > 0 && (response_bytes[i] - response_bytes[i - 1] == 0))) {
+    if (i >= obs->messages_sent || !obs->response_bytes || (obs->response_bytes[i] == 0) || ( i > 0 && (obs->response_bytes[i] - obs->response_bytes[i - 1] == 0))) {
       q->regions[i].state_sequence = NULL;
       q->regions[i].state_count = 0;
     } else {
-      unsigned int state_count;
-      unsigned int *state_sequence = (*extract_response_codes)(response_buf, response_bytes[i], &state_count);
+      unsigned int state_count = 0;
+      unsigned int *state_sequence = NULL;
 
-      if(i <= state_count) {
+      if (obs->provider == STATE_OBS_PROVIDER_TRACER) {
+        /* In StateAFL mode, state sequence is cloned from the immutable original observation */
+        if (obs->state_sequence && obs->state_count > 0) {
+          state_count = obs->state_count;
+          state_sequence = (unsigned int *)ck_alloc(state_count * sizeof(unsigned int));
+          memcpy(state_sequence, obs->state_sequence, state_count * sizeof(unsigned int));
+        }
+      } else if (orig_extract_response_codes && obs->response_buf) {
+        state_sequence = (*orig_extract_response_codes)((unsigned char *)obs->response_buf, obs->response_bytes[i], &state_count);
+      } else if (extract_response_codes && obs->response_buf) {
+        state_sequence = (*extract_response_codes)((unsigned char *)obs->response_buf, obs->response_bytes[i], &state_count);
+      }
+
+      if (state_sequence && i <= state_count) {
         q->regions[i].state_sequence = state_sequence;
         q->regions[i].state_count = i;
       } else {
-        ck_free(state_sequence);
+        if (state_sequence) ck_free(state_sequence);
         q->regions[i].state_sequence = NULL;
         q->regions[i].state_count = 0;
       }
@@ -855,46 +879,94 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
   return result;
 }
 
+/* Capture an execution observation snapshot from current state and response buffers.
+   P05: Isolates observations to prevent confirmation replays from mutating original results. */
+static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
+  execution_observation_t *obs = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
+  if (!obs) return NULL;
+
+  obs->exec_id = state_exec_id;
+  obs->exec_purpose = exec_purpose;
+  obs->messages_sent = messages_sent;
+  obs->complete_messages = complete_messages;
+
+  /* Network response buffer snapshot */
+  if (response_buf && response_buf_size > 0) {
+    obs->response_buf = (char *)malloc(response_buf_size);
+    if (obs->response_buf) {
+      memcpy(obs->response_buf, response_buf, response_buf_size);
+      obs->response_buf_size = response_buf_size;
+    }
+  }
+
+  /* Network response bytes per message snapshot */
+  if (response_bytes && messages_sent > 0) {
+    obs->response_bytes = (u32 *)malloc(messages_sent * sizeof(u32));
+    if (obs->response_bytes) {
+      memcpy(obs->response_bytes, response_bytes, messages_sent * sizeof(u32));
+      obs->response_bytes_count = messages_sent;
+    }
+  }
+
+  /* State observation provider */
+  obs->provider = (extract_response_codes == extract_response_state_tracer)
+                      ? STATE_OBS_PROVIDER_TRACER
+                      : STATE_OBS_PROVIDER_CODES;
+
+  if (response_buf && response_buf_size > 0 && extract_response_codes) {
+    unsigned int state_count = 0;
+    unsigned int *state_seq = (*extract_response_codes)((unsigned char *)response_buf,
+                                                        response_buf_size,
+                                                        &state_count);
+    obs->state_count = state_count;
+    obs->state_sequence = state_seq;
+    obs->is_truncated = state_tracer_truncated;
+    obs->has_state_observation = (state_count > 0 && state_seq != NULL);
+    obs->status = obs->is_truncated ? STATE_TRACER_STATUS_TRUNCATED
+                                    : (obs->has_state_observation ? STATE_TRACER_STATUS_COMPLETE : STATE_TRACER_STATUS_IDLE);
+    if (obs->has_state_observation) {
+      obs->unique_state_count = get_unique_state_count(state_seq, state_count);
+    }
+  }
+
+  return obs;
+}
+
 /* Update state-aware variables */
 void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv)
 {
   khint_t k;
   int discard, i;
   state_info_t *state;
-  unsigned int state_count;
 
   if (!response_buf_size || !response_bytes) return;
 
-  unsigned int *state_sequence = (*extract_response_codes)(response_buf, response_buf_size, &state_count);
+  /* P05: Capture original execution observation immutably before any confirmation replays */
+  execution_observation_t *orig_obs = capture_execution_observation(
+      dry_run ? EXEC_PURPOSE_CALIBRATION : EXEC_PURPOSE_ORIGINAL);
 
-  q->unique_state_count = get_unique_state_count(state_sequence, state_count);
+  if (!orig_obs || !orig_obs->has_state_observation) {
+    if (orig_obs) free_execution_observation(orig_obs);
+    return;
+  }
+
+  q->unique_state_count = orig_obs->unique_state_count;
 
 #ifdef DEBUG_STATE_SEQUENCE
   printf("STATE SEQUENCE: ");
-  for(int ii=0; ii<state_count; ii++) {
-    printf("%d ", state_sequence[ii]);
+  for(int ii=0; ii<orig_obs->state_count; ii++) {
+    printf("%d ", orig_obs->state_sequence[ii]);
   }
   printf("\n");
 #endif
 
-  int is_interesting = is_state_sequence_interesting(state_sequence, state_count);
+  int is_interesting = is_state_sequence_interesting(orig_obs->state_sequence, orig_obs->state_count);
   int is_repeatable = 0;
   int repetitions = (dry_run == 0 ? 1 : 3);
 
   if(is_interesting) {
 
-    char *bak_response_buf = response_buf;
-    int bak_response_buf_size = response_buf_size;
-    u32 *bak_response_bytes = response_bytes;
-
-    response_buf = NULL;
-    response_buf_size = 0;
-    response_bytes = NULL;
-
     for(int k=0; k<repetitions; k++) {
-
-      unsigned int repeated_state_count;
-      unsigned int *repeated_state_sequence;
 
       run_target(argv, exec_tmout * 2, stateafl_fsrv);
 
@@ -902,46 +974,35 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
         continue;
       }
 
-      repeated_state_sequence = (*extract_response_codes)(response_buf, response_buf_size, &repeated_state_count);
+      /* Capture repetition observation in isolation */
+      execution_observation_t *rep_obs = capture_execution_observation(EXEC_PURPOSE_CONFIRMATION);
+      if (!rep_obs) continue;
 
 #ifdef DEBUG_STATE_SEQUENCE
       printf("REPETITION: ");
-      for(int ii=0; ii<repeated_state_count; ii++) {
-        printf("%d ", repeated_state_sequence[ii]);
+      for(int ii=0; ii<rep_obs->state_count; ii++) {
+        printf("%d ", rep_obs->state_sequence[ii]);
       }
       printf("\n");
 #endif
 
-      if( state_count == repeated_state_count ) {
-
-        int diff = 0;
-
-        for(int ii=0; ii<state_count; ii++) {
-          if(state_sequence[ii] != repeated_state_sequence[ii]) {
-
-            diff = 1;
-            break;
-          }
-        }
-
-        if(diff == 0 && !state_tracer_truncated) {
-          is_repeatable = 1;
-          ck_free(repeated_state_sequence);
-          break;
-        }
-      }
-      else if(dry_run) {
-        WARNF("Non-repeatable test case detected (variable state sequence length)!");
+      char mismatch_reason[128] = {0};
+      if (compare_execution_observations(orig_obs, rep_obs, mismatch_reason, sizeof(mismatch_reason))) {
+        is_repeatable = 1;
+        free_execution_observation(rep_obs);
+        break;
+      } else if(dry_run) {
+        WARNF("Non-repeatable test case detected (%s)!", mismatch_reason);
       }
 
-      ck_free(repeated_state_sequence);
+      free_execution_observation(rep_obs);
     }
 
     if(dry_run && !is_repeatable) {
-        WARNF("Non-repeatable test case detected (no repeated state sequence matching)!");
+      WARNF("Non-repeatable test case detected (no repeated state sequence matching)!");
     }
 
-
+    /* Clean up mutable response buffers from repetition runs */
     if (response_buf) {
       ck_free(response_buf);
       response_buf = NULL;
@@ -953,13 +1014,22 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
       response_bytes = NULL;
     }
 
-    response_buf = bak_response_buf;
-    response_buf_size = bak_response_buf_size;
-    response_bytes = bak_response_bytes;
+    /* Restore global response and transmission state from immutable original observation */
+    if (orig_obs->response_buf && orig_obs->response_buf_size > 0) {
+      response_buf = (char *)ck_alloc(orig_obs->response_buf_size);
+      memcpy(response_buf, orig_obs->response_buf, orig_obs->response_buf_size);
+      response_buf_size = orig_obs->response_buf_size;
+    }
+    if (orig_obs->response_bytes && orig_obs->response_bytes_count > 0) {
+      response_bytes = (u32 *)ck_alloc(orig_obs->response_bytes_count * sizeof(u32));
+      memcpy(response_bytes, orig_obs->response_bytes, orig_obs->response_bytes_count * sizeof(u32));
+    }
+    messages_sent = orig_obs->messages_sent;
+    complete_messages = orig_obs->complete_messages;
+    state_tracer_truncated = orig_obs->is_truncated;
   }
 
-
-  if (state_tracer_truncated) {
+  if (orig_obs->is_truncated) {
     WARNF("State trace truncated; rejecting from full path acceptance");
     is_interesting = 0;
     is_repeatable = 0;
@@ -968,9 +1038,9 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
   if ((!dry_run && is_repeatable) || (dry_run && is_interesting)) {
 
     //Save the current kl_messages to a file which can be used to replay the newly discovered paths on the ipsm
-    u8 *temp_str = state_sequence_to_string(state_sequence, state_count);
+    u8 *temp_str = state_sequence_to_string(orig_obs->state_sequence, orig_obs->state_count);
     u8 *fname = alloc_printf("%s/replayable-new-ipsm-paths/id:%s:%s", out_dir, temp_str, dry_run ? basename(q->fname) : "new");
-    save_kl_messages_to_file(kl_messages, fname, 1, messages_sent);
+    save_kl_messages_to_file(kl_messages, fname, 1, orig_obs->messages_sent);
 
 
 #ifdef GRAPHVIZ_EDGE_LABELS
@@ -978,7 +1048,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 		char ** buf_new = NULL;
         char ** buf_prev = NULL;
 
-        buf_new = (char **)ck_alloc(sizeof(char*)*state_count);
+        buf_new = (char **)ck_alloc(sizeof(char*)*orig_obs->state_count);
 
 
 		FILE * fp_new = fopen(fname, "rb");
@@ -986,7 +1056,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 		unsigned int msg_i = 0;
 		while(!feof(fp_new)) {
 
-			if(msg_i >= state_count) break;
+			if(msg_i >= orig_obs->state_count) break;
 
 			unsigned int size;
 			if (fread(&size, sizeof(unsigned int), 1, fp_new) > 0) {
@@ -1006,14 +1076,14 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 
         if(!dry_run) {
 
-          buf_prev = (char **)ck_alloc(sizeof(char*)*state_count);
+          buf_prev = (char **)ck_alloc(sizeof(char*)*orig_obs->state_count);
 
           FILE * fp_prev = fopen(q->fname, "rb");
 
           msg_i = 0;
           while(!feof(fp_prev)) {
 
-              if(msg_i >= state_count || msg_i >= q->region_count) break;
+              if(msg_i >= orig_obs->state_count || msg_i >= q->region_count) break;
 
               unsigned int region_size = q->regions[msg_i].end_byte - q->regions[msg_i].start_byte + 1;
 
@@ -1033,15 +1103,15 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     ck_free(fname);
 
     //Update the IPSM graph
-    if (state_count > 1) {
-      unsigned int prevStateID = state_sequence[0];
+    if (orig_obs->state_count > 1) {
+      unsigned int prevStateID = orig_obs->state_sequence[0];
 
 #ifdef GRAPHVIZ_AFLNET_STATES
       unsigned int prevAFLNetStateID = aflnet_state_sequence[0];
 #endif
 
-      for(i=1; i < state_count; i++) {
-        unsigned int curStateID = state_sequence[i];
+      for(i=1; i < orig_obs->state_count; i++) {
+        unsigned int curStateID = orig_obs->state_sequence[i];
 
 #ifdef GRAPHVIZ_AFLNET_STATES
         unsigned int curAFLNetStateID = aflnet_state_sequence[i];
@@ -1360,7 +1430,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 
 #ifdef GRAPHVIZ_EDGE_LABELS
 
-    for(int i=0; i<state_count; i++) {
+    for(int i=0; i<orig_obs->state_count; i++) {
       ck_free(buf_new[i]);
     }
 
@@ -1368,7 +1438,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 
     if(buf_prev != NULL) {
 
-      for(int i=0; i<state_count; i++) {
+      for(int i=0; i<orig_obs->state_count; i++) {
         ck_free(buf_prev[i]);
       }
 
@@ -1381,8 +1451,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 
   //Update others no matter the new seed leads to interesting state sequence or not
 
-  //Annotate the regions
-  update_region_annotations(q);
+  //Annotate the regions strictly using orig_obs
+  update_region_annotations(q, orig_obs);
 
   //Update the states hashtable to keep the list of seeds which help us to reach a specific state
   //Iterate over the regions & their annotated state (sub)sequences and update the hashtable accordingly
@@ -1453,8 +1523,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
   khash_t(hs32) *khs_state_ids;
   khs_state_ids = kh_init(hs32);
 
-  for(i = 0; i < state_count; i++) {
-    unsigned int state_id = state_sequence[i];
+  for(i = 0; i < orig_obs->state_count; i++) {
+    unsigned int state_id = orig_obs->state_sequence[i];
 
     if (kh_get(hs32, khs_state_ids, state_id) != kh_end(khs_state_ids)) {
       continue;
@@ -1476,8 +1546,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     }
   }
 
-  //Free state sequence
-  if (state_sequence) ck_free(state_sequence);
+  //Free original execution observation
+  free_execution_observation(orig_obs);
 }
 
 
@@ -1535,11 +1605,11 @@ static u8 protocol_message_in_current_m2(kliter_t(lms) *message) {
 int send_over_network()
 {
   int n;
-  u32 complete_messages = 0;
   u8 likely_buggy = 0;
   struct sockaddr_in serv_addr;
   struct sockaddr_in local_serv_addr;
   protocol_structured_sent = 0;
+  complete_messages = 0;
 
   //Clean up the server if needed
   if (cleanup_script) system(cleanup_script);
@@ -1639,11 +1709,13 @@ int send_over_network()
 
   //retrieve early server response if needed
   messages_sent = 0;
+  complete_messages = 0;
   if (receive_network_responses(sockfd, timeout, poll_wait_msecs_total)) goto HANDLE_RESPONSES;
 
   //write the request messages
   kliter_t(lms) *it;
   messages_sent = 0;
+  complete_messages = 0;
 
   if (kl_messages) {
     for (it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it)) {
