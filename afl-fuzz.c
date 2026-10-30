@@ -499,6 +499,11 @@ klist_t(lms) *kl_messages;
 khash_t(hs32) *khs_ipsm_paths;
 khash_t(hms) *khms_states;
 
+/* P06: Unstable path retry tracking (maps hashKey -> failure count) */
+KHASH_MAP_INIT_INT(h32_u32, u32)
+static khash_t(h32_u32) *khm_unstable_paths = NULL;
+#define MAX_CONFIRM_RETRIES 3
+
 //M2_prev points to the last message of M1 (i.e., prefix)
 //If M1 is empty, M2_prev == NULL
 //M2_next points to the first message of M3 (i.e., suffix)
@@ -532,6 +537,10 @@ void destroy_ipsm()
   agclose(ipsm);
 
   kh_destroy(hs32, khs_ipsm_paths);
+  if (khm_unstable_paths) {
+    kh_destroy(h32_u32, khm_unstable_paths);
+    khm_unstable_paths = NULL;
+  }
 
   state_info_t *state;
   kh_foreach_value(khms_states, state, {ck_free(state->seeds); ck_free(state);});
@@ -592,29 +601,74 @@ u32 get_unique_state_count(unsigned int *state_sequence, unsigned int state_coun
   return result;
 }
 
-/* Check if a state sequence is interesting (e.g., new state is dicovered). Loop is taken into account */
-u8 is_state_sequence_interesting(unsigned int *state_sequence, unsigned int state_count) {
-  //limit the loop count to only 1
+/* Pure hash computation for a state sequence (with loop reduction) */
+static u32 get_state_sequence_hash(const unsigned int *state_sequence, unsigned int state_count) {
+  if (!state_sequence || state_count == 0) return 0;
   u32 *trimmed_state_sequence = NULL;
   u32 i, count = 0;
-  for (i=0; i < state_count; i++) {
+  for (i = 0; i < state_count; i++) {
     if ((i >= 2) && (state_sequence[i] == state_sequence[i - 1]) && (state_sequence[i] == state_sequence[i - 2])) continue;
     count++;
-    trimmed_state_sequence = (u32 *)realloc(trimmed_state_sequence, count * sizeof(unsigned int));
+    trimmed_state_sequence = (u32 *)ck_realloc(trimmed_state_sequence, count * sizeof(unsigned int));
     trimmed_state_sequence[count - 1] = state_sequence[i];
   }
-
-  //Calculate the hash based on the shortened state sequence
   u32 hashKey = hash32(trimmed_state_sequence, count * sizeof(unsigned int), 0);
-  if (trimmed_state_sequence) free(trimmed_state_sequence);
+  if (trimmed_state_sequence) ck_free(trimmed_state_sequence);
+  return hashKey;
+}
 
-  if (kh_get(hs32, khs_ipsm_paths, hashKey) != kh_end(khs_ipsm_paths)) {
+/* P06: Side-effect-free novelty query */
+u8 query_state_sequence_novelty(const unsigned int *state_sequence, unsigned int state_count, u32 *out_hash) {
+  if (!state_sequence || state_count == 0) return 0;
+  u32 hashKey = get_state_sequence_hash(state_sequence, state_count);
+  if (out_hash) *out_hash = hashKey;
+
+  /* Check against confirmed paths */
+  if (khs_ipsm_paths && kh_get(hs32, khs_ipsm_paths, hashKey) != kh_end(khs_ipsm_paths)) {
     return 0;
-  } else {
-    int dummy;
-    kh_put(hs32, khs_ipsm_paths, hashKey, &dummy);
-    return 1;
   }
+
+  /* Check retry count for unstable/flaky paths to avoid unbounded overhead */
+  if (khm_unstable_paths) {
+    khint_t k = kh_get(h32_u32, khm_unstable_paths, hashKey);
+    if (k != kh_end(khm_unstable_paths) && kh_val(khm_unstable_paths, k) >= MAX_CONFIRM_RETRIES) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+/* P06: Commit novel path to trusted set ONLY after confirmation */
+void commit_state_sequence_path(u32 hashKey) {
+  if (!khs_ipsm_paths || hashKey == 0) return;
+  int dummy;
+  kh_put(hs32, khs_ipsm_paths, hashKey, &dummy);
+
+  if (khm_unstable_paths) {
+    khint_t k = kh_get(h32_u32, khm_unstable_paths, hashKey);
+    if (k != kh_end(khm_unstable_paths)) {
+      kh_del(h32_u32, khm_unstable_paths, k);
+    }
+  }
+}
+
+/* P06: Record confirmation failure for bounded retry tracking */
+void record_state_sequence_confirmation_failure(u32 hashKey) {
+  if (hashKey == 0) return;
+  if (!khm_unstable_paths) khm_unstable_paths = kh_init(h32_u32);
+  int discard;
+  khint_t k = kh_put(h32_u32, khm_unstable_paths, hashKey, &discard);
+  if (discard) {
+    kh_val(khm_unstable_paths, k) = 1;
+  } else {
+    kh_val(khm_unstable_paths, k)++;
+  }
+}
+
+/* Backward-compatible novelty query without side-effects */
+u8 is_state_sequence_interesting(unsigned int *state_sequence, unsigned int state_count) {
+  return query_state_sequence_novelty(state_sequence, state_count, NULL);
 }
 
 /* Update the annotations of regions (i.e., state sequence received from the server)
@@ -988,9 +1042,23 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
   printf("\n");
 #endif
 
-  int is_interesting = is_state_sequence_interesting(orig_obs->state_sequence, orig_obs->state_count);
+  /* P06: Side-effect-free novelty query */
+  u32 hashKey = 0;
+  int is_interesting = query_state_sequence_novelty(orig_obs->state_sequence, orig_obs->state_count, &hashKey);
   int is_repeatable = 0;
   int repetitions = (dry_run == 0 ? 1 : 3);
+
+  if (orig_obs->is_truncated) {
+    WARNF("State trace truncated; rejecting from full path acceptance");
+    free_execution_observation(orig_obs);
+    return;
+  }
+
+  if (!orig_obs->is_transmission_complete) {
+    WARNF("Transmission incomplete; rejecting from state model admission");
+    free_execution_observation(orig_obs);
+    return;
+  }
 
   if(is_interesting) {
 
@@ -1033,6 +1101,14 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
       WARNF("Non-repeatable test case detected (no repeated state sequence matching)!");
     }
 
+    if (!dry_run && !is_repeatable) {
+      /* P06: Novel state sequence failed confirmation; withhold from admission and record retry */
+      WARNF("Novel state sequence failed confirmation; withholding from admission");
+      record_state_sequence_confirmation_failure(hashKey);
+      free_execution_observation(orig_obs);
+      return;
+    }
+
     /* Clean up mutable response buffers from repetition runs */
     if (response_buf) {
       ck_free(response_buf);
@@ -1063,10 +1139,27 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     state_tracer_truncated = orig_obs->is_truncated;
   }
 
-  if (orig_obs->is_truncated) {
-    WARNF("State trace truncated; rejecting from full path acceptance");
-    is_interesting = 0;
-    is_repeatable = 0;
+  /* P06: Unified acceptance predicate */
+  u8 is_accepted = 0;
+  if (!orig_obs->is_truncated && orig_obs->has_state_observation &&
+      orig_obs->state_count > 0 && orig_obs->is_transmission_complete) {
+    if (dry_run) {
+      is_accepted = 1;
+    } else if (is_interesting) {
+      is_accepted = is_repeatable;
+    } else {
+      is_accepted = 1;
+    }
+  }
+
+  if (!is_accepted) {
+    free_execution_observation(orig_obs);
+    return;
+  }
+
+  /* P06: Commit novel confirmed path to trusted set ONLY upon acceptance */
+  if (is_interesting && hashKey != 0) {
+    commit_state_sequence_path(hashKey);
   }
 
   if ((!dry_run && is_repeatable) || (dry_run && is_interesting)) {
