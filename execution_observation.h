@@ -53,6 +53,8 @@ typedef struct {
   int   response_buf_size;      /* Total size of response_buf */
   u32  *response_bytes;         /* Per-message accumulated response bytes */
   u32   response_bytes_count;   /* Count of entries in response_bytes */
+  u8    is_response_complete;   /* 1 if response was completely observed within budget, 0 if truncated/exceeded/error */
+  u8    response_budget_exceeded; /* 1 if cumulative response budget was exceeded */
 
   /* State observation */
   u8   has_state_observation;   /* 1 if state trace was captured, 0 otherwise */
@@ -119,6 +121,21 @@ static inline int compare_execution_observations(const execution_observation_t *
     if (reason && reason_sz > 0)
       snprintf(reason, reason_sz, "total bytes sent mismatch: orig %u vs rep %u",
                orig->total_bytes_sent, rep->total_bytes_sent);
+    return 0;
+  }
+
+  /* P17: Response completeness and budget check */
+  if (orig->is_response_complete != rep->is_response_complete) {
+    if (reason && reason_sz > 0)
+      snprintf(reason, reason_sz, "response completeness mismatch: orig %u vs rep %u",
+               orig->is_response_complete, rep->is_response_complete);
+    return 0;
+  }
+
+  if (orig->response_budget_exceeded || rep->response_budget_exceeded) {
+    if (reason && reason_sz > 0)
+      snprintf(reason, reason_sz, "response budget exceeded: orig %u vs rep %u",
+               orig->response_budget_exceeded, rep->response_budget_exceeded);
     return 0;
   }
 

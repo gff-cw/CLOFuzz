@@ -1720,9 +1720,24 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
   return byte_count;
 }
 
+static unsigned int max_response_budget = DEFAULT_MAX_RESPONSE_BUDGET;
+
+void net_set_response_budget(unsigned int budget) {
+  max_response_budget = budget ? budget : DEFAULT_MAX_RESPONSE_BUDGET;
+}
+
+unsigned int net_get_response_budget(void) {
+  return max_response_budget;
+}
+
 int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
                      char **response_buf, unsigned int *len,
                      net_recv_cb_t cb, void *user) {
+  if (!response_buf || !len) return NET_RECV_ERROR;
+  if (*len >= max_response_budget) {
+    return NET_RECV_BUDGET_EXCEEDED;
+  }
+
   char temp_buf[65536];
   int kind = SOCK_STREAM; socklen_t size = sizeof(kind);
   getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &kind, &size);
@@ -1740,7 +1755,7 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
     if (pfd[0].revents & POLLIN) {
       n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
       if ((n < 0) && (errno != EAGAIN)) {
-        return 1;
+        return NET_RECV_ERROR;
       }
       while (n > 0) {
         int truncated = 0;
@@ -1749,8 +1764,13 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
           truncated = 1;
           dgram_len = sizeof(temp_buf);
         }
-        if (is_dgram && ((unsigned)dgram_len > MAX_FILE || *len > MAX_FILE - (unsigned)dgram_len))
-          return 1;
+        /* P17: Enforce cumulative response budget check for both TCP and UDP.
+           Checks arithmetic overflow on *len + dgram_len + 1 and enforces max_response_budget. */
+        if ((unsigned)dgram_len > max_response_budget ||
+            *len > max_response_budget - (unsigned)dgram_len ||
+            (size_t)(*len) + dgram_len + 1 < (size_t)(*len)) {
+          return NET_RECV_BUDGET_EXCEEDED;
+        }
         usleep(10);
         *response_buf = (char *)ck_realloc(*response_buf, *len + dgram_len + 1);
         memcpy(&(*response_buf)[*len], temp_buf, dgram_len);
@@ -1761,16 +1781,16 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
         }
         n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
         if ((n < 0) && (errno != EAGAIN)) {
-          return 1;
+          return NET_RECV_ERROR;
         }
       }
     }
   } else
     if (rv < 0) // an error was returned
-      return 1;
+      return NET_RECV_ERROR;
 
   // rv == 0 poll timeout or all data pending after poll has been received successfully
-  return 0;
+  return NET_RECV_OK;
 }
 
 int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len) {

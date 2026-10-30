@@ -468,6 +468,8 @@ u32 complete_messages = 0;
 u32 total_bytes_sent = 0;
 u32 partial_bytes_tail = 0;
 u8  is_transmission_complete = 1;
+u8  is_response_complete = 1;
+u8  response_budget_exceeded = 0;
 EXP_ST u8 session_virgin_bits[MAP_SIZE];     /* Regions yet untouched while the SUT is still running */
 EXP_ST u8 *cleanup_script; /* script to clean up the environment of the SUT -- make fuzzing more deterministic */
 char **was_fuzzed_map = NULL; /* A 2D array keeping state-specific was_fuzzed information */
@@ -1021,6 +1023,8 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
   obs->total_bytes_sent = total_bytes_sent;
   obs->partial_bytes_tail = partial_bytes_tail;
   obs->is_transmission_complete = is_transmission_complete;
+  obs->is_response_complete = is_response_complete;
+  obs->response_budget_exceeded = response_budget_exceeded;
 
   /* Network response buffer snapshot */
   if (response_buf && response_buf_size > 0) {
@@ -1065,7 +1069,17 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
     if (obs->has_state_observation) {
       obs->unique_state_count = get_unique_state_count(state_seq, state_count);
     }
-  } else {
+  }
+
+  /* P17: Incomplete response observation or budget exceeded marks observation as truncated */
+  if (response_budget_exceeded || !is_response_complete) {
+    obs->is_truncated = 1;
+    if (obs->status == STATE_TRACER_STATUS_COMPLETE || obs->status == 0) {
+      obs->status = STATE_TRACER_STATUS_TRUNCATED;
+    }
+  }
+
+  if (!obs->has_state_observation) {
     /* P27: When no response buffer is received, backend tracer has no response-triggered dumps.
        Must report UNAVAILABLE, not fabricated state 0 or idle */
     obs->has_state_observation = 0;
@@ -1127,8 +1141,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
   int is_repeatable = 0;
   int repetitions = (dry_run == 0 ? 1 : 3);
 
-  if (orig_obs->is_truncated) {
-    WARNF("State trace truncated; rejecting from full path acceptance");
+  if (orig_obs->is_truncated || !orig_obs->is_response_complete || orig_obs->response_budget_exceeded) {
+    WARNF("State trace or response truncated; rejecting from full path acceptance");
     free_execution_observation(orig_obs);
     return;
   }
@@ -1215,12 +1229,15 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     total_bytes_sent = orig_obs->total_bytes_sent;
     partial_bytes_tail = orig_obs->partial_bytes_tail;
     is_transmission_complete = orig_obs->is_transmission_complete;
+    is_response_complete = orig_obs->is_response_complete;
+    response_budget_exceeded = orig_obs->response_budget_exceeded;
     state_tracer_truncated = orig_obs->is_truncated;
   }
 
   /* P06: Unified acceptance predicate */
   u8 is_accepted = 0;
-  if (!orig_obs->is_truncated && orig_obs->has_state_observation &&
+  if (!orig_obs->is_truncated && orig_obs->is_response_complete &&
+      !orig_obs->response_budget_exceeded && orig_obs->has_state_observation &&
       orig_obs->state_count > 0 && orig_obs->is_transmission_complete) {
     if (dry_run) {
       is_accepted = 1;
@@ -1792,12 +1809,23 @@ static void on_network_response_received(const uint8_t *buf, size_t len, int is_
 
 /* Observe every appended response byte exactly once, including bytes received
    before an error and the final drain. TCP framing stays in the runtime.
-   P16: Discrete UDP datagram boundaries are preserved across multiple receives. */
+   P16: Discrete UDP datagram boundaries are preserved across multiple receives.
+   P17: Enforce response budget upper bound and track response completeness. */
 static int receive_network_responses(int sockfd, struct timeval timeout,
                                     u32 poll_wait_msecs_total) {
-  return net_recv_with_cb(sockfd, timeout, poll_wait_msecs_total,
-                          &response_buf, &response_buf_size,
-                          on_network_response_received, NULL);
+  if (response_budget_exceeded) {
+    return NET_RECV_BUDGET_EXCEEDED;
+  }
+  int rc = net_recv_with_cb(sockfd, timeout, poll_wait_msecs_total,
+                            &response_buf, &response_buf_size,
+                            on_network_response_received, NULL);
+  if (rc == NET_RECV_BUDGET_EXCEEDED) {
+    response_budget_exceeded = 1;
+    is_response_complete = 0;
+  } else if (rc != NET_RECV_OK) {
+    is_response_complete = 0;
+  }
+  return rc;
 }
 
 typedef struct {
@@ -1857,6 +1885,8 @@ int send_over_network()
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
   is_transmission_complete = 1;
+  is_response_complete = 1;
+  response_budget_exceeded = 0;
 
   //Clean up the server if needed
   if (cleanup_script) system(cleanup_script);
@@ -1962,6 +1992,8 @@ int send_over_network()
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
   is_transmission_complete = 1;
+  is_response_complete = 1;
+  response_budget_exceeded = 0;
   if (receive_network_responses(sockfd, timeout, poll_wait_msecs_total)) goto HANDLE_RESPONSES;
 
   //write the request messages
@@ -1971,6 +2003,8 @@ int send_over_network()
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
   is_transmission_complete = 1;
+  is_response_complete = 1;
+  response_budget_exceeded = 0;
   executed_message_t *exec_msgs = NULL;
   u32 exec_msgs_cap = 0;
   u32 logical_digest = 0;
@@ -2050,7 +2084,9 @@ int send_over_network()
 
 HANDLE_RESPONSES:
 
-  receive_network_responses(sockfd, timeout, poll_wait_msecs_total);
+  if (!response_budget_exceeded) {
+    receive_network_responses(sockfd, timeout, poll_wait_msecs_total);
+  }
 
   if (messages_sent > 0 && response_bytes != NULL) {
     response_bytes[messages_sent - 1] = response_buf_size;
@@ -2108,6 +2144,8 @@ HANDLE_RESPONSES:
             "\"total_bytes_sent\":%u,"
             "\"partial_bytes_tail\":%u,"
             "\"is_transmission_complete\":%s,"
+            "\"is_response_complete\":%s,"
+            "\"response_budget_exceeded\":%s,"
             "\"logical_digest\":\"0x%08x\","
             "\"executed_digest\":\"0x%08x\","
             "\"execution_identity_verified\":false}\n",
@@ -2126,6 +2164,8 @@ HANDLE_RESPONSES:
             total_bytes_sent,
             partial_bytes_tail,
             is_transmission_complete ? "true" : "false",
+            is_response_complete ? "true" : "false",
+            response_budget_exceeded ? "true" : "false",
             logical_digest,
             executed_digest);
 

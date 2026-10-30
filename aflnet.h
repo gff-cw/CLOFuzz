@@ -93,6 +93,15 @@ extern region_t* (*extract_requests)(unsigned char* buf, unsigned int buf_size, 
 // Two wrappers for sending and receiving data over socket
 typedef void (*net_recv_cb_t)(const uint8_t *buf, size_t len, int is_dgram, int truncated, void *user);
 
+#define NET_RECV_OK              0
+#define NET_RECV_ERROR           1
+#define NET_RECV_BUDGET_EXCEEDED 2
+
+#define DEFAULT_MAX_RESPONSE_BUDGET (1 * 1024 * 1024)
+
+void net_set_response_budget(unsigned int budget);
+unsigned int net_get_response_budget(void);
+
 int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len);
 int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len);
 int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
