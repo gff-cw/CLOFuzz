@@ -995,6 +995,12 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
                       ? STATE_OBS_PROVIDER_TRACER
                       : STATE_OBS_PROVIDER_CODES;
 
+  if (state_shared_ptr && state_shared_ptr->exec_id == state_exec_id) {
+    obs->status = state_shared_ptr->status;
+  } else {
+    obs->status = STATE_TRACER_STATUS_UNAVAILABLE;
+  }
+
   if (response_buf && response_buf_size > 0 && extract_response_codes) {
     unsigned int state_count = 0;
     unsigned int *state_seq = (*extract_response_codes)((unsigned char *)response_buf,
@@ -1005,10 +1011,17 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
     obs->is_truncated = state_tracer_truncated;
     obs->has_state_observation = (state_count > 0 && state_seq != NULL);
     obs->status = obs->is_truncated ? STATE_TRACER_STATUS_TRUNCATED
-                                    : (obs->has_state_observation ? STATE_TRACER_STATUS_COMPLETE : STATE_TRACER_STATUS_IDLE);
+                                    : (obs->has_state_observation ? STATE_TRACER_STATUS_COMPLETE : obs->status);
     if (obs->has_state_observation) {
       obs->unique_state_count = get_unique_state_count(state_seq, state_count);
     }
+  } else {
+    /* P27: When no response buffer is received, backend tracer has no response-triggered dumps.
+       Must report UNAVAILABLE, not fabricated state 0 or idle */
+    obs->has_state_observation = 0;
+    obs->state_count = 0;
+    obs->state_sequence = NULL;
+    obs->status = STATE_TRACER_STATUS_UNAVAILABLE;
   }
 
   return obs;

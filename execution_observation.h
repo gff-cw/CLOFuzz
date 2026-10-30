@@ -138,6 +138,15 @@ static inline int compare_execution_observations(const execution_observation_t *
     return 0;
   }
 
+  /* P27: If state observation is absent or unavailable, confirmation cannot confirm memory state */
+  if (!orig->has_state_observation || !rep->has_state_observation ||
+      orig->status == STATE_TRACER_STATUS_UNAVAILABLE ||
+      rep->status == STATE_TRACER_STATUS_UNAVAILABLE) {
+    if (reason && reason_sz > 0)
+      snprintf(reason, reason_sz, "state observation unavailable; cannot confirm memory state");
+    return 0;
+  }
+
   /* State sequence length check */
   if (orig->state_count != rep->state_count) {
     if (reason && reason_sz > 0)
