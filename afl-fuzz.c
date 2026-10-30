@@ -690,10 +690,25 @@ u8* choose_source_region(u32 *out_len) {
   return out;
 }
 
-/* Update #fuzzs visiting a specific state */
+/* Update #fuzzs visiting a specific state.
+   P25: Check provider capability so -u / coverage executions without tracer probes
+   do not credit unobserved state visits. */
 void update_fuzzs() {
-  unsigned int state_count, i, discard;
+  if (extract_response_codes == extract_response_state_tracer) {
+    if (target_path_afl || current_fsrv != stateafl_fsrv) {
+      /* Coverage run has no state tracer; do not credit unobserved visits */
+      return;
+    }
+    if (!state_shared_ptr || state_shared_ptr->exec_id != state_exec_id ||
+        (state_shared_ptr->status != STATE_TRACER_STATUS_COMPLETE &&
+         state_shared_ptr->status != STATE_TRACER_STATUS_TRUNCATED)) {
+      return;
+    }
+  }
+
+  unsigned int state_count = 0, i, discard;
   unsigned int *state_sequence = (*extract_response_codes)(response_buf, response_buf_size, &state_count);
+  if (!state_sequence || state_count == 0) return;
 
   //A hash set is used so that the #paths is not updated more than once for one specific state
   khash_t(hs32) *khs_state_ids;
@@ -1649,10 +1664,12 @@ int send_over_network()
     state_shared_ptr->version = STATE_SHARED_VERSION;
     state_shared_ptr->capacity = MAX_NUM_STATES;
     state_shared_ptr->exec_id = ++state_exec_id;
-    state_shared_ptr->status = STATE_TRACER_STATUS_IDLE;
+    state_shared_ptr->status = (target_path_afl && current_fsrv != stateafl_fsrv)
+                                   ? STATE_TRACER_STATUS_UNAVAILABLE
+                                   : STATE_TRACER_STATUS_IDLE;
     state_shared_ptr->truncated = 0;
-    state_shared_ptr->total_states = 1;
-    state_shared_ptr->seq_len = 1;
+    state_shared_ptr->total_states = 0;
+    state_shared_ptr->seq_len = 0;
     state_shared_ptr->seq[0] = 0;
     state_shared_ptr->iterations = 0;
   }

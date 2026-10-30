@@ -30,6 +30,8 @@ done
 "$generic_test_output/observation_isolation" > "$generic_test_output/observation_isolation.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_transmission_ledger.c "$generic_test_output/aflnet.o" -o "$generic_test_output/ledger"
 "$generic_test_output/ledger" > "$generic_test_output/ledger.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_state_observation_provider.c -o "$generic_test_output/state_observation_provider"
+"$generic_test_output/state_observation_provider" > "$generic_test_output/state_observation_provider.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"
