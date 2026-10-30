@@ -57,7 +57,7 @@ void proto_after_response(proto_engine *engine, const uint8_t *wire, size_t leng
 void proto_after_dgram(proto_engine *engine, const uint8_t *wire, size_t length);
 void proto_after_stream(proto_engine *engine, const uint8_t *wire, size_t length);
 void proto_set_execution_purpose(proto_engine *engine, unsigned purpose);
-void proto_write_stats(proto_engine *engine, const char *path);
+int proto_write_stats(proto_engine *engine, const char *path);
 /* Safe codec contract: validate complete datagram and locate a field; absent
  * optional field returns 0, invalid packet/locator -1, present field 1. */
 int proto_bacnet_field(const uint8_t *wire, size_t length, const char *locator,

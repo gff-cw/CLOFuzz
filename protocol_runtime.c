@@ -419,6 +419,15 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
   if(parse_file(pp,&p,err,cap)<0 || parse_file(sp,&s,err,cap)<0)goto bad;
   if(str(&p,key(&p,1,"protocol_id"),id,sizeof(id))<0 || str(&s,key(&s,1,"protocol_id"),other,sizeof(other))<0 || strcmp(id,other)){fail(err,cap,"protocol/state ID mismatch");goto bad;}
   if(!*id)goto malformed;
+  int pk_gen=key(&p,1,"bundle_digest"),sk_gen=key(&s,1,"bundle_digest");
+  if(pk_gen && sk_gen){
+    char p_gen[128]={0},s_gen[128]={0};
+    if(str(&p,pk_gen,p_gen,sizeof(p_gen))<0 || str(&s,sk_gen,s_gen,sizeof(s_gen))<0 || strcmp(p_gen,s_gen)!=0){
+      fail(err,cap,"protocol/state bundle generation mismatch (mixed generations)");goto bad;
+    }
+  }else if(pk_gen || sk_gen){
+    fail(err,cap,"protocol/state bundle generation mismatch (one file has bundle digest, other does not)");goto bad;
+  }
   if(str(&p,key(&p,1,"codec"),b,sizeof(b))<0)goto bad;
   e->codec=-1;for(int ci=0;ci<6;ci++)if(!strcmp(b,codecs[ci].name))e->codec=ci;
   if(e->codec<0){fail(err,cap,"runtime encoder '%s' unavailable",b);goto bad;}
@@ -1061,12 +1070,12 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   restore_session(e,&live);return 0;
 bad:e->errors++;if(e->log)fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%d,\"reason\":\"%s\",\"parse_or_constraint_failed\":true,\"serialize_failed\":false}\n",layer,err && cap?err:"error");restore_session(e,&live);return -1;
 }
-void proto_write_stats(proto_engine *e,const char *path){
-  if(e&&e->generic){gr_write_stats(e->generic,path);return;}
-  if(!e || !path)return;
+int proto_write_stats(proto_engine *e,const char *path){
+  if(e&&e->generic)return gr_write_stats(e->generic,path);
+  if(!e || !path)return -1;
   char tmp_path[512];
   snprintf(tmp_path,sizeof(tmp_path),"%s.tmp.%d",path,(int)getpid());
-  FILE *f=fopen(tmp_path,"w");if(!f)return;
+  FILE *f=fopen(tmp_path,"w");if(!f)return -1;
   int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"completed_responses\":%llu,\"correlated_responses\":%llu,"
             "\"response_diagnostics\":{\"incomplete_frames\":%llu,\"framing_errors\":%llu,\"grammar_mismatches\":%llu,\"unrelated_responses\":%llu,\"correlation_mismatches\":%llu,\"expected_complete\":%llu},"
             "\"responses_by_purpose\":{\"original\":%llu,\"confirmation\":%llu,\"calibration\":%llu,\"sync\":%llu,\"unknown\":%llu},"
@@ -1081,6 +1090,7 @@ void proto_write_stats(proto_engine *e,const char *path){
     (unsigned long long)e->resp_unrelated,(unsigned long long)e->resp_correlation_mismatches,(unsigned long long)e->resp_expected_complete,
     (unsigned long long)e->resp_by_purpose[1],(unsigned long long)e->resp_by_purpose[2],(unsigned long long)e->resp_by_purpose[3],(unsigned long long)e->resp_by_purpose[4],(unsigned long long)e->resp_by_purpose[0],
     e->state[e->semantic_state]) > 0);
-  if(!ok || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return; }
-  rename(tmp_path, path);
+  if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return -1; }
+  if(rename(tmp_path, path) != 0) { unlink(tmp_path); return -1; }
+  return 0;
 }

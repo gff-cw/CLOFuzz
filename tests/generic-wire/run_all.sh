@@ -82,6 +82,8 @@ done
 "$generic_test_output/versioned_metrics" > "$generic_test_output/versioned_metrics.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_cold_start_segment_manifest.c "${generic_test_objs[@]}" -o "$generic_test_output/cold_start_manifest"
 "$generic_test_output/cold_start_manifest" > "$generic_test_output/cold_start_manifest.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_dual_file_publish_consistency.c "${generic_test_objs[@]}" -o "$generic_test_output/dual_file_publish"
+"$generic_test_output/dual_file_publish" > "$generic_test_output/dual_file_publish.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

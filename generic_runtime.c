@@ -651,11 +651,11 @@ void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
   if(!strcmp(e->transport,"udp"))gr_after_dgram(e,wire,length);
   else gr_after_stream(e,wire,length);
 }
-void gr_write_stats(gr_engine *e,const char *path){
-  if(!e||!path)return;
+int gr_write_stats(gr_engine *e,const char *path){
+  if(!e||!path)return -1;
   char tmp_path[512];
   snprintf(tmp_path,sizeof(tmp_path),"%s.tmp.%d",path,(int)getpid());
-  FILE *f=fopen(tmp_path,"w");if(!f)return;
+  FILE *f=fopen(tmp_path,"w");if(!f)return -1;
   int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"changed\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unchanged\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unavailable\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ","
             "\"response_diagnostics\":{\"incomplete_frames\":%" PRIu64 ",\"framing_errors\":%" PRIu64 ",\"grammar_mismatches\":%" PRIu64 ",\"unrelated_responses\":%" PRIu64 ",\"correlation_mismatches\":%" PRIu64 ",\"expected_complete\":%" PRIu64 "},"
             "\"responses_by_purpose\":{\"original\":%" PRIu64 ",\"confirmation\":%" PRIu64 ",\"calibration\":%" PRIu64 ",\"sync\":%" PRIu64 ",\"unknown\":%" PRIu64 "},"
@@ -670,6 +670,7 @@ void gr_write_stats(gr_engine *e,const char *path){
     e->resp_by_purpose[1],e->resp_by_purpose[2],e->resp_by_purpose[3],e->resp_by_purpose[4],e->resp_by_purpose[0]) > 0);
   if(ok) nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
   if(ok) ok = (fputs(",\"engine\":\"generic-wire\"}\n",f) >= 0);
-  if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return; }
-  rename(tmp_path, path);
+  if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return -1; }
+  if(rename(tmp_path, path) != 0) { unlink(tmp_path); return -1; }
+  return 0;
 }

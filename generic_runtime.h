@@ -34,5 +34,5 @@ void gr_after_response(gr_engine *engine, const uint8_t *wire, size_t length);
 void gr_after_dgram(gr_engine *engine, const uint8_t *wire, size_t length);
 void gr_after_stream(gr_engine *engine, const uint8_t *wire, size_t length);
 void gr_set_execution_purpose(gr_engine *engine, unsigned purpose);
-void gr_write_stats(gr_engine *engine, const char *path);
+int gr_write_stats(gr_engine *engine, const char *path);
 #endif

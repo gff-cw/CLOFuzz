@@ -2,7 +2,9 @@
 """Compile the declarative ICP-IR 1 format. No executable expressions are allowed."""
 import argparse
 import copy
+import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -664,10 +666,25 @@ def compile_spec(protocol, state, output):
     output = Path(output)
     p, s = copy.deepcopy(protocol), copy.deepcopy(state)
     p["ir_version"] = s["ir_version"] = 1
+    raw_p = serialize_ir(p)
+    raw_s = serialize_ir(s)
+    bundle_digest = hashlib.sha256((raw_p + raw_s).encode("utf-8")).hexdigest()
+    p["bundle_digest"] = s["bundle_digest"] = bundle_digest
     documents = {"protocol_ir.json": serialize_ir(p), "state_ir.json": serialize_ir(s)}
     output.mkdir(parents=True, exist_ok=True)
     for filename, serialized in documents.items():
-        (output / filename).write_text(serialized, encoding="utf-8")
+        tmp_target = output / f".{filename}.tmp.{os.getpid()}"
+        tmp_target.write_text(serialized, encoding="utf-8")
+        tmp_target.replace(output / filename)
+    bundle_manifest = {
+        "bundle_version": 1,
+        "protocol_id": p.get("protocol_id"),
+        "bundle_digest": bundle_digest,
+        "files": ["protocol_ir.json", "state_ir.json"]
+    }
+    tmp_bundle = output / f".spec_bundle.json.tmp.{os.getpid()}"
+    tmp_bundle.write_text(json.dumps(bundle_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_bundle.replace(output / "spec_bundle.json")
     aliases = {}
     if p["support"]["runtime"] and p["codec"] != "bacnet":
         messages = {m["id"]: m for m in p["messages"]}
