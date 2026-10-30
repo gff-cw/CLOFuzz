@@ -586,11 +586,14 @@ static void remember(proto_engine *e,int mi,uint8_t *b,size_t n){
  * routine only reads session state; remember/pending updates commit last. */
 static int bind_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
   int mi=model_for(e,b,n,0);if(mi<0)return fail(err,cap,"request outside supported model (raw or intentionally invalid input)");
+  int target_tr=-1;
+  for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[mi]){target_tr=t;break;}
+  if(target_tr<0)return fail(err,cap,"request outside current semantic state %s",e->state[e->semantic_state]);
   /* Only session bindings here. Wire-invalid tests must never be repaired again. */
   pm *m=&e->m[mi];for(int i=0;i<m->nd;i++){pd *d=&m->d[i];if(d->op==4 || d->op==5 || d->op==7){uint8_t done[FMAX]={0};if(repair_field(e,mi,d->target,b,n,done,err,cap)<0)return -1;}}
   if(e->codec && (codecs[e->codec].validate(b,n,err,cap)<0 || model_for(e,b,n,0)<0))return fail(err,cap,"live binding violates wire structure or model bounds");
   remember(e,mi,b,n);for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi])e->pending[model]=1;layout v;if(!e->codec && bacnet_layout(b,n,&v,err,cap)==0 && v.kind==0)e->outstanding[b[v.invoke]]=1;
-  for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[mi]){e->semantic_state=e->tr[t].to;break;}
+  e->semantic_state=e->tr[target_tr].to;
   return 0;
 }
 int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
@@ -605,13 +608,20 @@ int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
 /* Live responses may arrive split across net_recv calls or coalesced. Only a
  * complete validated, correlated response may supply connection bindings. */
 static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
-  char err[128];int mi=-1;
+  char err[128];int mi=-1,target_tr=-1;
   if(!e->codec){layout v;if(bacnet_layout(b,n,&v,err,sizeof(err))<0)return;e->responses++;
     if(v.invoke!=SIZE_MAX && v.kind>=2 && e->outstanding[b[v.invoke]]){e->correlated++;e->outstanding[b[v.invoke]]=0;}
   }
   for(int m=0;m<e->nm;m++){
     if(!e->m[m].response)continue;
     if(e->codec && !codecs[e->codec].same(b,n,e->m[m].example,e->m[m].size))continue;
+    int resp_tr=-1;
+    for(int t=0;t<e->nt;t++){
+      if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[m]){
+        resp_tr=t;break;
+      }
+    }
+    if(resp_tr<0)continue;
     int fits=1,linked=0;
     for(int f=0;f<e->m[m].nf;f++){pf *field=&e->m[m].f[f];size_t o,w;
       int present=locate(e,b,n,field,&o,&w,err,sizeof(err));if(!present && field->mut==3)continue;
@@ -635,9 +645,9 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
     }
     if(!fits)continue;
     if(e->codec){e->responses++;if(linked)e->correlated++;}
-    mi=m;for(int d=0;d<e->m[m].nd;d++){pd *dep=&e->m[m].d[d];if(dep->op==6)for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[dep->message])e->pending[model]=0;}break;
+    mi=m;target_tr=resp_tr;for(int d=0;d<e->m[m].nd;d++){pd *dep=&e->m[m].d[d];if(dep->op==6)for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[dep->message])e->pending[model]=0;}break;
   }
-  if(mi>=0){remember(e,mi,(uint8_t*)b,n);for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[mi]){e->semantic_state=e->tr[t].to;break;}}
+  if(mi>=0 && target_tr>=0){remember(e,mi,(uint8_t*)b,n);e->semantic_state=e->tr[target_tr].to;}
 }
 void proto_after_response(proto_engine *e,const uint8_t *b,size_t n){
   if(e&&e->generic){gr_after_response(e->generic,b,n);return;}
