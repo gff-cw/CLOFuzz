@@ -98,6 +98,108 @@ static int gr_sequence(const gr_engine *e,const gr_record *records,size_t count,
     state=next; /* projected model outcome, not an observed target state */
   }return 0;
 }
+int gr_validate_framing(const gr_engine *e, const uint8_t *wire, size_t size,
+                        const char *desc, char *err, size_t cap) {
+  if (!e) return gr_error(err, cap, "missing generic engine for framing check");
+  if (!wire || !size)
+    return gr_error(err, cap, "invalid TCP framing for %s: empty or missing wire", desc ? desc : "message");
+  if (!strcmp(e->transport, "tcp")) {
+    const char *target_name = (desc && (strstr(desc, "example") || !strcmp(desc, "request") || !strcmp(desc, "response"))) ? "example" : "message";
+    if (e->frame_offset > size || e->frame_width > size - e->frame_offset)
+      return gr_error(err, cap, "invalid TCP framing for %s: length field outside %s",
+                      desc ? desc : "message", target_name);
+    uint64_t value = gr_integer(wire + e->frame_offset, e->frame_width, e->frame_little);
+    __int128 framed = (__int128)value + e->frame_add;
+    if (framed != (__int128)size)
+      return gr_error(err, cap, "invalid TCP framing for %s: declared length differs from %s",
+                      desc ? desc : "message", target_name);
+  } else if (!strcmp(e->transport, "udp")) {
+    if (size > GR_WIRE)
+      return gr_error(err, cap, "UDP datagram for %s exceeds max wire budget (%zu > %u)",
+                      desc ? desc : "message", size, GR_WIRE);
+  }
+  return 0;
+}
+static int gr_check_framing_grammar_consistency(const gr_engine *e, const nj_value *v,
+                                                const char *mid, char *err, size_t cap) {
+  if (!e || strcmp(e->transport, "tcp")) return 0;
+  const nj_value *grammar = nj_get(v, "grammar");
+  if (!grammar) return gr_error(err, cap, "missing grammar for %s", mid);
+  const nj_value *fields = nj_get(grammar, "fields");
+  if (!fields || fields->type != NJ_ARRAY)
+    return gr_error(err, cap, "missing grammar fields for %s", mid);
+
+  size_t cur_offset = 0;
+
+  for (size_t i = 0; i < fields->count; i++) {
+    const nj_value *f = fields->items[i];
+    const nj_value *kind = nj_get(f, "kind");
+    size_t field_len = 0;
+    unsigned field_width = 0;
+    int is_uint = 0;
+    unsigned little = 0;
+
+    if (nj_string_equal(kind, "uint")) {
+      is_uint = 1;
+      uint64_t w = 0;
+      if (nj_u64(nj_get(f, "width"), &w, err, cap) < 0) return -1;
+      field_width = (unsigned)w;
+      field_len = field_width;
+      if (nj_string_equal(nj_get(f, "byte_order"), "little")) little = 1;
+      else if (!nj_string_equal(nj_get(f, "byte_order"), "big"))
+        return gr_error(err, cap, "invalid byte_order for field in %s", mid);
+    } else if (nj_string_equal(kind, "bytes")) {
+      const nj_value *l = nj_get(f, "length");
+      if (!l) return gr_error(err, cap, "missing bytes length in %s", mid);
+      if (l->type == NJ_INTEGER) {
+        uint64_t bl = 0;
+        if (nj_u64(l, &bl, err, cap) < 0) return -1;
+        field_len = (size_t)bl;
+      } else {
+        /* Variable length ("rest" or ref) */
+        if (cur_offset <= e->frame_offset)
+          return gr_error(err, cap, "variable-length field precedes TCP framing offset %u in %s",
+                          e->frame_offset, mid);
+        break;
+      }
+    } else {
+      return gr_error(err, cap, "unknown field kind in %s", mid);
+    }
+
+    const nj_value *role = nj_get(f, "role");
+    const nj_value *derived = nj_get(f, "derived");
+    if (nj_string_equal(role, "derived") && derived) {
+      if (nj_string_equal(nj_get(derived, "op"), "size_of") &&
+          nj_string_equal(nj_get(derived, "target"), "$message")) {
+        if (cur_offset != e->frame_offset) {
+          return gr_error(err, cap, "message '%s': grammar derived rule offset %zu conflicts with global TCP framing offset %u",
+                          mid, cur_offset, e->frame_offset);
+        }
+        if (!is_uint) {
+          return gr_error(err, cap, "message '%s': derived TCP framing field must be uint", mid);
+        }
+        if (field_width != e->frame_width) {
+          return gr_error(err, cap, "message '%s': TCP framing width %u conflicts with grammar field width %u",
+                          mid, e->frame_width, field_width);
+        }
+        if (little != e->frame_little) {
+          return gr_error(err, cap, "message '%s': TCP framing byte_order conflicts with grammar field", mid);
+        }
+        int64_t d_add = 0;
+        if (nj_get(derived, "add") && nj_i64(nj_get(derived, "add"), &d_add, err, cap) < 0)
+          return -1;
+        if (d_add != -e->frame_add) {
+          return gr_error(err, cap, "message '%s': grammar derived size_of add (%lld) conflicts with TCP framing add (%lld)",
+                          mid, (long long)d_add, (long long)e->frame_add);
+        }
+      }
+    }
+
+    cur_offset += field_len;
+  }
+
+  return 0;
+}
 static int gr_unpack(gr_engine *e,const uint8_t *data,size_t length,
                      gr_record records[GR_RECORDS],size_t *count,char *err,size_t cap){
   size_t p=0,original=0;*count=0;
@@ -108,6 +210,7 @@ static int gr_unpack(gr_engine *e,const uint8_t *data,size_t length,
     if(!n||n>GR_WIRE||n>length-p)return gr_error(err,cap,"invalid replay length");
     gr_record *r=&records[(*count)++];r->wire=malloc(n);if(!r->wire)return gr_error(err,cap,"out of memory");
     memcpy(r->wire,data+p,n);r->size=n;r->original_offset=original;
+    if(gr_validate_framing(e,r->wire,n,"replay message",err,cap)<0)return -1;
     if(gr_match(e,r->wire,n,0,&r->model,err,cap)<0)return -1;
     original+=n;p+=n;
   }return 0;
@@ -137,19 +240,13 @@ static int gr_message_load(gr_engine *e,const nj_value *v,unsigned i,char *err,s
   if(gr_unsigned(nj_get(v,"weight"),1,1000,&m->weight,err,cap)<0||
      gr_hex(nj_get(v,"example_hex"),&m->example,&m->size,err,cap)<0)return -1;
   m->schema=gw_compile(nj_get(v,"grammar"),err,cap);if(!m->schema)return -1;
+  if(gr_check_framing_grammar_consistency(e,v,m->id,err,cap)<0)return -1;
   char detail[256];gw_packet *packet=NULL;
   int valid=gw_parse(m->schema,m->example,m->size,&packet,detail,sizeof(detail));gw_packet_free(packet);
   if(valid<0)return gr_error(err,cap,"invalid example for %s: %s",m->id,detail);
   if(!m->response&&m->size>e->max_bytes-4)
     return gr_error(err,cap,"request example for %s exceeds max_bytes including replay prefix",m->id);
-  if(!strcmp(e->transport,"tcp")){
-    if(e->frame_offset>m->size||e->frame_width>m->size-e->frame_offset)
-      return gr_error(err,cap,"invalid TCP framing for %s: length field outside example",m->id);
-    uint64_t value=gr_integer(m->example+e->frame_offset,e->frame_width,e->frame_little);
-    __int128 framed=(__int128)value+e->frame_add;
-    if(framed!=(__int128)m->size)
-      return gr_error(err,cap,"invalid TCP framing for %s: declared length differs from example",m->id);
-  }
+  if(gr_validate_framing(e,m->example,m->size,m->id,err,cap)<0)return -1;
   return 0;
 }
 
@@ -319,6 +416,9 @@ int gr_validate_sequence(const gr_engine *e,
         return gr_error(err, cap, "max_bytes exceeded across sequence (%zu > %zu)",
                         total_replay_bytes, e->max_bytes);
 
+      if (gr_validate_framing(e, buf + p, n, seg_names[s], err, cap) < 0)
+        return -1;
+
       unsigned model = 0;
       if (gr_match(e, buf + p, n, 0, &model, err, cap) < 0)
         return gr_error(err, cap, "%s message outside description grammar", seg_names[s]);
@@ -396,8 +496,13 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
     gw_packet_free(packet);free(r->wire);r->wire=encoded;r->size=n;
   }
   if(gr_sequence(e,rr,count,err,cap)<0)goto done;
-  for(size_t i=0;i<count;i++){unsigned model;if(gr_match(e,rr[i].wire,rr[i].size,0,&model,err,cap)<0||
-      model!=rr[i].model){gr_error(err,cap,"mutation changed message family");goto done;}}
+  for(size_t i=0;i<count;i++){
+    unsigned model;
+    if(gr_match(e,rr[i].wire,rr[i].size,0,&model,err,cap)<0||model!=rr[i].model){
+      gr_error(err,cap,"mutation changed message family");goto done;
+    }
+    if(gr_validate_framing(e,rr[i].wire,rr[i].size,e->messages[model].id,err,cap)<0)goto done;
+  }
   if(gr_pack(e,rr,count,out,out_length,err,cap)<0)goto done;
   e->success++;e->layer_count[layer==PROTO_HEAD?0:layer==PROTO_CONTENT?1:2]++;status=0;
   if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"layer\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"derived_repaired\":true}\n",
@@ -406,7 +511,10 @@ done:if(status<0)gr_log_rejection(e,layer,err&&cap?err:"mutation failed");gr_rec
 }
 int gr_before_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap){
   unsigned model,next;int response;if(err&&cap)err[0]=0;
-  if(!e||!wire||!length||length>GR_WIRE||gr_match(e,wire,length,0,&model,err,cap)<0)
+  if(!e||!wire||!length||length>GR_WIRE)
+    return gr_error(err,cap,"invalid wire length in generic before_send");
+  if(gr_validate_framing(e,wire,length,"request",err,cap)<0)return -1;
+  if(gr_match(e,wire,length,0,&model,err,cap)<0)
     return gr_error(err,cap,"request not accepted by generic-wire grammar");
   if(gr_next(e,e->state,model,&next,&response)<0)return gr_error(err,cap,"request outside current semantic state");
   if(e->pending)return gr_error(err,cap,"generic-wire permits one outstanding request per session");

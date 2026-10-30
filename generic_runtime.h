@@ -21,6 +21,9 @@ int gr_mutate(gr_engine *engine, const uint8_t *records, size_t length,
               const uint8_t *candidate, size_t candidate_length, int mode, int layer,
               proto_random random, const uint8_t **result, size_t *result_length,
               char *error, size_t cap);
+/* P12: Uniform framing validation across mutation, sequence templates, and sending. */
+int gr_validate_framing(const gr_engine *engine, const uint8_t *wire, size_t length,
+                        const char *desc, char *error, size_t cap);
 /* Structured calls accept PROTO_VALID. Hybrid/raw scheduling belongs to the
  * caller. Prefix and output together obey sequence limits. Live sessions
  * permit one outstanding request; rejection preserves bytes and bindings. */
