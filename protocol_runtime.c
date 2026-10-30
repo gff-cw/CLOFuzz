@@ -152,6 +152,10 @@ struct proto_engine {
   uint8_t pending[PMAX];
   uint64_t attempts,success,errors,layer_count[3],responses,correlated;
   uint64_t changed[3],unchanged[3],unavailable[3];
+  uint64_t resp_incomplete_frames,resp_framing_errors,resp_grammar_mismatches;
+  uint64_t resp_unrelated,resp_correlation_mismatches,resp_expected_complete;
+  uint64_t resp_by_purpose[5];
+  unsigned exec_purpose;
   unsigned semantic_state;
   uint32_t ua_sequence;
   uint8_t receive[MAX_FILE];size_t receive_size;
@@ -656,16 +660,38 @@ int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
   if(result==0)memcpy(b,bound,n);
   ck_free(bound);return result;
 }
+void proto_set_execution_purpose(proto_engine *e, unsigned purpose){
+  if(!e)return;
+  e->exec_purpose = (purpose < 5) ? purpose : 0;
+  if(e->generic)gr_set_execution_purpose(e->generic, purpose);
+}
 /* Live responses may arrive split across net_recv calls or coalesced. Only a
  * complete validated, correlated response may supply connection bindings. */
 static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
   char err[128];int mi=-1,target_tr=-1;
-  if(!e->codec){layout v;if(bacnet_layout(b,n,&v,err,sizeof(err))<0)return;e->responses++;
-    if(v.invoke!=SIZE_MAX && v.kind>=2 && e->outstanding[b[v.invoke]]){e->correlated++;e->outstanding[b[v.invoke]]=0;}
+  if(e->exec_purpose < 5) e->resp_by_purpose[e->exec_purpose]++;
+  if(!e->codec){
+    layout v;
+    if(bacnet_layout(b,n,&v,err,sizeof(err))<0){
+      e->resp_grammar_mismatches++;
+      return;
+    }
+    e->responses++;
+    if(v.invoke!=SIZE_MAX && v.kind>=2 && e->outstanding[b[v.invoke]]){
+      e->correlated++;
+      e->resp_expected_complete++;
+      e->outstanding[b[v.invoke]]=0;
+    } else if(v.invoke!=SIZE_MAX && v.kind>=2) {
+      e->resp_correlation_mismatches++;
+    } else {
+      e->resp_unrelated++;
+    }
   }
+  int matched_grammar=0;
   for(int m=0;m<e->nm;m++){
     if(!e->m[m].response)continue;
     if(e->codec && !codecs[e->codec].same(b,n,e->m[m].example,e->m[m].size))continue;
+    matched_grammar=1;
     int resp_tr=-1;
     for(int t=0;t<e->nt;t++){
       if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[m]){
@@ -695,8 +721,12 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
       if(locate(e,b,n,field,&o,&w,err,sizeof(err))!=1 || getint(b+o,w,field->little)!=source){fits=0;break;}
     }
     if(!fits)continue;
-    if(e->codec){e->responses++;if(linked)e->correlated++;}
+    if(e->codec){e->responses++;e->resp_expected_complete++;if(linked)e->correlated++;}
     mi=m;target_tr=resp_tr;for(int d=0;d<e->m[m].nd;d++){pd *dep=&e->m[m].d[d];if(dep->op==6)for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[dep->message])e->pending[model]=0;}break;
+  }
+  if(e->codec){
+    if(!matched_grammar) e->resp_grammar_mismatches++;
+    else if(mi<0) e->resp_unrelated++;
   }
   if(mi>=0 && target_tr>=0){remember(e,mi,(uint8_t*)b,n);e->semantic_state=e->tr[target_tr].to;}
 }
@@ -712,11 +742,13 @@ void proto_after_dgram(proto_engine *e,const uint8_t *b,size_t n){
 void proto_after_stream(proto_engine *e,const uint8_t *b,size_t n){
   if(e&&e->generic){gr_after_stream(e->generic,b,n);return;}
   if(!e || !b || !n)return;
-  if(n>MAX_FILE-e->receive_size){e->receive_size=0;if(e->log)fputs("{\"event\":\"response_rejected\",\"reason\":\"receive_limit\"}\n",e->log);return;}
+  if(n>MAX_FILE-e->receive_size){e->receive_size=0;e->resp_framing_errors++;if(e->log)fputs("{\"event\":\"response_rejected\",\"reason\":\"receive_limit\"}\n",e->log);return;}
   memcpy(e->receive+e->receive_size,b,n);e->receive_size+=n;size_t p=0;char err[128];
   while(p<e->receive_size){size_t z=0;int result=codecs[e->codec].frame(e->receive+p,e->receive_size-p,&z,err,sizeof(err));
-    if(result<0){e->receive_size=0;if(e->log)fputs("{\"event\":\"response_rejected\",\"reason\":\"malformed_framing\"}\n",e->log);return;}
-    if(!result)break;if(!z || z>e->receive_size-p){e->receive_size=0;return;}response_frame(e,e->receive+p,z);p+=z;
+    if(result<0){e->receive_size=0;e->resp_framing_errors++;if(e->log)fputs("{\"event\":\"response_rejected\",\"reason\":\"malformed_framing\"}\n",e->log);return;}
+    if(!result){e->resp_incomplete_frames++;break;}
+    if(!z || z>e->receive_size-p){e->receive_size=0;e->resp_framing_errors++;return;}
+    response_frame(e,e->receive+p,z);p+=z;
   }
   if(p){memmove(e->receive,e->receive+p,e->receive_size-p);e->receive_size-=p;}
 }
@@ -1028,4 +1060,22 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   restore_session(e,&live);return 0;
 bad:e->errors++;if(e->log)fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%d,\"reason\":\"%s\",\"parse_or_constraint_failed\":true,\"serialize_failed\":false}\n",layer,err && cap?err:"error");restore_session(e,&live);return -1;
 }
-void proto_write_stats(proto_engine *e,const char *path){if(e&&e->generic){gr_write_stats(e->generic,path);return;}if(!e || !path)return;FILE *f=fopen(path,"w");if(!f)return;fprintf(f,"{\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"correlated_responses\":%llu,\"protocol_semantic_state\":\"%s\"}\n",(unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,(unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],(unsigned long long)e->changed[0],(unsigned long long)e->changed[1],(unsigned long long)e->changed[2],(unsigned long long)e->unchanged[0],(unsigned long long)e->unchanged[1],(unsigned long long)e->unchanged[2],(unsigned long long)e->unavailable[0],(unsigned long long)e->unavailable[1],(unsigned long long)e->unavailable[2],(unsigned long long)e->responses,(unsigned long long)e->correlated,e->state[e->semantic_state]);fclose(f);}
+void proto_write_stats(proto_engine *e,const char *path){
+  if(e&&e->generic){gr_write_stats(e->generic,path);return;}
+  if(!e || !path)return;FILE *f=fopen(path,"w");if(!f)return;
+  fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"completed_responses\":%llu,\"correlated_responses\":%llu,"
+            "\"response_diagnostics\":{\"incomplete_frames\":%llu,\"framing_errors\":%llu,\"grammar_mismatches\":%llu,\"unrelated_responses\":%llu,\"correlation_mismatches\":%llu,\"expected_complete\":%llu},"
+            "\"responses_by_purpose\":{\"original\":%llu,\"confirmation\":%llu,\"calibration\":%llu,\"sync\":%llu,\"unknown\":%llu},"
+            "\"protocol_semantic_state\":\"%s\"}\n",
+    (unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,
+    (unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],
+    (unsigned long long)e->changed[0],(unsigned long long)e->changed[1],(unsigned long long)e->changed[2],
+    (unsigned long long)e->unchanged[0],(unsigned long long)e->unchanged[1],(unsigned long long)e->unchanged[2],
+    (unsigned long long)e->unavailable[0],(unsigned long long)e->unavailable[1],(unsigned long long)e->unavailable[2],
+    (unsigned long long)e->responses,(unsigned long long)e->resp_expected_complete,(unsigned long long)e->correlated,
+    (unsigned long long)e->resp_incomplete_frames,(unsigned long long)e->resp_framing_errors,(unsigned long long)e->resp_grammar_mismatches,
+    (unsigned long long)e->resp_unrelated,(unsigned long long)e->resp_correlation_mismatches,(unsigned long long)e->resp_expected_complete,
+    (unsigned long long)e->resp_by_purpose[1],(unsigned long long)e->resp_by_purpose[2],(unsigned long long)e->resp_by_purpose[3],(unsigned long long)e->resp_by_purpose[4],(unsigned long long)e->resp_by_purpose[0],
+    e->state[e->semantic_state]);
+  fclose(f);
+}

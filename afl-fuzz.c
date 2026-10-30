@@ -129,6 +129,9 @@ static u8 protocol_prefix[MAX_FILE], protocol_suffix[MAX_FILE];
 static size_t protocol_base_len, protocol_prefix_len, protocol_suffix_len;
 static size_t protocol_surrounding_records;
 static u64 protocol_raw_runs, protocol_structured_runs, protocol_rejections;
+/* P23: Versioned pipeline stage metrics */
+static u64 protocol_candidate_attempts, protocol_construction_success, protocol_host_accepted;
+static u64 protocol_complete_transmissions, protocol_valid_observations, protocol_reward_committed;
 static u32 protocol_structured_sent;
 static u8 protocol_adaptive;
 static proto_schedule protocol_scheduler;
@@ -1159,8 +1162,10 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
 
       u8 prev_purpose = current_exec_purpose;
       current_exec_purpose = EXEC_PURPOSE_CONFIRMATION;
+      proto_set_execution_purpose(protocol_engine, current_exec_purpose);
       run_target(argv, exec_tmout * 2, stateafl_fsrv);
       current_exec_purpose = prev_purpose;
+      proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
       if (!response_buf_size || !response_bytes) {
         continue;
@@ -3420,8 +3425,10 @@ void init_ipsm(char** argv) {
 
     u8 prev_purpose = current_exec_purpose;
     current_exec_purpose = EXEC_PURPOSE_CALIBRATION;
+    proto_set_execution_purpose(protocol_engine, current_exec_purpose);
     run_target(argv, exec_tmout * 2, stateafl_fsrv);
     current_exec_purpose = prev_purpose;
+    proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
     /* Update state-aware variables (e.g., state machine, regions and their annotations */
     if (state_aware_mode) update_state_aware_variables(q, 1, argv);
@@ -4878,6 +4885,7 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
 
   u8 prev_purpose = current_exec_purpose;
   current_exec_purpose = EXEC_PURPOSE_CALIBRATION;
+  proto_set_execution_purpose(protocol_engine, current_exec_purpose);
   if (q) {
     current_seed_id = q->index;
     current_target_state_id = q->generating_state_id;
@@ -5019,6 +5027,7 @@ abort_calibration:
   if (!first_run) show_stats();
 
   current_exec_purpose = prev_purpose;
+  proto_set_execution_purpose(protocol_engine, current_exec_purpose);
   return fault;
 
 }
@@ -5938,11 +5947,21 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
   if (fixed_random_seed) fprintf(f, "random_seed       : %u\n", experiment_seed);
   if (protocol_candidate_limit) fprintf(f, "saved_candidates  : %u\n", protocol_candidates_saved);
   if (protocol_engine) {
-    fprintf(f, "protocol_mode     : %s\nprotocol_structured: %llu\n"
-               "protocol_raw      : %llu\nprotocol_rejected : %llu\n",
+    fprintf(f, "protocol_mode     : %s\n"
+               "protocol_candidate_attempts : %llu\n"
+               "protocol_construction_success: %llu\n"
+               "protocol_host_accepted     : %llu\n"
+               "protocol_structured       : %llu\n"
+               "protocol_raw              : %llu\n"
+               "protocol_rejected         : %llu\n"
+               "protocol_complete_transmissions: %llu\n"
+               "protocol_valid_observations: %llu\n"
+               "protocol_reward_committed : %llu\n",
             protocol_mode == PROTO_VALID ? "valid" : protocol_mode == PROTO_NEAR_VALID ? "near_valid" :
             protocol_mode == PROTO_INVALID ? "invalid" : protocol_mode == PROTO_RAW ? "raw" : "hybrid",
-            protocol_structured_runs, protocol_raw_runs, protocol_rejections);
+            protocol_candidate_attempts, protocol_construction_success, protocol_host_accepted,
+            protocol_structured_runs, protocol_raw_runs, protocol_rejections,
+            protocol_complete_transmissions, protocol_valid_observations, protocol_reward_committed);
     u8 *stats_path = alloc_printf("%s/protocol_stats.json", out_dir);
     proto_write_stats(protocol_engine, (char *)stats_path);
     ck_free(stats_path);
@@ -7102,6 +7121,7 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
     *feedback_layer = layer;
   } else layer = choices[UR(n)];
   int mode = protocol_mode == PROTO_HYBRID ? PROTO_VALID : protocol_mode;
+  protocol_candidate_attempts++;
   if (proto_mutate(protocol_engine, protocol_base, protocol_base_len,
                    *wire, *wire_len, mode, layer, protocol_random,
                    &records, &length, error, sizeof(error)) < 0) {
@@ -7110,6 +7130,7 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
       fputs("{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"structured_candidate_rejected\"}\n", protocol_log);
     return NULL;
   }
+  protocol_construction_success++;
   if (proto_records_validate(records, length, &checked, error, sizeof(error)) < 0)
     FATAL("Protocol serializer contract: %s", error);
   if (protocol_surrounding_records > MAX_FILE - length) {
@@ -7130,6 +7151,7 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
       fprintf(protocol_log, "{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"%s\"}\n", error);
     return NULL;
   }
+  protocol_host_accepted++;
   region_t *regions = ck_alloc(checked * sizeof(region_t));
   *count = 0;
   while (p < length) {
@@ -7154,6 +7176,7 @@ static void protocol_observe_candidate(u32 state, int layer, unsigned events,
                                        u32 tuples, u32 buckets) {
   if (!layer) return;
   if (tuples || buckets) events |= PROTO_FEEDBACK_COVERAGE;
+  if (events) protocol_reward_committed++;
   proto_schedule_observe_outcome(&protocol_scheduler, state, layer, events,
                                  tuples, buckets);
   if (protocol_log)
@@ -7174,6 +7197,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   /* P24: Track logical candidate identity, purpose, and target context */
   current_candidate_id++;
   current_exec_purpose = EXEC_PURPOSE_ORIGINAL;
+  proto_set_execution_purpose(protocol_engine, current_exec_purpose);
   current_target_state_id = target_state_id;
   current_seed_id = queue_cur ? queue_cur->index : 0;
   current_feedback_layer = 0;
@@ -7310,6 +7334,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   protocol_structured_sent = 0;
   fault = run_target(argv, exec_tmout, afl_fsrv);
   u8 feedback_delivered = protocol_count && protocol_structured_sent == protocol_count;
+  if (feedback_delivered) protocol_complete_transmissions++;
 
   /* P20: Log executed candidate status with requested/actual modes, stage, and outcome */
   if (protocol_log) {
@@ -7363,6 +7388,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   protocol_new_tuples = protocol_new_buckets = 0;
   protocol_collect_coverage = feedback_layer && feedback_delivered && fault == crash_mode;
+  if (protocol_collect_coverage) protocol_valid_observations++;
   queued_discovered += save_if_interesting(argv, out_buf, len, fault);
   protocol_collect_coverage = 0;
   unsigned discoveries = 0;
@@ -9957,8 +9983,10 @@ static void sync_fuzzers(char** argv) {
 
         u8 prev_purpose = current_exec_purpose;
         current_exec_purpose = EXEC_PURPOSE_SYNC;
+        proto_set_execution_purpose(protocol_engine, current_exec_purpose);
         fault = run_target(argv, exec_tmout, afl_fsrv);
         current_exec_purpose = prev_purpose;
+        proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
         if (stop_soon) {
           delete_kl_messages(kl_messages);
