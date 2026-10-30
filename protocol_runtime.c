@@ -278,7 +278,7 @@ static int model_for(proto_engine *e,const uint8_t *b,size_t n,int response) {
       uint64_t value=p->width?getint(b+o,w,p->little):w;
       if(value<p->min || value>p->max){ok=0;break;}
     }
-    if(ok)return m;
+    if(ok)return e->canonical[m];
   }return -1;
 }
 static int cycle(proto_engine *e,int mi,int fi,uint8_t visited[PMAX][FMAX]) {
@@ -311,6 +311,52 @@ static int equivalent_models(proto_engine *e,int ai,int bi){
       }found=1;break;
     }if(!found)return 0;
   }return 1;
+}
+/* P14: Verify that aliases also have equivalent state transitions before sharing identity */
+static int equivalent_transitions(proto_engine *e,int ai,int bi){
+  for(int t=0;t<e->nt;t++){
+    if(e->tr[t].message==ai){
+      int found=0;
+      for(int u=0;u<e->nt;u++){
+        if(e->tr[u].message==bi && e->tr[u].from==e->tr[t].from && e->tr[u].to==e->tr[t].to){
+          int rt=e->tr[t].response>=0?e->canonical[e->tr[t].response]:-1;
+          int ru=e->tr[u].response>=0?e->canonical[e->tr[u].response]:-1;
+          if(rt==ru){found=1;break;}
+        }
+      }
+      if(!found)return 0;
+    }
+    if(e->tr[t].response==ai){
+      int found=0;
+      for(int u=0;u<e->nt;u++){
+        if(e->tr[u].response==bi && e->tr[u].from==e->tr[t].from && e->tr[u].to==e->tr[t].to &&
+           e->canonical[e->tr[u].message]==e->canonical[e->tr[t].message]){found=1;break;}
+      }
+      if(!found)return 0;
+    }
+  }
+  for(int t=0;t<e->nt;t++){
+    if(e->tr[t].message==bi){
+      int found=0;
+      for(int u=0;u<e->nt;u++){
+        if(e->tr[u].message==ai && e->tr[u].from==e->tr[t].from && e->tr[u].to==e->tr[t].to){
+          int rt=e->tr[t].response>=0?e->canonical[e->tr[t].response]:-1;
+          int ru=e->tr[u].response>=0?e->canonical[e->tr[u].response]:-1;
+          if(rt==ru){found=1;break;}
+        }
+      }
+      if(!found)return 0;
+    }
+    if(e->tr[t].response==bi){
+      int found=0;
+      for(int u=0;u<e->nt;u++){
+        if(e->tr[u].response==ai && e->tr[u].from==e->tr[t].from && e->tr[u].to==e->tr[t].to &&
+           e->canonical[e->tr[u].message]==e->canonical[e->tr[t].message]){found=1;break;}
+      }
+      if(!found)return 0;
+    }
+  }
+  return 1;
 }
 
 proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
@@ -428,7 +474,14 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
   if(number(&s,key(&s,lim,"max_bytes"),&v)<0 || v<1 || v>MAX_FILE)goto malformed;e->max_bytes=v;
   for(int mi=0;mi<e->nm;mi++)if(!e->m[mi].response && e->m[mi].size+4>e->max_bytes)goto malformed;
   {uint8_t reachable[SMAX]={0};reachable[e->initial]=1;for(int i=0;i<e->ns;i++)for(int t=0;t<e->nt;t++)if(reachable[e->tr[t].from])reachable[e->tr[t].to]=1;for(int i=0;i<e->ns;i++)if(!reachable[i]){fail(err,cap,"unreachable IR state %s",e->state[i]);goto bad;}}
-  for(int mi=0;mi<e->nm;mi++){e->canonical[mi]=mi;for(int prior=0;prior<mi;prior++)if(equivalent_models(e,mi,prior)){e->canonical[mi]=e->canonical[prior];break;}}
+  for(int mi=0;mi<e->nm;mi++)e->canonical[mi]=mi;
+  for(int mi=0;mi<e->nm;mi++){for(int prior=0;prior<mi;prior++)if(equivalent_models(e,mi,prior)&&equivalent_transitions(e,mi,prior)){e->canonical[mi]=e->canonical[prior];break;}}
+  for(int old=0;old<e->nt;old++)for(int prior=0;prior<old;prior++)if(e->tr[old].from==e->tr[prior].from && e->canonical[e->tr[old].message]==e->canonical[e->tr[prior].message]){fail(err,cap,"ambiguous runtime state transition");goto bad;}
+  for(int mi=0;mi<e->nm;mi++){for(int prior=0;prior<mi;prior++){
+    if(e->codec>0 && e->m[mi].response==e->m[prior].response && codecs[e->codec].same(e->m[mi].example,e->m[mi].size,e->m[prior].example,e->m[prior].size)){
+      if(e->canonical[mi]!=e->canonical[prior]){fail(err,cap,"ambiguous wire identity with differing semantics: %s and %s",e->m[prior].id,e->m[mi].id);goto bad;}
+    }
+  }}
   json_free(&p);json_free(&s);e->prefix_state=e->initial;e->prefix_valid=1;proto_session_begin(e);return e;
 malformed:fail(err,cap,"invalid IR field, reference, type, width or limit");
 bad:json_free(&p);json_free(&s);proto_free(e);return NULL;
@@ -519,7 +572,7 @@ static int bind_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t
   pm *m=&e->m[mi];for(int i=0;i<m->nd;i++){pd *d=&m->d[i];if(d->op==4 || d->op==5 || d->op==7){uint8_t done[FMAX]={0};if(repair_field(e,mi,d->target,b,n,done,err,cap)<0)return -1;}}
   if(e->codec && (codecs[e->codec].validate(b,n,err,cap)<0 || model_for(e,b,n,0)<0))return fail(err,cap,"live binding violates wire structure or model bounds");
   remember(e,mi,b,n);for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi])e->pending[model]=1;layout v;if(!e->codec && bacnet_layout(b,n,&v,err,cap)==0 && v.kind==0)e->outstanding[b[v.invoke]]=1;
-  for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->tr[t].message==mi){e->semantic_state=e->tr[t].to;break;}
+  for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[mi]){e->semantic_state=e->tr[t].to;break;}
   return 0;
 }
 int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
@@ -566,7 +619,7 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
     if(e->codec){e->responses++;if(linked)e->correlated++;}
     mi=m;for(int d=0;d<e->m[m].nd;d++){pd *dep=&e->m[m].d[d];if(dep->op==6)for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[dep->message])e->pending[model]=0;}break;
   }
-  if(mi>=0){remember(e,mi,(uint8_t*)b,n);for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->tr[t].message==mi){e->semantic_state=e->tr[t].to;break;}}
+  if(mi>=0){remember(e,mi,(uint8_t*)b,n);for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[mi]){e->semantic_state=e->tr[t].to;break;}}
 }
 void proto_after_response(proto_engine *e,const uint8_t *b,size_t n){
   if(e&&e->generic){gr_after_response(e->generic,b,n);return;}
@@ -582,8 +635,9 @@ void proto_after_response(proto_engine *e,const uint8_t *b,size_t n){
 }
 static int semantic_step(proto_engine *e,int state,int model){
   if(e->m[model].response)return -1;
-  for(int t=0;t<e->nt;t++){pt *tr=&e->tr[t];if(tr->from!=state || tr->message!=model)continue;
-    state=tr->to;if(tr->response>=0){int answered=0;for(int u=0;u<e->nt;u++)if(e->tr[u].from==state && e->tr[u].message==tr->response){state=e->tr[u].to;answered=1;break;}if(!answered)return -1;}
+  int c_model=e->canonical[model];
+  for(int t=0;t<e->nt;t++){pt *tr=&e->tr[t];if(tr->from!=state || e->canonical[tr->message]!=c_model)continue;
+    state=tr->to;if(tr->response>=0){int answered=0;int c_resp=e->canonical[tr->response];for(int u=0;u<e->nt;u++)if(e->tr[u].from==state && e->canonical[e->tr[u].message]==c_resp){state=e->tr[u].to;answered=1;break;}if(!answered)return -1;}
     return state;
   }return -1;
 }
@@ -598,7 +652,7 @@ static int sequence_ok(proto_engine *e) {
   if(!e->prefix_valid)return -1;int state=e->prefix_state;
   for(size_t i=0;i<e->count;i++){
     int model=e->records[i].model;if((state=semantic_step(e,state,model))<0)return -1;
-    size_t repeats=0;for(size_t j=0;j<=i;j++)if(e->records[j].model==model)repeats++;
+    size_t repeats=0;int c_model=e->canonical[model];for(size_t j=0;j<=i;j++)if(e->canonical[e->records[j].model]==c_model)repeats++;
     if(repeats>(size_t)e->max_repeat)return -1;
   }return 0;
 }

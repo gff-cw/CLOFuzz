@@ -44,6 +44,8 @@ done
 "$generic_test_output/boundary_mapping" > "$generic_test_output/boundary_mapping.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_target_state_m2_selection.c -o "$generic_test_output/target_state_m2"
 "$generic_test_output/target_state_m2" > "$generic_test_output/target_state_m2.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_alias_canonical_identity.c "${generic_test_sources[@]}" -o "$generic_test_output/alias_canonical"
+"$generic_test_output/alias_canonical" > "$generic_test_output/alias_canonical.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"
