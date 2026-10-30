@@ -204,3 +204,54 @@ coverage feedback and, with `--state-aware`, real memory-state feedback. It
 does not measure an improvement over baseline AFL or establish industrial
 protocol conformance. Comparative coverage claims require repeated equal
 budget experiments on the intended industrial targets.
+
+## Expressibility and rejection rules (G02)
+
+### Common expressible intermediate semantics
+
+To unify frontend representations without semantic loss, both the offline
+schema checkers and the C grammar runtime (`generic_wire.c`, `generic_runtime.c`)
+strictly restrict executable structures to the following lossless intermediate
+primitives:
+
+1. **Topology**: Strictly ordered flat sequence of fields (`kind: "struct"`).
+2. **Scalars**: 1/2/3/4/8 byte unsigned integers (`kind: "uint"`) with fixed
+   endianness (`big` or `little`).
+3. **Byte slices**:
+   - Fixed constant byte sequences (`role: "fixed"` or constant length).
+   - Dynamic lengths referencing a strictly prior `uint` field with optional
+     signed integer offset (`add`).
+   - Suffix bytes consuming the remainder of the packet (`length: "rest"`),
+     strictly allowed only on the final field of a struct.
+4. **Length derivation**: Message total byte size (`size_of($message) + add`)
+   or named field byte size.
+5. **Deterministic state transitions**: Deterministic `(from, message) -> to`
+   state triples with an optional matching expected response message.
+6. **Correlation**: Exact integer equality between a request `uint` leaf and
+   a response `uint` leaf (`request_field == response_field`).
+
+### Mandatory unsupported construct rejection table
+
+Any description file attempting to use structures outside this intermediate
+contract must be explicitly rejected with an error diagnostic. The following
+taxonomy of unexpressible constructs is enforced:
+
+| Reject Code | Construct | Enforcement Point | Diagnostic |
+| --- | --- | --- | --- |
+| `UNSUPPORTED_GRAMMAR_KIND` | Grammar `kind != "struct"` (e.g. `array`, `union`, `choice`) | C `gw_compile` | `grammar must be struct` |
+| `UNSUPPORTED_FIELD_KIND` | Field `kind` other than `uint` or `bytes` (e.g. `float`, `bits`, `tlv`) | C `gw_compile` | `invalid kind` |
+| `UNSUPPORTED_PROPERTY` | Unknown properties (e.g. `when`, `repeat`, `guard`, `actions`, `script`) | C `nj_keys` | `unsupported JSON property` |
+| `UNSUPPORTED_REST_POSITION` | `length: "rest"` not placed on the final field | C `gw_compile` | `rest must be final` |
+| `UNSUPPORTED_REF_ORDER` | Length `ref` pointing to non-existent or later field | C `gw_compile` | `length ref must name earlier uint` |
+| `UNSUPPORTED_TRANSPORT` | Transports other than `tcp` or `udp` (e.g. `sctp`, `serial`) | C `gr_load` | `invalid generic-wire package header` |
+| `UNSUPPORTED_FRAMING` | Framing kinds other than `length_field` (TCP) or `datagram` (UDP) | C `gr_load` | `invalid generic-wire package header` |
+| `UNSUPPORTED_ONLINE_SCOPE` | Multi-service profiles with unexpressible semantics setting `online: true` | C `gr_load` / tools | `description is offline-only` |
+
+### Frozen fixture scope contract
+
+Any byte field marked `fixed_*` in the six migrated protocol profiles represents
+only a frozen example capture from a specific sample run. It **does not** constitute
+structural decoding, semantic validation, or full-standard compliance for that
+protocol. Switching `online: false` to `online: true` by simply toggling the boolean
+flag or renaming a profile without implementing the missing primitives and passing
+independent end-to-end verification is strictly prohibited.
