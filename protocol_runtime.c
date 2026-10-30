@@ -699,10 +699,18 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
   }
   if(mi>=0 && target_tr>=0){remember(e,mi,(uint8_t*)b,n);e->semantic_state=e->tr[target_tr].to;}
 }
-void proto_after_response(proto_engine *e,const uint8_t *b,size_t n){
-  if(e&&e->generic){gr_after_response(e->generic,b,n);return;}
+void proto_after_dgram(proto_engine *e,const uint8_t *b,size_t n){
+  if(e&&e->generic){gr_after_dgram(e->generic,b,n);return;}
   if(!e || !b || !n)return;
-  if(!e->codec){size_t p=0;while(n-p>=4){size_t z=getint(b+p+2,2,0);if(z<4 || z>n-p)break;response_frame(e,b+p,z);p+=z;}return;}
+  if(!e->codec){
+    /* P16: Discrete UDP datagram delivered with preserved boundary. */
+    response_frame(e,b,n);
+    return;
+  }
+}
+void proto_after_stream(proto_engine *e,const uint8_t *b,size_t n){
+  if(e&&e->generic){gr_after_stream(e->generic,b,n);return;}
+  if(!e || !b || !n)return;
   if(n>MAX_FILE-e->receive_size){e->receive_size=0;if(e->log)fputs("{\"event\":\"response_rejected\",\"reason\":\"receive_limit\"}\n",e->log);return;}
   memcpy(e->receive+e->receive_size,b,n);e->receive_size+=n;size_t p=0;char err[128];
   while(p<e->receive_size){size_t z=0;int result=codecs[e->codec].frame(e->receive+p,e->receive_size-p,&z,err,sizeof(err));
@@ -710,6 +718,11 @@ void proto_after_response(proto_engine *e,const uint8_t *b,size_t n){
     if(!result)break;if(!z || z>e->receive_size-p){e->receive_size=0;return;}response_frame(e,e->receive+p,z);p+=z;
   }
   if(p){memmove(e->receive,e->receive+p,e->receive_size-p);e->receive_size-=p;}
+}
+void proto_after_response(proto_engine *e,const uint8_t *b,size_t n){
+  if(!e || !b || !n)return;
+  if(!strcmp(proto_transport(e),"udp"))proto_after_dgram(e,b,n);
+  else proto_after_stream(e,b,n);
 }
 static int semantic_step(proto_engine *e,int state,int model){
   if(e->m[model].response)return -1;

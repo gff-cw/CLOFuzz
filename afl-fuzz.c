@@ -1778,19 +1778,26 @@ int wait_for_state_sequence(u32 timeout_ms) {
 
 
 
+static void on_network_response_received(const uint8_t *buf, size_t len, int is_dgram, int truncated, void *user) {
+  (void)user;
+  if (!protocol_engine || !buf || !len) return;
+  if (is_dgram) {
+    if (truncated && protocol_log)
+      fprintf(protocol_log, "{\"event\":\"dgram_truncated\",\"len\":%zu}\n", len);
+    proto_after_dgram(protocol_engine, buf, len);
+  } else {
+    proto_after_stream(protocol_engine, buf, len);
+  }
+}
+
 /* Observe every appended response byte exactly once, including bytes received
-   before an error and the final drain. TCP framing stays in the runtime. */
+   before an error and the final drain. TCP framing stays in the runtime.
+   P16: Discrete UDP datagram boundaries are preserved across multiple receives. */
 static int receive_network_responses(int sockfd, struct timeval timeout,
                                     u32 poll_wait_msecs_total) {
-  u32 previous_size = response_buf_size;
-  int result = net_recv(sockfd, timeout, poll_wait_msecs_total,
-                        &response_buf, &response_buf_size);
-
-  if (protocol_engine && response_buf_size > previous_size)
-    proto_after_response(protocol_engine, (u8 *)response_buf + previous_size,
-                         response_buf_size - previous_size);
-
-  return result;
+  return net_recv_with_cb(sockfd, timeout, poll_wait_msecs_total,
+                          &response_buf, &response_buf_size,
+                          on_network_response_received, NULL);
 }
 
 typedef struct {

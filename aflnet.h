@@ -91,8 +91,13 @@ extern region_t* (*extract_requests)(unsigned char* buf, unsigned int buf_size, 
 // Network communication functions
 
 // Two wrappers for sending and receiving data over socket
+typedef void (*net_recv_cb_t)(const uint8_t *buf, size_t len, int is_dgram, int truncated, void *user);
+
 int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len);
 int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len);
+int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
+                     char **response_buf, unsigned int *len,
+                     net_recv_cb_t cb, void *user);
 
 // kl_messages manipulating functions
 

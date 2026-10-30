@@ -53,6 +53,9 @@ void proto_session_begin(proto_engine *engine);
 int proto_before_send(proto_engine *engine, uint8_t *wire, size_t length,
                       char *error, size_t cap);
 void proto_after_response(proto_engine *engine, const uint8_t *wire, size_t length);
+/* P16: Transport interface separates discrete UDP datagram events from TCP stream segments. */
+void proto_after_dgram(proto_engine *engine, const uint8_t *wire, size_t length);
+void proto_after_stream(proto_engine *engine, const uint8_t *wire, size_t length);
 void proto_write_stats(proto_engine *engine, const char *path);
 /* Safe codec contract: validate complete datagram and locate a field; absent
  * optional field returns 0, invalid packet/locator -1, present field 1. */

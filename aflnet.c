@@ -1720,11 +1720,14 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
   return byte_count;
 }
 
-int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len) {
+int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
+                     char **response_buf, unsigned int *len,
+                     net_recv_cb_t cb, void *user) {
   char temp_buf[65536];
   int kind = SOCK_STREAM; socklen_t size = sizeof(kind);
   getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &kind, &size);
-  int flags = kind == SOCK_DGRAM ? MSG_TRUNC : 0;
+  int is_dgram = (kind == SOCK_DGRAM);
+  int flags = is_dgram ? MSG_TRUNC : 0;
   int n;
   struct pollfd pfd[1];
   pfd[0].fd = sockfd;
@@ -1740,14 +1743,22 @@ int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf
         return 1;
       }
       while (n > 0) {
-        if ((size_t)n > sizeof(temp_buf) ||
-            (kind == SOCK_DGRAM && ((unsigned)n > MAX_FILE || *len > MAX_FILE - (unsigned)n)))
+        int truncated = 0;
+        size_t dgram_len = (size_t)n;
+        if (dgram_len > sizeof(temp_buf)) {
+          truncated = 1;
+          dgram_len = sizeof(temp_buf);
+        }
+        if (is_dgram && ((unsigned)dgram_len > MAX_FILE || *len > MAX_FILE - (unsigned)dgram_len))
           return 1;
         usleep(10);
-        *response_buf = (unsigned char *)ck_realloc(*response_buf, *len + n + 1);
-        memcpy(&(*response_buf)[*len], temp_buf, n);
-        (*response_buf)[(*len) + n] = '\0';
-        *len = *len + n;
+        *response_buf = (char *)ck_realloc(*response_buf, *len + dgram_len + 1);
+        memcpy(&(*response_buf)[*len], temp_buf, dgram_len);
+        (*response_buf)[(*len) + dgram_len] = '\0';
+        *len = *len + dgram_len;
+        if (cb) {
+          cb((const uint8_t *)temp_buf, dgram_len, is_dgram, truncated, user);
+        }
         n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
         if ((n < 0) && (errno != EAGAIN)) {
           return 1;
@@ -1760,6 +1771,10 @@ int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf
 
   // rv == 0 poll timeout or all data pending after poll has been received successfully
   return 0;
+}
+
+int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len) {
+  return net_recv_with_cb(sockfd, timeout, poll_w, response_buf, len, NULL, NULL);
 }
 
 // Utility function

@@ -565,9 +565,12 @@ static void gr_response_frame(gr_engine *e,const uint8_t *wire,size_t length){
     if(fits){e->pending=0;e->state=e->pending_next;e->completed++;if(checked)e->correlated++;}
   }gw_packet_free(packet);
 }
-void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
+void gr_after_dgram(gr_engine *e,const uint8_t *wire,size_t length){
   if(!e||!wire||!length)return;
-  if(!strcmp(e->transport,"udp")){if(length<=GR_WIRE)gr_response_frame(e,wire,length);return;}
+  if(length<=GR_WIRE)gr_response_frame(e,wire,length);
+}
+void gr_after_stream(gr_engine *e,const uint8_t *wire,size_t length){
+  if(!e||!wire||!length)return;
   if(length>MAX_FILE-e->receive_size){e->receive_size=0;return;}
   memcpy(e->receive+e->receive_size,wire,length);e->receive_size+=length;size_t at=0;
   while(e->receive_size-at>=e->frame_offset+e->frame_width){
@@ -576,6 +579,11 @@ void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
     if(n<=0||n>GR_WIRE||n<e->frame_offset+e->frame_width){e->receive_size=0;return;}
     if((size_t)n>e->receive_size-at)break;gr_response_frame(e,b,(size_t)n);at+=(size_t)n;
   }if(at){memmove(e->receive,e->receive+at,e->receive_size-at);e->receive_size-=at;}
+}
+void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
+  if(!e||!wire||!length)return;
+  if(!strcmp(e->transport,"udp"))gr_after_dgram(e,wire,length);
+  else gr_after_stream(e,wire,length);
 }
 void gr_write_stats(gr_engine *e,const char *path){
   if(!e||!path)return;FILE *f=fopen(path,"w");if(!f)return;
