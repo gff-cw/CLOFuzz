@@ -1014,6 +1014,22 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
   return obs;
 }
 
+/* P22: Register reachability between state and seed without duplicates (idempotent) */
+static void register_state_seed_reachability(state_info_t *state, struct queue_entry *q) {
+  if (!state || !q) return;
+
+  for (u32 s = 0; s < state->seeds_count; s++) {
+    if (state->seeds[s] == (void *)q) {
+      /* Already registered for this state; idempotent, do not duplicate */
+      return;
+    }
+  }
+
+  state->seeds = (void **)ck_realloc(state->seeds, (state->seeds_count + 1) * sizeof(void *));
+  state->seeds[state->seeds_count] = (void *)q;
+  state->seeds_count++;
+}
+
 /* Update state-aware variables */
 void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv)
 {
@@ -1587,9 +1603,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
   k = kh_get(hms, khms_states, 0);
   if (k != kh_end(khms_states)) {
     state = kh_val(khms_states, k);
-    state->seeds = (void **) ck_realloc (state->seeds, (state->seeds_count + 1) * sizeof(void *));
-    state->seeds[state->seeds_count] = (void *)q;
-    state->seeds_count++;
+    register_state_seed_reachability(state, q);
 
     was_fuzzed_map[0][q->index] = 0; //Mark it as reachable but not fuzzed
   } else {
@@ -1606,9 +1620,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
       k = kh_get(hms, khms_states, reachable_state_id);
       if (k != kh_end(khms_states)) {
         state = kh_val(khms_states, k);
-        state->seeds = (void **) ck_realloc (state->seeds, (state->seeds_count + 1) * sizeof(void *));
-        state->seeds[state->seeds_count] = (void *)q;
-        state->seeds_count++;
+        register_state_seed_reachability(state, q);
       } else {
         //XXX. This branch is supposed to be not reachable
         //However, due to some undeterminism, new state could be seen during regions' annotating process
@@ -1626,9 +1638,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
         newState->score = 1;
         newState->selected_seed_index = 0;
         newState->seeds = NULL;
-        newState->seeds = (void **) ck_realloc (newState->seeds, sizeof(void *));
-        newState->seeds[0] = (void *)q;
-        newState->seeds_count = 1;
+        newState->seeds_count = 0;
+        register_state_seed_reachability(newState, q);
 
         k = kh_put(hms, khms_states, reachable_state_id, &discard);
         kh_value(khms_states, k) = newState;

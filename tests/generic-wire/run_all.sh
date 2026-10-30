@@ -36,6 +36,8 @@ done
 "$generic_test_output/candidate_metadata" > "$generic_test_output/candidate_metadata.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_novelty_admission_decoupling.c -o "$generic_test_output/novelty_admission"
 "$generic_test_output/novelty_admission" > "$generic_test_output/novelty_admission.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_reachability_deduplication.c -o "$generic_test_output/reachability_dedup"
+"$generic_test_output/reachability_dedup" > "$generic_test_output/reachability_dedup.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"
