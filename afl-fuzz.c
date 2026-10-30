@@ -7178,17 +7178,37 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   current_seed_id = queue_cur ? queue_cur->index : 0;
   current_feedback_layer = 0;
 
-  if (protocol_engine && protocol_mode != PROTO_RAW &&
-      (!protocol_adaptive || (stage_short &&
-       (!strcmp((char *)stage_short, "havoc") || !strcmp((char *)stage_short, "splice")))) &&
+  /* P20: Unified stage eligibility for both uniform and adaptive scheduling */
+  u8 stage_eligible = (stage_short && (!strcmp((char *)stage_short, "havoc") ||
+                                       !strcmp((char *)stage_short, "splice")));
+  const char *req_mode = (protocol_mode == PROTO_VALID) ? "valid" :
+                         (protocol_mode == PROTO_HYBRID) ? "hybrid" :
+                         (protocol_mode == PROTO_INVALID) ? "invalid" : "raw";
+  const char *actual_mode = "raw";
+
+  if (protocol_engine && protocol_mode != PROTO_RAW && stage_eligible &&
       (protocol_mode != PROTO_HYBRID || UR(100) < protocol_ratio)) {
     protocol_regions = protocol_prepare(&out_buf, &len, &protocol_count,
                                         &feedback_layer, &feedback_state);
     current_feedback_layer = feedback_layer;
-    if (!protocol_regions) {
+    if (protocol_regions) {
+      actual_mode = "structured";
+    } else {
       protocol_observe_candidate(feedback_state, feedback_layer, 0, 0, 0);
       feedback_layer = 0;
-      if (!protocol_fallback) return 0;
+      if (!protocol_fallback) {
+        /* P20: Candidate rejected without fallback. Clear trace_bits so caller cannot consume stale bitmap! */
+        memset(trace_bits, 0, MAP_SIZE);
+        if (protocol_log) {
+          fprintf(protocol_log, "{\"event\":\"candidate_status\",\"candidate_id\":%u,"
+                  "\"requested_mode\":\"%s\",\"actual_mode\":\"none\",\"stage\":\"%s\","
+                  "\"layer\":\"%s\",\"executed\":false,\"outcome\":\"rejected\"}\n",
+                  current_candidate_id, req_mode, stage_short ? (char *)stage_short : "none",
+                  "NONE");
+        }
+        return 0;
+      }
+      actual_mode = "fallback_raw";
     }
   }
   if (protocol_engine && !protocol_regions) protocol_raw_runs++;
@@ -7196,7 +7216,10 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   if (post_handler) {
 
     out_buf = post_handler(out_buf, &len);
-    if (!out_buf || !len) return 0;
+    if (!out_buf || !len) {
+      memset(trace_bits, 0, MAP_SIZE);
+      return 0;
+    }
 
   }
 
@@ -7287,6 +7310,24 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   protocol_structured_sent = 0;
   fault = run_target(argv, exec_tmout, afl_fsrv);
   u8 feedback_delivered = protocol_count && protocol_structured_sent == protocol_count;
+
+  /* P20: Log executed candidate status with requested/actual modes, stage, and outcome */
+  if (protocol_log) {
+    const char *layer_str = "NONE";
+    if (current_feedback_layer == 1) layer_str = "HEAD";
+    else if (current_feedback_layer == 2) layer_str = "CONTENT";
+    else if (current_feedback_layer == 4) layer_str = "SEQUENCE";
+
+    const char *outcome_str = (fault == FAULT_TMOUT) ? "timeout" :
+                              (fault == FAULT_CRASH) ? "crash" : "executed";
+
+    fprintf(protocol_log, "{\"event\":\"candidate_status\",\"candidate_id\":%u,"
+            "\"requested_mode\":\"%s\",\"actual_mode\":\"%s\",\"stage\":\"%s\","
+            "\"layer\":\"%s\",\"executed\":true,\"outcome\":\"%s\"}\n",
+            current_candidate_id, req_mode, actual_mode,
+            stage_short ? (char *)stage_short : "none",
+            layer_str, outcome_str);
+  }
 
   //Update fuzz count, no matter whether the generated test is interesting or not
   if (state_aware_mode) update_fuzzs();
