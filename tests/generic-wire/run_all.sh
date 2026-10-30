@@ -52,6 +52,8 @@ done
 "$generic_test_output/sequence_validation" > "$generic_test_output/sequence_validation.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_state_graph_strict_execution.c "${generic_test_sources[@]}" -o "$generic_test_output/state_graph_strict"
 "$generic_test_output/state_graph_strict" > "$generic_test_output/state_graph_strict.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_session_runtime_binding_isolation.c "$generic_test_output/aflnet.o" "${generic_test_sources[@]}" -o "$generic_test_output/session_isolation"
+"$generic_test_output/session_isolation" > "$generic_test_output/session_isolation.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

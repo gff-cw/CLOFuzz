@@ -1793,6 +1793,42 @@ static int receive_network_responses(int sockfd, struct timeval timeout,
   return result;
 }
 
+typedef struct {
+  u8 *data;
+  u32 size;
+} executed_message_t;
+
+static void save_executed_messages_to_file(executed_message_t *msgs, u32 count, const char *fname) {
+  if (!msgs || !count || !fname) return;
+  u32 len = 0;
+  for (u32 i = 0; i < count; i++) {
+    len += 4 + msgs[i].size;
+  }
+  u8 *mem = (u8 *) ck_alloc(len);
+  u32 offset = 0;
+  for (u32 i = 0; i < count; i++) {
+    u32 sz = msgs[i].size;
+    for (unsigned j = 0; j < 4; j++) mem[offset + j] = (u8)(sz >> (8 * j));
+    offset += 4;
+    if (sz && msgs[i].data) {
+      memcpy(mem + offset, msgs[i].data, sz);
+      offset += sz;
+    }
+  }
+  s32 fd = open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  if (fd < 0) {
+    ck_free(mem);
+    PFATAL("Unable to create file '%s'", fname);
+  }
+  if (write(fd, mem, len) != (ssize_t)len) {
+    close(fd);
+    ck_free(mem);
+    PFATAL("Short write writing executed replay file");
+  }
+  close(fd);
+  ck_free(mem);
+}
+
 static u8 protocol_message_in_current_m2(kliter_t(lms) *message) {
   kliter_t(lms) *it = M2_prev ? kl_next(M2_prev) : kl_begin(kl_messages);
   while (it != M2_next) {
@@ -1928,27 +1964,48 @@ int send_over_network()
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
   is_transmission_complete = 1;
+  executed_message_t *exec_msgs = NULL;
+  u32 exec_msgs_cap = 0;
+  u32 logical_digest = 0;
+  u32 executed_digest = 0;
 
   if (kl_messages) {
     for (it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it)) {
 
     usleep(send_delay_us);
 
+    logical_digest = hash32(kl_val(it)->mdata, kl_val(it)->msize, logical_digest);
+
+    u8 *send_buf = (u8 *) ck_alloc(kl_val(it)->msize);
+    memcpy(send_buf, kl_val(it)->mdata, kl_val(it)->msize);
+
     if (protocol_engine && protocol_structured_run) {
       char error[256];
-      if (proto_before_send(protocol_engine, (u8 *)kl_val(it)->mdata,
+      if (proto_before_send(protocol_engine, send_buf,
                             kl_val(it)->msize, error, sizeof(error)) < 0) {
-        /* Deliberately invalid packets must reach the target unchanged. */
-        if (kl_val(it)->protocol_structured &&
+        /* P11: Cover structured session contract over M1/M3 as well.
+           In PROTO_VALID or PROTO_HYBRID, structured runs must reject candidate if before_send fails. */
+        if ((protocol_structured_run || kl_val(it)->protocol_structured) &&
             (protocol_mode == PROTO_VALID || protocol_mode == PROTO_HYBRID)) {
           protocol_rejections++;
           if (protocol_log)
             fprintf(protocol_log,"{\"event\":\"session_rejected\",\"reason\":\"%s\"}\n",error);
+          ck_free(send_buf);
           goto HANDLE_RESPONSES;
         }
       }
     }
-    n = net_send(sockfd, timeout, kl_val(it)->mdata, kl_val(it)->msize);
+    n = net_send(sockfd, timeout, send_buf, kl_val(it)->msize);
+
+    if (messages_sent >= exec_msgs_cap) {
+      exec_msgs_cap = exec_msgs_cap ? exec_msgs_cap * 2 : 16;
+      exec_msgs = (executed_message_t *) ck_realloc(exec_msgs, exec_msgs_cap * sizeof(executed_message_t));
+    }
+    exec_msgs[messages_sent].data = send_buf;
+    exec_msgs[messages_sent].size = (n > 0) ? (u32)n : 0;
+    if (n > 0) {
+      executed_digest = hash32(send_buf, n, executed_digest);
+    }
     messages_sent++;
 
     //Allocate memory to store new accumulated response buffer size
@@ -2012,7 +2069,7 @@ HANDLE_RESPONSES:
   if (experiment_active && protocol_candidate_dir && complete_messages &&
       protocol_candidates_saved < protocol_candidate_limit) {
     u8 *sample = alloc_printf("%s/%06u.replay", protocol_candidate_dir, protocol_candidates_saved);
-    save_kl_messages_to_file(kl_messages, sample, 1, complete_messages);
+    save_executed_messages_to_file(exec_msgs, complete_messages, (char *)sample);
     ck_free(sample);
     u8 *metadata = alloc_printf("%s/%06u.json", protocol_candidate_dir, protocol_candidates_saved);
     FILE *record = fopen((char *)metadata, "w");
@@ -2025,7 +2082,8 @@ HANDLE_RESPONSES:
       else if (current_feedback_layer == 4) layer_str = "SEQUENCE";
     }
 
-    /* P24: Link candidate execution identity and tag execution purpose in candidate records */
+    /* P24/P11: Link candidate execution identity and tag execution purpose in candidate records.
+       Record logical and executed digests. */
     fprintf(record,
             "{\"format_version\":2,"
             "\"candidate_id\":%u,"
@@ -2043,6 +2101,8 @@ HANDLE_RESPONSES:
             "\"total_bytes_sent\":%u,"
             "\"partial_bytes_tail\":%u,"
             "\"is_transmission_complete\":%s,"
+            "\"logical_digest\":\"0x%08x\","
+            "\"executed_digest\":\"0x%08x\","
             "\"execution_identity_verified\":false}\n",
             current_candidate_id,
             state_exec_id,
@@ -2058,11 +2118,21 @@ HANDLE_RESPONSES:
             messages_sent,
             total_bytes_sent,
             partial_bytes_tail,
-            is_transmission_complete ? "true" : "false");
+            is_transmission_complete ? "true" : "false",
+            logical_digest,
+            executed_digest);
 
     if (fclose(record)) PFATAL("Cannot close experiment candidate metadata");
     ck_free(metadata);
     protocol_candidates_saved++;
+  }
+
+  if (exec_msgs) {
+    for (u32 i = 0; i < messages_sent; i++) {
+      if (exec_msgs[i].data) ck_free(exec_msgs[i].data);
+    }
+    ck_free(exec_msgs);
+    exec_msgs = NULL;
   }
 
   if (likely_buggy && false_negative_reduction) return 0;
