@@ -36,6 +36,67 @@ below; omission from `unsupported` does not establish semantic completeness.
 | EtherNet/IP CIP | RegisterSession / one success response | 8 / 10 | No | Session binding to later requests, CPF, CIP EPATH and ForwardOpen. |
 | OPC UA TCP | Fixed-endpoint HEL / ACK | 8 / 10 | No | Buffer/version negotiation constraints, dynamic UA Binary values, channel/token binding, service bodies and multi-chunk messages. |
 
+## Structured protocol capability gap taxonomy (G03)
+
+Protocol capabilities are formally scoped across message, service, field,
+and session boundaries. The presence of frozen fixture bytes in an offline
+grammar does not constitute capability support. The six core gap categories
+below are tracked as explicit non-conformance items:
+
+### 1. Error response gap (`GAP_ERROR_RESPONSE`)
+* **Modbus TCP**: Only normal 2-byte register response is modeled; exception
+  responses (FC 0x83, exception codes 01–04) are unexpressed.
+* **BACnet/IP**: Error-PDU, Reject-PDU, and Abort-PDU response layouts are absent.
+* **IEC 104**: Negative activation confirmations and mirrored mirror rejections are unexpressed.
+* **IEC 61850 MMS**: ServiceError, ConfirmedErrorPDU, and RejectPDU are unexpressed.
+* **EtherNet/IP**: Encapsulation status error codes and CIP routing error statuses are unexpressed.
+* **OPC UA**: ServiceFault and error chunk (`ERR`) layouts are unexpressed.
+
+### 2. Variable quantity and dynamic sizing gap (`GAP_VARIABLE_QUANTITY`)
+* **Modbus TCP**: Register count is locked to exactly 1 (2 data bytes). Arbitrary
+  read quantities (1..125) and write masks are unexpressed.
+* **BACnet/IP**: Variable-length object property lists, strings, and octet strings are unexpressed.
+* **IEC 104**: Variable structure qualifiers ($VSQ > 1$) with multi-object ASDUs are unexpressed.
+* **IEC 61850 MMS**: Arrays of named variables in Read/Write services are unexpressed.
+* **EtherNet/IP**: Multi-service packets and variable-length CIP paths are unexpressed.
+* **OPC UA**: Dynamic array dimensions (EndpointDescription arrays, UserTokenPolicy arrays) are unexpressed.
+
+### 3. Concurrent transaction gap (`GAP_CONCURRENT_TRANSACTION`)
+* **Modbus TCP**: Single pending transaction only. Concurrent pipelined transaction IDs
+  over a shared TCP stream are unexpressed.
+* **BACnet/IP**: Concurrent invoke IDs for unconfirmed/confirmed transactions are unexpressed.
+* **IEC 104**: Live $V(S) / V(R)$ sequence window accounting and simultaneous interrogation/commands are unexpressed.
+* **IEC 61850 MMS**: Multiple concurrent invoke IDs are unexpressed.
+* **EtherNet/IP**: Concurrent CIP transport class 3 connections are unexpressed.
+* **OPC UA**: Concurrent request handles across multiple secure channels are unexpressed.
+
+### 4. Server session value and dynamic binding gap (`GAP_SERVER_SESSION_VALUE`)
+* **BACnet/IP**: Dynamic device instance discovery and router address learning are unexpressed.
+* **IEC 61850 MMS**: Negotiated association parameters (Max PDU Size, Max Services, Nesting Level)
+  restricting subsequent PDUs are unexpressed.
+* **EtherNet/IP**: Session Handle returned by `RegisterSession` dynamically required in
+  `SendRRData` / `SendUnitData` cannot be propagated without dedicated session binding.
+* **OPC UA**: Dynamic `ChannelId`, `TokenId`, and security nonces from `OpenSecureChannel`
+  cannot be dynamically bound to subsequent payload headers in generic-wire v1.
+
+### 5. Nested container and complex encoding gap (`GAP_NESTED_CONTAINER`)
+* **BACnet/IP**: Tag-Length-Value (LVT) context/application tags and constructed objects are unexpressed.
+* **IEC 104**: CP56Time2a 7-octet binary timestamps and multi-octet ASDU qualifiers are unexpressed.
+* **IEC 61850 MMS**: Deeply nested ASN.1/BER tag-length trees and indefinite length forms are unexpressed.
+* **EtherNet/IP**: Common Packet Format (CPF) type-length-value encapsulation items are unexpressed.
+* **OPC UA**: Structured UA Binary variants (NodeId, QualifiedName, LocalizedText) are unexpressed.
+
+### 6. Multi-chunk segmentation gap (`GAP_MULTI_CHUNK`)
+* **BACnet/IP**: Segmented request/response sequences with window sizes and sequence numbers are unexpressed.
+* **IEC 104**: Spontaneous multi-ASDU burst transmissions are unexpressed.
+* **IEC 61850 MMS**: TPKT multi-buffer PDU reassembly is unexpressed.
+* **EtherNet/IP**: Fragmented CIP explicit transfers are unexpressed.
+* **OPC UA**: Multi-chunk message sequences (`MSG` continuations 'C' ending in 'F') are unexpressed.
+
+Because these critical gaps exist, all five non-Modbus packages are strictly
+enforced as `online: false`. The runtime and profile checkers reject any attempt
+to execute them online.
+
 The Modbus `online:true` marker authorizes only the single FC03 grammar pair
 above; it does not mark the full Modbus TCP description complete. Five other
 packages have useful offline parse/encode fixtures but are explicitly blocked
