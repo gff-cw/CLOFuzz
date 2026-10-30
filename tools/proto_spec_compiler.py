@@ -320,7 +320,21 @@ def runtime_profile_signature(mid, codec, messages, fields, examples):
     return msg["direction"], msg["weight"], sorted(field_signature), sorted(dependencies)
 
 
+def check_no_placeholders(obj, path=""):
+    if isinstance(obj, str):
+        if "{{" in obj and "}}" in obj:
+            raise SpecError(f"{path}: template placeholder skeleton '{obj}' must be replaced before execution")
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            check_no_placeholders(v, f"{path}.{k}" if path else k)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            check_no_placeholders(v, f"{path}[{i}]")
+
+
 def validate(protocol, state):
+    check_no_placeholders(protocol, "protocol_spec")
+    check_no_placeholders(state, "state_transition")
     for obj, filename in ((protocol, "protocol_spec.schema.json"),
                           (state, "state_transition.schema.json")):
         schema = json.loads((ROOT / "protocols/schema" / filename).read_text())

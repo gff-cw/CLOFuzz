@@ -1,0 +1,24 @@
+format_version: 1
+protocol_id: minimal_modbus
+initial: connected
+states:
+- id: connected
+  meaning: TCP connected state with transaction session
+transitions:
+- from: connected
+  to: connected
+  message: read_holding
+  response: read_response
+  guard: transaction ID + unit + function correlation
+  actions: []
+- from: connected
+  to: connected
+  message: read_response
+  response: ''
+  guard: transaction ID + unit + function correlation
+  actions: []
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length violation

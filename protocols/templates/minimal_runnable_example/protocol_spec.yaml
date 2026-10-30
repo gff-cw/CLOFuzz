@@ -1,0 +1,312 @@
+format_version: 1
+protocol_id: minimal_modbus
+name: Minimal Modbus Example
+version: Application Protocol 1.1b3
+scope: Minimal runnable Modbus TCP FC03 Read Holding Registers example.
+transport: tcp
+framing: protocol length inside replayable records
+codec: modbus
+support:
+  runtime: true
+  level: runtime scoped codec
+  excluded:
+  - other function codes
+sources:
+- id: official
+  url: https://www.modbus.org/file/secure/modbusprotocolspecification.pdf
+  basis: normative
+  sections: Application Protocol V1.1b3 section 6.3
+messages:
+- id: read_holding
+  example: '000100000006010300000001'
+  direction: request
+  weight: 2
+  match: read_holding
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+  - id: CONTENT
+    fields:
+    - address
+    - quantity
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 65535
+    values: [1, 2, 3]
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values: [0]
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 255
+    values: [1]
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values: [3]
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: address
+    block: CONTENT
+    path: abs:8
+    locator: abs:8
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies: [afl]
+    evidence: official
+    confidence: normative
+  - id: quantity
+    block: CONTENT
+    path: abs:10
+    locator: abs:10
+    type: uint16
+    width: 2
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 125
+    values: [1]
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  notes: ''
+  fixture_status: complete
+  runtime_encode: true
+- id: read_response
+  example: '0001000000050103020001'
+  direction: response
+  weight: 2
+  match: read_response
+  blocks:
+  - id: HEAD
+    fields:
+    - transaction
+    - protocol
+    - length
+    - unit
+    - function
+    - byte_count
+  - id: CONTENT
+    fields:
+    - data
+  fields:
+  - id: transaction
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: big
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: protocol
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values: [0]
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: length
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint16
+    width: 2
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: unit
+    block: HEAD
+    path: abs:6
+    locator: abs:6
+    type: uint8
+    width: 1
+    endian: big
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 255
+    values: [1]
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: function
+    block: HEAD
+    path: abs:7
+    locator: abs:7
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 3
+    min: 3
+    max: 3
+    values: [3]
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: byte_count
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies: [enum]
+    evidence: official
+    confidence: normative
+  - id: data
+    block: CONTENT
+    path: abs:9
+    locator: abs:9
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0001'
+    min: 2
+    max: 2
+    values: []
+    strategies: [afl]
+    evidence: official
+    confidence: normative
+  dependencies:
+  - op: length_of
+    target: byte_count
+    source: data
+  - op: length_of
+    target: length
+    source: $message
+    add: -6
+  - op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: read_holding
+    scope: transaction
+  - op: copy_from_message
+    target: unit
+    source: unit
+    message: read_holding
+    scope: transaction
+  notes: 'FC03 response'
+  fixture_status: complete
+  runtime_encode: false

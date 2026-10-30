@@ -47,9 +47,9 @@ messages:
         role: head                 # head / content / fixed / derived
         mutability: fuzzable       # fixed / fuzzable / derived / conditional / runtime_bound
         default: 0                 # 描述性默认值；执行器从example取模板，不按default重写
-        min: 0
-        max: 255
-        values: []                 # 枚举变异候选；不单独构成解析时的枚举值域约束
+        min: 0                     # 解析/解码的物理数值下界；任何变异候选必须满足 min <= value <= max
+        max: 255                   # 解析/解码的物理数值上界
+        values: []                 # HEAD变异时的离散枚举候选值池；它不作为对端响应解析的封闭过滤器，且内部值必须严格落在 [min, max] 范围内
         strategies: [enum, boundary, bitflip, arithmetic] # HEAD标量策略；空列表使用这四种默认值
         evidence: wire
         confidence: implementation
