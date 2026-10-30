@@ -7714,42 +7714,54 @@ AFLNET_REGIONS_SELECTION:;
     if (total_region == 0) PFATAL("0 region found for %s", queue_cur->fname);
 
     if (target_state_id == 0) {
-      //No prefix subsequence (M1 is empty)
+      /* P01 Case 1: Initial state context (State 0).
+         No prefix subsequence needed (M1 is empty).
+         M2 starts at region 0. */
       M2_start_region_ID = 0;
       M2_region_count = 0;
 
-      //To compute M2_region_count, we identify the first region which has a different annotation
-      //Now we quickly compare the state count, we could make it more fine grained by comparing the exact response codes
-      for(i = 0; i < queue_cur->region_count ; i++) {
+      for (i = 0; i < queue_cur->region_count; i++) {
         if (queue_cur->regions[i].state_count != queue_cur->regions[0].state_count) break;
         M2_region_count++;
       }
-    } else {
-      //M1 is unlikely to be empty
-      M2_start_region_ID = 0;
+      if (M2_region_count == 0) M2_region_count = 1;
 
-      //Identify M2_start_region_ID first based on the target_state_id
-      for(i = 0; i < queue_cur->region_count; i++) {
+    } else {
+      /* P01 Case 2: Non-zero target state.
+         Find region k whose execution leads to target_state_id. */
+      s32 target_reaching_region = -1;
+
+      for (i = 0; i < queue_cur->region_count; i++) {
         u32 regionalStateCount = queue_cur->regions[i].state_count;
-        if (regionalStateCount > 0) {
-          //reachableStateID is the last ID in the state_sequence
+        if (regionalStateCount > 0 && queue_cur->regions[i].state_sequence != NULL) {
           u32 reachableStateID = queue_cur->regions[i].state_sequence[regionalStateCount - 1];
-          M2_start_region_ID++;
-          if (reachableStateID == target_state_id) break;
+          if (reachableStateID == target_state_id) {
+            target_reaching_region = (s32)i;
+            break;
+          }
         } else {
-          //No annotation for this region
+          /* P01/P02: Unknown boundary / unannotated region encountered.
+             Cannot reliably know what state follows; do not guess across unknown boundaries. */
           return 1;
         }
       }
 
-      //Then identify M2_region_count
-      for(i = M2_start_region_ID; i < queue_cur->region_count ; i++) {
+      /* Target state was not reached anywhere in this seed */
+      if (target_reaching_region < 0) return 1;
+
+      /* M1 ends at target_reaching_region; M2 starts at target_reaching_region + 1 */
+      M2_start_region_ID = (u32)(target_reaching_region + 1);
+
+      /* If target state is reached after the terminal message, no subsequent message exists to mutate */
+      if (M2_start_region_ID >= queue_cur->region_count) return 1;
+
+      /* Identify M2_region_count starting from M2_start_region_ID */
+      M2_region_count = 0;
+      for (i = M2_start_region_ID; i < queue_cur->region_count; i++) {
         if (queue_cur->regions[i].state_count != queue_cur->regions[M2_start_region_ID].state_count) break;
         M2_region_count++;
       }
-
-      //Handle corner case(s) and skip the current queue entry
-      if (M2_start_region_ID >= queue_cur->region_count) return 1;
+      if (M2_region_count == 0) M2_region_count = 1;
     }
   } else {
     /* Select M2 randomly */
