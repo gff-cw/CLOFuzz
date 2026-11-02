@@ -33,7 +33,7 @@ struct gr_engine {
   uint64_t changed[3],unchanged[3],unavailable[3];
   uint64_t resp_incomplete_frames,resp_framing_errors,resp_grammar_mismatches;
   uint64_t resp_unrelated,resp_correlation_mismatches,resp_expected_complete;
-  uint64_t resp_by_purpose[5];
+  uint64_t resp_by_purpose[7];
   unsigned exec_purpose;
   unsigned pending,pending_request,pending_response,pending_next;
   uint64_t cache[GR_CORRELATIONS];
@@ -602,20 +602,21 @@ int gr_before_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap
 }
 void gr_set_execution_purpose(gr_engine *e, unsigned purpose){
   if(!e)return;
-  e->exec_purpose = (purpose < 5) ? purpose : 0;
+  e->exec_purpose = (purpose < 7) ? purpose : 0;
 }
 static void gr_response_frame(gr_engine *e,const uint8_t *wire,size_t length){
-  if(e->exec_purpose < 5) e->resp_by_purpose[e->exec_purpose]++;
   unsigned model;char err[128];
   if(gr_match(e,wire,length,1,&model,err,sizeof(err))<0){
     e->resp_grammar_mismatches++;
     return;
   }
-  e->responses++;gr_message *m=&e->messages[model];gw_packet *packet=NULL;
+  gr_message *m=&e->messages[model];gw_packet *packet=NULL;
   if(gw_parse(m->schema,wire,length,&packet,err,sizeof(err))<0){
     e->resp_grammar_mismatches++;
     return;
   }
+  e->responses++;
+  if(e->exec_purpose < 7) e->resp_by_purpose[e->exec_purpose]++;
   if(e->pending&&e->pending_response==model){
     int fits=1,checked=0;for(size_t j=0;j<m->correlation_count;j++){gr_correlation *c=&m->correlations[j];
       if(c->request!=e->pending_request)continue;
@@ -664,7 +665,7 @@ int gr_write_stats(gr_engine *e,const char *path){
   FILE *f=fopen(tmp_path,"w");if(!f)return -1;
   int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"changed\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unchanged\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unavailable\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ","
             "\"response_diagnostics\":{\"incomplete_frames\":%" PRIu64 ",\"framing_errors\":%" PRIu64 ",\"grammar_mismatches\":%" PRIu64 ",\"unrelated_responses\":%" PRIu64 ",\"correlation_mismatches\":%" PRIu64 ",\"expected_complete\":%" PRIu64 "},"
-            "\"responses_by_purpose\":{\"original\":%" PRIu64 ",\"confirmation\":%" PRIu64 ",\"calibration\":%" PRIu64 ",\"sync\":%" PRIu64 ",\"unknown\":%" PRIu64 "},"
+            "\"responses_by_purpose\":{\"coverage\":%" PRIu64 ",\"confirmation\":%" PRIu64 ",\"calibration\":%" PRIu64 ",\"sync\":%" PRIu64 ",\"state_analysis\":%" PRIu64 ",\"hang_check\":%" PRIu64 ",\"unknown\":%" PRIu64 "},"
             "\"protocol_semantic_state\":",
     e->attempts,e->success,e->errors,e->layer_count[0],e->layer_count[1],e->layer_count[2],
     e->changed[0],e->changed[1],e->changed[2],
@@ -673,7 +674,7 @@ int gr_write_stats(gr_engine *e,const char *path){
     e->responses,e->completed,e->correlated,
     e->resp_incomplete_frames,e->resp_framing_errors,e->resp_grammar_mismatches,
     e->resp_unrelated,e->resp_correlation_mismatches,e->resp_expected_complete,
-    e->resp_by_purpose[1],e->resp_by_purpose[2],e->resp_by_purpose[3],e->resp_by_purpose[4],e->resp_by_purpose[0]) > 0);
+    e->resp_by_purpose[1],e->resp_by_purpose[2],e->resp_by_purpose[3],e->resp_by_purpose[4],e->resp_by_purpose[5],e->resp_by_purpose[6],e->resp_by_purpose[0]) > 0);
   if(ok) nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
   if(ok) ok = (fputs(",\"engine\":\"generic-wire\"}\n",f) >= 0);
   if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return -1; }

@@ -2154,10 +2154,15 @@ HANDLE_RESPONSES:
       else if (current_feedback_layer == 4) layer_str = "SEQUENCE";
     }
 
-    /* P24/P11: Link candidate execution identity and tag execution purpose in candidate records.
+    /* P24/P11/B06: Link candidate execution identity and tag execution purpose in candidate records.
        Record logical and executed digests. */
+    const char *cand_run_id = (manifest_ctx && manifest_ctx->run_id[0]) ? manifest_ctx->run_id : "run-0";
+    u32 cand_segment_id = manifest_ctx ? manifest_ctx->current_segment_id : 0;
+
     fprintf(record,
             "{\"format_version\":2,"
+            "\"run_id\":\"%s\","
+            "\"segment_id\":%u,"
             "\"candidate_id\":%u,"
             "\"exec_id\":%u,"
             "\"execution_counter\":%llu,"
@@ -2178,6 +2183,8 @@ HANDLE_RESPONSES:
             "\"logical_digest\":\"0x%08x\","
             "\"executed_digest\":\"0x%08x\","
             "\"execution_identity_verified\":false}\n",
+            cand_run_id,
+            cand_segment_id,
             current_candidate_id,
             state_exec_id,
             total_execs,
@@ -5126,6 +5133,10 @@ static void perform_dry_run(char** argv) {
       int dist_len = calib_shm->dist_len;
 #endif
 
+      u8 prev_purpose = current_exec_purpose;
+      current_exec_purpose = EXEC_PURPOSE_SYNC;
+      proto_set_execution_purpose(protocol_engine, current_exec_purpose);
+
       for(int ii=0; ii<3; ii++) {
 
         run_target(argv, exec_tmout * 2, stateafl_fsrv);
@@ -5140,6 +5151,9 @@ static void perform_dry_run(char** argv) {
         dist_len = calib_shm->dist_len;
 #endif
       }
+
+      current_exec_purpose = prev_purpose;
+      proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
     }
 
@@ -5654,8 +5668,13 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
     /* Re-run with state analyzer to update state machine */
     if (state_aware_mode) {
+      u8 prev_purpose = current_exec_purpose;
+      current_exec_purpose = EXEC_PURPOSE_STATE_ANALYSIS;
+      proto_set_execution_purpose(protocol_engine, current_exec_purpose);
       run_target(argv, exec_tmout * 2, stateafl_fsrv);
       update_fuzzs();
+      current_exec_purpose = prev_purpose;
+      proto_set_execution_purpose(protocol_engine, current_exec_purpose);
       update_state_aware_variables(queue_top, 0, argv);
     }
 
@@ -5723,7 +5742,12 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
         u8 new_fault;
         write_to_testcase(mem, len);
+        u8 prev_purpose = current_exec_purpose;
+        current_exec_purpose = EXEC_PURPOSE_HANG_CHECK;
+        proto_set_execution_purpose(protocol_engine, current_exec_purpose);
         new_fault = run_target(argv, hang_tmout, afl_fsrv);
+        current_exec_purpose = prev_purpose;
+        proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
         /* A corner case that one user reported bumping into: increasing the
            timeout actually uncovers a crash. Make sure we don't discard it if
@@ -7152,7 +7176,10 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
                                    protocol_layers, protocol_random);
     if (!layer) FATAL("Protocol schedule has no enabled mutation layer");
     *feedback_layer = layer;
-  } else layer = choices[UR(n)];
+  } else {
+    layer = choices[UR(n)];
+    *feedback_layer = layer;
+  }
   int mode = protocol_mode == PROTO_HYBRID ? PROTO_VALID : protocol_mode;
   protocol_candidate_attempts++;
   if (proto_mutate(protocol_engine, protocol_base, protocol_base_len,
@@ -7212,10 +7239,16 @@ static void protocol_observe_candidate(u32 state, int layer, unsigned events,
   if (events) protocol_reward_committed++;
   proto_schedule_observe_outcome(&protocol_scheduler, state, layer, events,
                                  tuples, buckets);
-  if (protocol_log)
-    fprintf(protocol_log, "{\"event\":\"layer_feedback\",\"memory_state_id\":%u,"
+  if (protocol_log) {
+    const char *run_id = (manifest_ctx && manifest_ctx->run_id[0]) ? manifest_ctx->run_id : "run-0";
+    u32 segment_id = manifest_ctx ? manifest_ctx->current_segment_id : 0;
+    fprintf(protocol_log, "{\"event\":\"layer_feedback\",\"run_id\":\"%s\",\"segment_id\":%u,"
+            "\"candidate_id\":%u,\"exec_id\":%u,\"memory_state_id\":%u,"
             "\"layer_id\":%d,\"discoveries\":%u,\"new_tuples\":%u,"
-            "\"new_buckets\":%u}\n", state, layer, events, tuples, buckets);
+            "\"new_buckets\":%u}\n",
+            run_id, segment_id, current_candidate_id, state_exec_id,
+            state, layer, events, tuples, buckets);
+  }
 }
 
 EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
@@ -7239,6 +7272,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   u8 stage_eligible = (stage_short && (!strcmp((char *)stage_short, "havoc") ||
                                        !strcmp((char *)stage_short, "splice")));
   const char *req_mode = (protocol_mode == PROTO_VALID) ? "valid" :
+                         (protocol_mode == PROTO_NEAR_VALID) ? "near_valid" :
                          (protocol_mode == PROTO_HYBRID) ? "hybrid" :
                          (protocol_mode == PROTO_INVALID) ? "invalid" : "raw";
   const char *actual_mode = "raw";
@@ -11650,6 +11684,7 @@ int main(int argc, char** argv) {
       PFATAL("Cannot create protocol candidate directory");
     if (manifest_ctx && manifest_ctx->num_segments > 0) {
       protocol_candidates_saved = manifest_ctx->segments[manifest_ctx->num_segments - 1].candidate_id_start;
+      current_candidate_id = protocol_candidates_saved;
     }
   }
 

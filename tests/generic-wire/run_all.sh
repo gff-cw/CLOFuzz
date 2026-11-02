@@ -100,6 +100,8 @@ done
 "$generic_test_output/novelty_status_admission" > "$generic_test_output/novelty_status_admission.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_update_fuzzs.c -o "$generic_test_output/update_fuzzs"
 "$generic_test_output/update_fuzzs" > "$generic_test_output/update_fuzzs.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_feedback_layer_purpose_identity.c "${generic_test_objs[@]}" -o "$generic_test_output/feedback_identity"
+"$generic_test_output/feedback_identity" > "$generic_test_output/feedback_identity.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

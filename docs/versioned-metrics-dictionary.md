@@ -45,10 +45,12 @@
 
 响应计数按执行上下文严格隔离，防止确认运行、校准运行或同步导入干扰真实变异的响应统计：
 
-- `original` (`EXEC_PURPOSE_ORIGINAL` = 1)：覆盖率引导的常规模糊测试探索运行。
+- `coverage` (`EXEC_PURPOSE_ORIGINAL` = 1)：覆盖率引导的常规模糊测试探索运行。
 - `confirmation` (`EXEC_PURPOSE_CONFIRMATION` = 2)：新颖性确认重放运行，用于验证状态和路径稳定性。
 - `calibration` (`EXEC_PURPOSE_CALIBRATION` = 3)：初始种子或校准阶段执行。
 - `sync` (`EXEC_PURPOSE_SYNC` = 4)：多实例协作中的同步导入回放。
+- `state_analysis` (`EXEC_PURPOSE_STATE_ANALYSIS` = 5)：状态机更新与新颖状态分析运行。
+- `hang_check` (`EXEC_PURPOSE_HANG_CHECK` = 6)：疑似 Hang 超时确认运行。
 - `unknown` (`EXEC_PURPOSE_UNKNOWN` = 0)：未明确标记执行用途的辅助运行。
 
 ---
@@ -82,10 +84,12 @@
     "expected_complete": 75
   },
   "responses_by_purpose": {
-    "original": 70,
+    "coverage": 70,
     "confirmation": 10,
     "calibration": 0,
     "sync": 0,
+    "state_analysis": 0,
+    "hang_check": 0,
     "unknown": 0
   },
   "protocol_semantic_state": "ready",

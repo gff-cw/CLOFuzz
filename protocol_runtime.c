@@ -162,7 +162,7 @@ struct proto_engine {
   uint64_t changed[3],unchanged[3],unavailable[3];
   uint64_t resp_incomplete_frames,resp_framing_errors,resp_grammar_mismatches;
   uint64_t resp_unrelated,resp_correlation_mismatches,resp_expected_complete;
-  uint64_t resp_by_purpose[5];
+  uint64_t resp_by_purpose[7];
   unsigned exec_purpose;
   unsigned semantic_state;
   uint32_t ua_sequence;
@@ -693,14 +693,13 @@ int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
 }
 void proto_set_execution_purpose(proto_engine *e, unsigned purpose){
   if(!e)return;
-  e->exec_purpose = (purpose < 5) ? purpose : 0;
+  e->exec_purpose = (purpose < 7) ? purpose : 0;
   if(e->generic)gr_set_execution_purpose(e->generic, purpose);
 }
 /* Live responses may arrive split across net_recv calls or coalesced. Only a
  * complete validated, correlated response may supply connection bindings. */
 static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
   char err[128];int mi=-1,target_tr=-1;
-  if(e->exec_purpose < 5) e->resp_by_purpose[e->exec_purpose]++;
   if(!e->codec){
     layout v;
     if(bacnet_layout(b,n,&v,err,sizeof(err))<0){
@@ -708,6 +707,7 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
       return;
     }
     e->responses++;
+    if(e->exec_purpose < 7) e->resp_by_purpose[e->exec_purpose]++;
     if(v.invoke!=SIZE_MAX && v.kind>=2 && e->outstanding[b[v.invoke]]){
       e->correlated++;
       e->resp_expected_complete++;
@@ -752,7 +752,7 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
       if(locate(e,b,n,field,&o,&w,err,sizeof(err))!=1 || getint(b+o,w,field->little)!=source){fits=0;break;}
     }
     if(!fits)continue;
-    if(e->codec){e->responses++;e->resp_expected_complete++;if(linked)e->correlated++;}
+    if(e->codec){e->responses++;if(e->exec_purpose < 7)e->resp_by_purpose[e->exec_purpose]++;e->resp_expected_complete++;if(linked)e->correlated++;}
     mi=m;target_tr=resp_tr;for(int d=0;d<e->m[m].nd;d++){pd *dep=&e->m[m].d[d];if(dep->op==6)for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[dep->message])e->pending[model]=0;}break;
   }
   if(e->codec){
@@ -1099,7 +1099,7 @@ int proto_write_stats(proto_engine *e,const char *path){
   FILE *f=fopen(tmp_path,"w");if(!f)return -1;
   int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"completed_responses\":%llu,\"correlated_responses\":%llu,"
             "\"response_diagnostics\":{\"incomplete_frames\":%llu,\"framing_errors\":%llu,\"grammar_mismatches\":%llu,\"unrelated_responses\":%llu,\"correlation_mismatches\":%llu,\"expected_complete\":%llu},"
-            "\"responses_by_purpose\":{\"original\":%llu,\"confirmation\":%llu,\"calibration\":%llu,\"sync\":%llu,\"unknown\":%llu},"
+            "\"responses_by_purpose\":{\"coverage\":%llu,\"confirmation\":%llu,\"calibration\":%llu,\"sync\":%llu,\"state_analysis\":%llu,\"hang_check\":%llu,\"unknown\":%llu},"
             "\"protocol_semantic_state\":\"%s\"}\n",
     (unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,
     (unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],
@@ -1109,7 +1109,7 @@ int proto_write_stats(proto_engine *e,const char *path){
     (unsigned long long)e->responses,(unsigned long long)e->resp_expected_complete,(unsigned long long)e->correlated,
     (unsigned long long)e->resp_incomplete_frames,(unsigned long long)e->resp_framing_errors,(unsigned long long)e->resp_grammar_mismatches,
     (unsigned long long)e->resp_unrelated,(unsigned long long)e->resp_correlation_mismatches,(unsigned long long)e->resp_expected_complete,
-    (unsigned long long)e->resp_by_purpose[1],(unsigned long long)e->resp_by_purpose[2],(unsigned long long)e->resp_by_purpose[3],(unsigned long long)e->resp_by_purpose[4],(unsigned long long)e->resp_by_purpose[0],
+    (unsigned long long)e->resp_by_purpose[1],(unsigned long long)e->resp_by_purpose[2],(unsigned long long)e->resp_by_purpose[3],(unsigned long long)e->resp_by_purpose[4],(unsigned long long)e->resp_by_purpose[5],(unsigned long long)e->resp_by_purpose[6],(unsigned long long)e->resp_by_purpose[0],
     e->state[e->semantic_state]) > 0);
   if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return -1; }
   if(rename(tmp_path, path) != 0) { unlink(tmp_path); return -1; }

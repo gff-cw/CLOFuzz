@@ -18,19 +18,24 @@
 #include "llvm_mode/state-tracer.h"
 
 /* Execution purposes */
-#define EXEC_PURPOSE_UNKNOWN      0
-#define EXEC_PURPOSE_ORIGINAL     1
-#define EXEC_PURPOSE_CONFIRMATION 2
-#define EXEC_PURPOSE_CALIBRATION  3
-#define EXEC_PURPOSE_SYNC         4
+#define EXEC_PURPOSE_UNKNOWN        0
+#define EXEC_PURPOSE_ORIGINAL       1
+#define EXEC_PURPOSE_CONFIRMATION   2
+#define EXEC_PURPOSE_CALIBRATION    3
+#define EXEC_PURPOSE_SYNC           4
+#define EXEC_PURPOSE_STATE_ANALYSIS 5
+#define EXEC_PURPOSE_HANG_CHECK     6
+#define EXEC_PURPOSE_COUNT          7
 
 static inline const char *exec_purpose_to_str(u8 purpose) {
   switch (purpose) {
-    case EXEC_PURPOSE_ORIGINAL:     return "coverage";
-    case EXEC_PURPOSE_CONFIRMATION: return "confirmation";
-    case EXEC_PURPOSE_CALIBRATION:  return "calibration";
-    case EXEC_PURPOSE_SYNC:         return "sync";
-    default:                        return "unknown";
+    case EXEC_PURPOSE_ORIGINAL:       return "coverage";
+    case EXEC_PURPOSE_CONFIRMATION:   return "confirmation";
+    case EXEC_PURPOSE_CALIBRATION:    return "calibration";
+    case EXEC_PURPOSE_SYNC:           return "sync";
+    case EXEC_PURPOSE_STATE_ANALYSIS: return "state_analysis";
+    case EXEC_PURPOSE_HANG_CHECK:     return "hang_check";
+    default:                          return "unknown";
   }
 }
 
