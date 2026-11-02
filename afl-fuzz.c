@@ -626,26 +626,32 @@ static u32 get_state_sequence_hash(const unsigned int *state_sequence, unsigned 
   return hashKey;
 }
 
-/* P06: Side-effect-free novelty query */
-u8 query_state_sequence_novelty(const unsigned int *state_sequence, unsigned int state_count, u32 *out_hash) {
-  if (!state_sequence || state_count == 0) return 0;
+/* Novelty query status codes (B04) */
+#define STATE_SEQ_NOVEL            1
+#define STATE_SEQ_KNOWN_CONFIRMED  0
+#define STATE_SEQ_RETRY_EXHAUSTED -1
+#define STATE_SEQ_INVALID         -2
+
+/* P06/B04: Side-effect-free novelty query */
+int query_state_sequence_novelty(const unsigned int *state_sequence, unsigned int state_count, u32 *out_hash) {
+  if (!state_sequence || state_count == 0) return STATE_SEQ_INVALID;
   u32 hashKey = get_state_sequence_hash(state_sequence, state_count);
   if (out_hash) *out_hash = hashKey;
 
   /* Check against confirmed paths */
   if (khs_ipsm_paths && kh_get(hs32, khs_ipsm_paths, hashKey) != kh_end(khs_ipsm_paths)) {
-    return 0;
+    return STATE_SEQ_KNOWN_CONFIRMED;
   }
 
   /* Check retry count for unstable/flaky paths to avoid unbounded overhead */
   if (khm_unstable_paths) {
     khint_t k = kh_get(h32_u32, khm_unstable_paths, hashKey);
     if (k != kh_end(khm_unstable_paths) && kh_val(khm_unstable_paths, k) >= MAX_CONFIRM_RETRIES) {
-      return 0;
+      return STATE_SEQ_RETRY_EXHAUSTED;
     }
   }
 
-  return 1;
+  return STATE_SEQ_NOVEL;
 }
 
 /* P06: Commit novel path to trusted set ONLY after confirmation */
@@ -677,7 +683,7 @@ void record_state_sequence_confirmation_failure(u32 hashKey) {
 
 /* Backward-compatible novelty query without side-effects */
 u8 is_state_sequence_interesting(unsigned int *state_sequence, unsigned int state_count) {
-  return query_state_sequence_novelty(state_sequence, state_count, NULL);
+  return query_state_sequence_novelty(state_sequence, state_count, NULL) == STATE_SEQ_NOVEL;
 }
 
 /* Update the annotations of regions (i.e., state sequence received from the server)
@@ -1141,11 +1147,25 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
   printf("\n");
 #endif
 
-  /* P06: Side-effect-free novelty query */
+  /* P06/B04: Side-effect-free novelty query */
   u32 hashKey = 0;
   int is_interesting = query_state_sequence_novelty(orig_obs->state_sequence, orig_obs->state_count, &hashKey);
   int is_repeatable = 0;
   int repetitions = (dry_run == 0 ? 1 : 3);
+
+  /* B04: If query returns RETRY_EXHAUSTED (-1), immediately withhold and reject admission:
+     do NOT register regions, do NOT add to trusted reachability sets, free observation and return. */
+  if (is_interesting == STATE_SEQ_RETRY_EXHAUSTED) {
+    WARNF("State sequence confirmation retry limit exhausted; withholding and rejecting admission");
+    free_execution_observation(orig_obs);
+    return;
+  }
+
+  if (is_interesting == STATE_SEQ_INVALID) {
+    WARNF("Invalid state sequence; withholding and rejecting admission");
+    free_execution_observation(orig_obs);
+    return;
+  }
 
   if (orig_obs->is_truncated || !orig_obs->is_response_complete || orig_obs->response_budget_exceeded) {
     WARNF("State trace or response truncated; rejecting from full path acceptance");
@@ -1159,7 +1179,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     return;
   }
 
-  if(is_interesting) {
+  if(is_interesting == STATE_SEQ_NOVEL) {
 
     for(int k=0; k<repetitions; k++) {
 
@@ -1199,7 +1219,10 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     }
 
     if(dry_run && !is_repeatable) {
-      WARNF("Non-repeatable test case detected (no repeated state sequence matching)!");
+      /* B04: Reject non-repeatable test cases from trusted admission in dry-run as well */
+      WARNF("Non-repeatable test case detected in dry-run (no repeated state sequence matching); rejecting admission");
+      free_execution_observation(orig_obs);
+      return;
     }
 
     if (!dry_run && !is_repeatable) {
@@ -1242,16 +1265,21 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     state_tracer_truncated = orig_obs->is_truncated;
   }
 
-  /* P06: Unified acceptance predicate */
+  /* P06/B04: Unified acceptance predicate */
   u8 is_accepted = 0;
   if (!orig_obs->is_truncated && orig_obs->is_response_complete &&
       !orig_obs->response_budget_exceeded && orig_obs->has_state_observation &&
       orig_obs->state_count > 0 && orig_obs->is_transmission_complete) {
     if (dry_run) {
-      is_accepted = 1;
-    } else if (is_interesting) {
+      /* B04: In dry_run branch: if !is_repeatable for novel sequence, do NOT set is_accepted = 1 */
+      if (is_interesting == STATE_SEQ_NOVEL && !is_repeatable) {
+        is_accepted = 0;
+      } else {
+        is_accepted = 1;
+      }
+    } else if (is_interesting == STATE_SEQ_NOVEL) {
       is_accepted = is_repeatable;
-    } else {
+    } else if (is_interesting == STATE_SEQ_KNOWN_CONFIRMED) {
       is_accepted = 1;
     }
   }
@@ -1261,12 +1289,12 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     return;
   }
 
-  /* P06: Commit novel confirmed path to trusted set ONLY upon acceptance */
-  if (is_interesting && hashKey != 0) {
+  /* P06/B04: Commit novel confirmed path to trusted set ONLY when interesting == 1 AND repeatable == 1 AND accepted == 1 */
+  if (is_interesting == 1 && is_repeatable == 1 && is_accepted == 1 && hashKey != 0) {
     commit_state_sequence_path(hashKey);
   }
 
-  if ((!dry_run && is_repeatable) || (dry_run && is_interesting)) {
+  if ((!dry_run && is_repeatable) || (dry_run && is_interesting == 1 && is_repeatable)) {
 
     //Save the current kl_messages to a file which can be used to replay the newly discovered paths on the ipsm
     u8 *temp_str = state_sequence_to_string(orig_obs->state_sequence, orig_obs->state_count);

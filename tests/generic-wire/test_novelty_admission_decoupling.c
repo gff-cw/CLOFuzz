@@ -17,6 +17,12 @@ static khash_t(hs32) *khs_ipsm_paths = NULL;
 static khash_t(h32_u32) *khm_unstable_paths = NULL;
 #define MAX_CONFIRM_RETRIES 3
 
+/* Novelty query status codes (B04) */
+#define STATE_SEQ_NOVEL            1
+#define STATE_SEQ_KNOWN_CONFIRMED  0
+#define STATE_SEQ_RETRY_EXHAUSTED -1
+#define STATE_SEQ_INVALID         -2
+
 /* Hash function matching afl-fuzz.c */
 static inline u32 hash32(const void* key, u32 len, u32 seed) {
   const u8* data = (const u8*)key;
@@ -50,23 +56,23 @@ static u32 get_state_sequence_hash(const unsigned int *state_sequence, unsigned 
   return hashKey;
 }
 
-static u8 query_state_sequence_novelty(const unsigned int *state_sequence, unsigned int state_count, u32 *out_hash) {
-  if (!state_sequence || state_count == 0) return 0;
+static int query_state_sequence_novelty(const unsigned int *state_sequence, unsigned int state_count, u32 *out_hash) {
+  if (!state_sequence || state_count == 0) return STATE_SEQ_INVALID;
   u32 hashKey = get_state_sequence_hash(state_sequence, state_count);
   if (out_hash) *out_hash = hashKey;
 
   if (khs_ipsm_paths && kh_get(hs32, khs_ipsm_paths, hashKey) != kh_end(khs_ipsm_paths)) {
-    return 0;
+    return STATE_SEQ_KNOWN_CONFIRMED;
   }
 
   if (khm_unstable_paths) {
     khint_t k = kh_get(h32_u32, khm_unstable_paths, hashKey);
     if (k != kh_end(khm_unstable_paths) && kh_val(khm_unstable_paths, k) >= MAX_CONFIRM_RETRIES) {
-      return 0;
+      return STATE_SEQ_RETRY_EXHAUSTED;
     }
   }
 
-  return 1;
+  return STATE_SEQ_NOVEL;
 }
 
 static void commit_state_sequence_path(u32 hashKey) {
@@ -105,14 +111,14 @@ int main(void) {
 
   /* 1. Querying novelty is side-effect-free: khs_ipsm_paths remains empty */
   assert(kh_size(khs_ipsm_paths) == 0);
-  u8 is_novel = query_state_sequence_novelty(seq1, 3, &hash1);
-  assert(is_novel == 1);
+  int is_novel = query_state_sequence_novelty(seq1, 3, &hash1);
+  assert(is_novel == STATE_SEQ_NOVEL);
   assert(hash1 != 0);
   assert(kh_size(khs_ipsm_paths) == 0); /* Still empty! Query did not pollute */
 
   /* Repeated queries without confirmation still return novel */
   u32 hash1_again = 0;
-  assert(query_state_sequence_novelty(seq1, 3, &hash1_again) == 1);
+  assert(query_state_sequence_novelty(seq1, 3, &hash1_again) == STATE_SEQ_NOVEL);
   assert(hash1_again == hash1);
   assert(kh_size(khs_ipsm_paths) == 0);
 
@@ -121,30 +127,30 @@ int main(void) {
   assert(kh_size(khs_ipsm_paths) == 0);
 
   /* Next fuzzing run generates the same sequence: it is STILL considered novel and retried */
-  assert(query_state_sequence_novelty(seq1, 3, NULL) == 1);
+  assert(query_state_sequence_novelty(seq1, 3, NULL) == STATE_SEQ_NOVEL);
 
   /* 3. Successful confirmation: commits path and clears unstable tracking */
   commit_state_sequence_path(hash1);
   assert(kh_size(khs_ipsm_paths) == 1);
   assert(kh_get(hs32, khs_ipsm_paths, hash1) != kh_end(khs_ipsm_paths));
 
-  /* Subsequent query now correctly reports 0 (not novel, already confirmed) */
-  assert(query_state_sequence_novelty(seq1, 3, NULL) == 0);
+  /* Subsequent query now correctly reports STATE_SEQ_KNOWN_CONFIRMED (0) */
+  assert(query_state_sequence_novelty(seq1, 3, NULL) == STATE_SEQ_KNOWN_CONFIRMED);
 
   /* 4. Flaky sequence with bounded retries */
   unsigned int seq_flaky[3] = {0, 50, 99};
   u32 hash_flaky = 0;
-  assert(query_state_sequence_novelty(seq_flaky, 3, &hash_flaky) == 1);
+  assert(query_state_sequence_novelty(seq_flaky, 3, &hash_flaky) == STATE_SEQ_NOVEL);
 
   /* Record failures up to MAX_CONFIRM_RETRIES */
   record_state_sequence_confirmation_failure(hash_flaky); /* 1 */
-  assert(query_state_sequence_novelty(seq_flaky, 3, NULL) == 1);
+  assert(query_state_sequence_novelty(seq_flaky, 3, NULL) == STATE_SEQ_NOVEL);
   record_state_sequence_confirmation_failure(hash_flaky); /* 2 */
-  assert(query_state_sequence_novelty(seq_flaky, 3, NULL) == 1);
+  assert(query_state_sequence_novelty(seq_flaky, 3, NULL) == STATE_SEQ_NOVEL);
   record_state_sequence_confirmation_failure(hash_flaky); /* 3 = MAX */
 
-  /* Once retry limit is reached, persistently unstable path is suppressed from infinite re-runs */
-  assert(query_state_sequence_novelty(seq_flaky, 3, NULL) == 0);
+  /* Once retry limit is reached, persistently unstable path returns STATE_SEQ_RETRY_EXHAUSTED (-1) */
+  assert(query_state_sequence_novelty(seq_flaky, 3, NULL) == STATE_SEQ_RETRY_EXHAUSTED);
   assert(kh_size(khs_ipsm_paths) == 1); /* Flaky path was never committed to trusted set */
 
   /* 5. Unified admission predicate test */
