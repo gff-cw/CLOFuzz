@@ -118,6 +118,19 @@ int main(void) {
   assert(net_get_last_io_status() == NET_IO_STATUS_BUDGET_EXCEEDED);
   net_set_response_budget(0); /* reset to default */
 
-  printf("PASS: test_timeout_budget_consistency passed (24 assertions)\n");
+  /* --- 8. Setsockopt failure preservation on non-socket fd --- */
+  int pipe_fds[2];
+  assert(pipe(pipe_fds) == 0);
+  assert(write(pipe_fds[1], "X", 1) == 1);
+  rc = net_recv_with_cb(pipe_fds[0], quick_tv, 5, &resp_buf, &resp_len, dummy_cb, NULL);
+  /* Even though data could be read, setsockopt failed (ENOTSOCK), so status must remain syscall error */
+  assert(net_get_last_io_status() == NET_IO_STATUS_SYSCALL_ERR);
+  close(pipe_fds[0]);
+  close(pipe_fds[1]);
+  if (resp_buf) ck_free(resp_buf);
+  resp_buf = NULL;
+  resp_len = 0;
+
+  printf("PASS: test_timeout_budget_consistency passed\n");
   return 0;
 }

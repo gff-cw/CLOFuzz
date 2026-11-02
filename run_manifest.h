@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #define MANIFEST_VERSION 1
 #define MANIFEST_FILENAME "run_manifest.json"
@@ -34,6 +35,14 @@ typedef struct {
 
 /* Calculate a 64-bit FNV-1a hash of a file's contents (returns 0 on error/empty) */
 uint64_t manifest_hash_file(const char *path);
+
+/* Scan out_dir/protocol-candidates/ for the maximum candidate ID.
+ * Returns max_id + 1 if any candidate file exists (so 000000.json returns 1),
+ * or 0 if no candidates exist or directory doesn't exist. */
+uint32_t scan_max_candidate_id(const char *out_dir);
+
+/* Write an escaped JSON string enclosed in quotes to file stream f */
+void manifest_write_escaped_json_string(FILE *f, const char *s);
 
 /* Create or resume a manifest in out_dir.
  * If manifest doesn't exist, initializes segment 0 and saves it.

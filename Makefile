@@ -88,7 +88,7 @@ MESSAGE_FILE_TEST_SOURCE = tests/protocol/test_message_files.c
 MESSAGE_FILE_TEST_BINARY = tests/protocol/test-message-files
 MESSAGE_FILE_TEST_SANITIZED = tests/protocol/test-message-files-sanitized
 MESSAGE_FILE_TEST_HEADERS = aflnet.h klist.h khash.h $(COMM_HDR)
-afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(GENERIC_WIRE_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h | test_x86
+afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(GENERIC_WIRE_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h execution_observation.h llvm_mode/state-tracer.h | test_x86
 	$(CC) $(CFLAGS) $@.c protocol_runtime.c protocol_schedule.c $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
 
 # Standard-library-only local inspector; no instrumentation or x86 checks needed.

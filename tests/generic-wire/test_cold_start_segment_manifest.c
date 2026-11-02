@@ -68,6 +68,19 @@ int main(void) {
   CHECK(strstr(err, "spec content hash mismatch") != NULL);
   CHECK(m_bad == NULL);
 
+  /* 3b. Attribution check: Reject resume if mutation_mode differs */
+  rc = manifest_init_or_resume(tmp_dir, "TEST_PROTO", spec_path, "invalid", 12345, &m_bad, err, sizeof(err));
+  CHECK(rc == -1);
+  CHECK(strstr(err, "mutation_mode") != NULL || strstr(err, "mutation mode mismatch") != NULL);
+  CHECK(m_bad == NULL);
+
+  /* 3c. Verify colon-separated spec context hashing */
+  uint64_t combined_hash = manifest_hash_file(spec_path);
+  char dual_spec[1024];
+  snprintf(dual_spec, sizeof(dual_spec), "%s:%s", spec_path, alt_spec);
+  uint64_t dual_hash = manifest_hash_file(dual_spec);
+  CHECK(dual_hash != 0 && dual_hash != combined_hash);
+
   /* 4. Candidate directory collision avoidance */
   char cand_dir[512];
   snprintf(cand_dir, sizeof(cand_dir), "%s/protocol-candidates", tmp_dir);
@@ -131,8 +144,45 @@ int main(void) {
   CHECK(nj_load_file(stats_path, &doc, err, sizeof(err)) == 0);
   const nj_value *v_ver = nj_get(doc->root, "metrics_version");
   CHECK(v_ver != NULL && v_ver->number.magnitude == 1);
-  nj_free(doc);
+  nj_free(doc); doc = NULL;
   proto_free(pe);
+
+  /* 8. Test fresh start mode candidate 0 recognition & collision avoidance */
+  char tmp_fresh[] = "/tmp/stateafl-fresh-test-XXXXXX";
+  CHECK(mkdtemp(tmp_fresh) != NULL);
+  char cand_fresh_dir[512];
+  snprintf(cand_fresh_dir, sizeof(cand_fresh_dir), "%s/protocol-candidates", tmp_fresh);
+  CHECK(mkdir(cand_fresh_dir, 0700) == 0);
+  char cand0_fresh[512];
+  snprintf(cand0_fresh, sizeof(cand0_fresh), "%s/000000.replay", cand_fresh_dir);
+  FILE *c0f = fopen(cand0_fresh, "w"); CHECK(c0f != NULL); fputs("data", c0f); fclose(c0f);
+
+  run_manifest *m_fresh = NULL;
+  char fresh_spec[512];
+  snprintf(fresh_spec, sizeof(fresh_spec), "%s/spec\\test\"quoted\".json", tmp_fresh);
+  FILE *fsf = fopen(fresh_spec, "w"); CHECK(fsf != NULL); fputs("{\"test\":1}", fsf); fclose(fsf);
+
+  CHECK(manifest_init_or_resume(tmp_fresh, "FRESH_PROTO", fresh_spec, "valid", 999, &m_fresh, err, sizeof(err)) == 0);
+  CHECK(m_fresh != NULL);
+  CHECK(m_fresh->segments[0].segment_id == 0);
+  /* Segment 0 must NOT overwrite candidate 000000 on disk! Must be 1! */
+  CHECK(m_fresh->segments[0].candidate_id_start == 1);
+
+  /* Verify JSON string escaping by parsing saved manifest */
+  char fresh_manifest[512];
+  snprintf(fresh_manifest, sizeof(fresh_manifest), "%s/run_manifest.json", tmp_fresh);
+  CHECK(nj_load_file(fresh_manifest, &doc, err, sizeof(err)) == 0);
+  const nj_value *v_spec = nj_get(doc->root, "spec_path");
+  CHECK(v_spec != NULL && v_spec->text != NULL);
+  CHECK(strcmp(v_spec->text, fresh_spec) == 0);
+  nj_free(doc); doc = NULL;
+  manifest_free(m_fresh);
+
+  unlink(cand0_fresh);
+  rmdir(cand_fresh_dir);
+  unlink(fresh_spec);
+  unlink(fresh_manifest);
+  rmdir(tmp_fresh);
 
   /* Cleanup test files */
   unlink(spec_path);

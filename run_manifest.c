@@ -16,6 +16,17 @@
 
 uint64_t manifest_hash_file(const char *path) {
   if (!path || !*path) return 0;
+  const char *colon = strchr(path, ':');
+  if (colon) {
+    char p1[512], p2[512];
+    size_t l1 = (size_t)(colon - path);
+    if (l1 >= sizeof(p1)) l1 = sizeof(p1) - 1;
+    memcpy(p1, path, l1); p1[l1] = 0;
+    snprintf(p2, sizeof(p2), "%s", colon + 1);
+    uint64_t h1 = manifest_hash_file(p1);
+    uint64_t h2 = manifest_hash_file(p2);
+    return (h1 ^ h2) * FNV_PRIME;
+  }
   FILE *f = fopen(path, "rb");
   if (!f) return 0;
   uint64_t hash = FNV_OFFSET_BASIS;
@@ -37,24 +48,46 @@ static uint64_t get_time_ms(void) {
   return ((uint64_t)tv.tv_sec * 1000ULL) + ((uint64_t)tv.tv_usec / 1000ULL);
 }
 
-static uint32_t scan_max_candidate_id(const char *out_dir) {
+void manifest_write_escaped_json_string(FILE *f, const char *s) {
+  fputc('"', f);
+  if (s) {
+    for (const char *p = s; *p; p++) {
+      if (*p == '"') fputs("\\\"", f);
+      else if (*p == '\\') fputs("\\\\", f);
+      else if (*p == '\b') fputs("\\b", f);
+      else if (*p == '\f') fputs("\\f", f);
+      else if (*p == '\n') fputs("\\n", f);
+      else if (*p == '\r') fputs("\\r", f);
+      else if (*p == '\t') fputs("\\t", f);
+      else if ((unsigned char)*p < 0x20) fprintf(f, "\\u%04x", (unsigned char)*p);
+      else fputc(*p, f);
+    }
+  }
+  fputc('"', f);
+}
+
+uint32_t scan_max_candidate_id(const char *out_dir) {
   char cand_dir[512];
   snprintf(cand_dir, sizeof(cand_dir), "%s/protocol-candidates", out_dir);
   DIR *d = opendir(cand_dir);
   if (!d) return 0;
 
+  int found_any = 0;
   uint32_t max_id = 0;
   struct dirent *de;
   while ((de = readdir(d)) != NULL) {
     if (de->d_name[0] == '.') continue;
     char *end = NULL;
     unsigned long val = strtoul(de->d_name, &end, 10);
-    if (end && (*end == '.' || *end == '_') && val > 0) {
-      if ((uint32_t)val > max_id) max_id = (uint32_t)val;
+    if (end && end != de->d_name && (*end == '.' || *end == '_')) {
+      if (!found_any || (uint32_t)val > max_id) {
+        max_id = (uint32_t)val;
+      }
+      found_any = 1;
     }
   }
   closedir(d);
-  return max_id;
+  return found_any ? (max_id + 1) : 0;
 }
 
 int manifest_repair_torn_log(const char *log_path, char *err, size_t err_cap) {
@@ -141,21 +174,21 @@ int manifest_save_atomic(const run_manifest *m,
 
   fprintf(f, "{\n"
              "  \"manifest_version\": %u,\n"
-             "  \"run_id\": \"%s\",\n"
-             "  \"protocol\": \"%s\",\n"
-             "  \"spec_path\": \"%s\",\n"
-             "  \"spec_hash\": %" PRIu64 ",\n"
+             "  \"run_id\": ",
+          m->manifest_version);
+  manifest_write_escaped_json_string(f, m->run_id);
+  fprintf(f, ",\n  \"protocol\": ");
+  manifest_write_escaped_json_string(f, m->protocol);
+  fprintf(f, ",\n  \"spec_path\": ");
+  manifest_write_escaped_json_string(f, m->spec_path);
+  fprintf(f, ",\n  \"spec_hash\": %" PRIu64 ",\n"
              "  \"random_seed\": %u,\n"
-             "  \"mutation_mode\": \"%s\",\n"
-             "  \"current_segment_id\": %u,\n"
-             "  \"segments\": [\n",
-          m->manifest_version,
-          m->run_id,
-          m->protocol,
-          m->spec_path,
+             "  \"mutation_mode\": ",
           m->spec_hash,
-          m->random_seed,
-          m->mutation_mode,
+          m->random_seed);
+  manifest_write_escaped_json_string(f, m->mutation_mode);
+  fprintf(f, ",\n  \"current_segment_id\": %u,\n"
+             "  \"segments\": [\n",
           m->current_segment_id);
 
   for (uint32_t i = 0; i < m->num_segments; i++) {
@@ -164,16 +197,16 @@ int manifest_save_atomic(const run_manifest *m,
                "      \"segment_id\": %u,\n"
                "      \"parent_segment_id\": %d,\n"
                "      \"start_time_ms\": %" PRIu64 ",\n"
-               "      \"learning_state\": \"%s\",\n"
-               "      \"reset_reason\": \"%s\",\n"
-               "      \"candidate_id_start\": %u,\n"
-               "      \"candidates_saved\": %u\n"
-               "    }%s\n",
+               "      \"learning_state\": ",
             s->segment_id,
             s->parent_segment_id,
-            s->start_time_ms,
-            s->learning_state,
-            s->reset_reason,
+            s->start_time_ms);
+    manifest_write_escaped_json_string(f, s->learning_state);
+    fprintf(f, ",\n      \"reset_reason\": ");
+    manifest_write_escaped_json_string(f, s->reset_reason);
+    fprintf(f, ",\n      \"candidate_id_start\": %u,\n"
+               "      \"candidates_saved\": %u\n"
+               "    }%s\n",
             s->candidate_id_start,
             s->candidates_saved,
             (i + 1 < m->num_segments) ? "," : "");
@@ -242,12 +275,34 @@ int manifest_init_or_resume(const char *out_dir,
       return -1;
     }
 
+    const nj_value *v_ver = nj_get(doc->root, "manifest_version");
+    if (!v_ver || v_ver->number.magnitude != MANIFEST_VERSION) {
+      if (err && err_cap) snprintf(err, err_cap,
+        "Attribution conflict: manifest version mismatch (found=%" PRIu64 ", expected=%u)",
+        v_ver ? v_ver->number.magnitude : 0, MANIFEST_VERSION);
+      nj_free(doc);
+      manifest_free(m);
+      return -1;
+    }
+
     const nj_value *v_proto = nj_get(doc->root, "protocol");
     if (v_proto && v_proto->text && strcmp(use_proto, "unknown") != 0 && strcmp(v_proto->text, "unknown") != 0) {
       if (strcmp(v_proto->text, use_proto) != 0) {
         if (err && err_cap) snprintf(err, err_cap,
           "Attribution conflict: existing manifest in '%s' belongs to protocol '%s', but current is '%s'",
           out_dir, v_proto->text, use_proto);
+        nj_free(doc);
+        manifest_free(m);
+        return -1;
+      }
+    }
+
+    const nj_value *v_mode = nj_get(doc->root, "mutation_mode");
+    if (v_mode && v_mode->text && strcmp(use_mode, "default") != 0 && strcmp(v_mode->text, "default") != 0) {
+      if (strcmp(v_mode->text, use_mode) != 0) {
+        if (err && err_cap) snprintf(err, err_cap,
+          "Attribution conflict: existing manifest in '%s' was run with mutation_mode '%s', but current is '%s'",
+          out_dir, v_mode->text, use_mode);
         nj_free(doc);
         manifest_free(m);
         return -1;
@@ -313,8 +368,7 @@ int manifest_init_or_resume(const char *out_dir,
 
     /* Determine next segment ID and non-colliding candidate start ID */
     uint32_t next_seg_id = m->num_segments > 0 ? (prev_seg_id + 1) : 1;
-    uint32_t max_cand_on_disk = scan_max_candidate_id(out_dir);
-    uint32_t cand_start = max_cand_on_disk > 0 ? (max_cand_on_disk + 1) : 0;
+    uint32_t cand_start = scan_max_candidate_id(out_dir);
     if (m->num_segments > 0) {
       uint32_t last_end = m->segments[m->num_segments - 1].candidate_id_start +
                           m->segments[m->num_segments - 1].candidates_saved;
@@ -354,7 +408,7 @@ int manifest_init_or_resume(const char *out_dir,
     seg0->start_time_ms = get_time_ms();
     snprintf(seg0->learning_state, sizeof(seg0->learning_state), "reset");
     snprintf(seg0->reset_reason, sizeof(seg0->reset_reason), "initial_start");
-    seg0->candidate_id_start = 0;
+    seg0->candidate_id_start = scan_max_candidate_id(out_dir);
     seg0->candidates_saved = 0;
     m->num_segments = 1;
   }

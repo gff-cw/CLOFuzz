@@ -1723,6 +1723,7 @@ static inline uint64_t net_monotonic_ms(void) {
 // Network communication functions
 
 int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
+  uint64_t op_start_ms = net_monotonic_ms();
   if (sockfd < 0) {
     net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
     return -1;
@@ -1740,8 +1741,12 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
     poll_ms = 1;
   }
 
+  uint64_t total_budget_ms = (poll_ms > 0) ? (uint64_t)poll_ms : 1000ULL;
+
+  int sockopt_err = 0;
   if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&norm_tv, sizeof(norm_tv)) < 0) {
     net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+    sockopt_err = 1;
   }
 
   int rv = poll(pfd, 1, poll_ms);
@@ -1752,45 +1757,55 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
         int sent = send(sockfd, mem, len, MSG_NOSIGNAL);
         if (sent < 0) {
           net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
-        } else {
+        } else if (!sockopt_err) {
           net_last_io_status = NET_IO_STATUS_OK;
         }
         return sent;
       }
 
-      /* Stream send with monotonic deadline budget */
-      uint64_t start_ms = net_monotonic_ms();
-      uint64_t send_budget_ms = (poll_ms > 0) ? (uint64_t)poll_ms : 1000ULL;
+      /* Stream send with monotonic deadline budget spanning initial poll and loop */
       while (byte_count < len) {
-        uint64_t elapsed = net_monotonic_ms() - start_ms;
-        if (elapsed >= send_budget_ms) {
-          net_last_io_status = NET_IO_STATUS_TIMEOUT;
+        uint64_t elapsed = net_monotonic_ms() - op_start_ms;
+        if (elapsed >= total_budget_ms) {
+          if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
           break;
+        }
+        uint64_t remaining_ms = total_budget_ms - elapsed;
+        struct timeval rem_tv;
+        rem_tv.tv_sec = remaining_ms / 1000;
+        rem_tv.tv_usec = (remaining_ms % 1000) * 1000;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&rem_tv, sizeof(rem_tv)) < 0) {
+          net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+          sockopt_err = 1;
         }
         n = send(sockfd, &mem[byte_count], len - byte_count, MSG_NOSIGNAL);
         if (n > 0) {
           byte_count += n;
-          net_last_io_status = NET_IO_STATUS_OK;
+          if (!sockopt_err) net_last_io_status = NET_IO_STATUS_OK;
           continue;
         }
         if (n == 0) {
-          net_last_io_status = NET_IO_STATUS_EOF;
+          if (!sockopt_err) net_last_io_status = NET_IO_STATUS_EOF;
           return byte_count;
         }
         if (n == -1) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            uint64_t rem_ms = send_budget_ms - (net_monotonic_ms() - start_ms);
-            if (rem_ms == 0) {
-              net_last_io_status = NET_IO_STATUS_TIMEOUT;
+            uint64_t cur_elapsed = net_monotonic_ms() - op_start_ms;
+            if (cur_elapsed >= total_budget_ms) {
+              if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
               break;
             }
+            uint64_t rem_ms = total_budget_ms - cur_elapsed;
             struct pollfd pfd_wait[1];
             pfd_wait[0].fd = sockfd;
             pfd_wait[0].events = POLLOUT;
             int p_res = poll(pfd_wait, 1, (rem_ms > 10) ? 10 : (int)rem_ms);
             if (p_res <= 0) {
-              net_last_io_status = NET_IO_STATUS_TIMEOUT;
-              break;
+              uint64_t after_poll = net_monotonic_ms() - op_start_ms;
+              if (after_poll >= total_budget_ms) {
+                if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
+                break;
+              }
             }
             continue;
           }
@@ -1800,7 +1815,7 @@ int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len) {
       }
     }
   } else if (rv == 0) {
-    net_last_io_status = NET_IO_STATUS_TIMEOUT;
+    if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
   } else {
     net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
   }
@@ -1820,6 +1835,7 @@ unsigned int net_get_response_budget(void) {
 int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
                      char **response_buf, unsigned int *len,
                      net_recv_cb_t cb, void *user) {
+  uint64_t op_start_ms = net_monotonic_ms();
   if (sockfd < 0 || !response_buf || !len) {
     net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
     return NET_RECV_ERROR;
@@ -1841,17 +1857,42 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
 
   /* P18: Normalize timeout */
   struct timeval norm_tv = normalize_timeval(timeout);
+  uint64_t total_budget_ms = (uint64_t)norm_tv.tv_sec * 1000ULL + (uint64_t)norm_tv.tv_usec / 1000ULL;
+  if (poll_w > 0 && (uint64_t)poll_w > total_budget_ms) total_budget_ms = (uint64_t)poll_w;
+  if (total_budget_ms == 0) total_budget_ms = 50;
+
+  int sockopt_err = 0;
   if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&norm_tv, sizeof(norm_tv)) < 0) {
     net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+    sockopt_err = 1;
   }
 
-  int rv = poll(pfd, 1, poll_w);
+  int initial_poll = poll_w;
+  if (initial_poll > 0 && (uint64_t)initial_poll > total_budget_ms) {
+    initial_poll = (int)total_budget_ms;
+  }
+
+  int rv = poll(pfd, 1, initial_poll);
   // data received
   if (rv > 0) {
     if (pfd[0].revents & POLLIN) {
+      uint64_t elapsed_ms = net_monotonic_ms() - op_start_ms;
+      if (elapsed_ms >= total_budget_ms) {
+        if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
+        return NET_RECV_OK;
+      }
+      uint64_t remaining_ms = total_budget_ms - elapsed_ms;
+      struct timeval rem_tv;
+      rem_tv.tv_sec = remaining_ms / 1000;
+      rem_tv.tv_usec = (remaining_ms % 1000) * 1000;
+      if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&rem_tv, sizeof(rem_tv)) < 0) {
+        net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+        sockopt_err = 1;
+      }
+
       n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
       if (n == 0) {
-        net_last_io_status = NET_IO_STATUS_EOF;
+        if (!sockopt_err) net_last_io_status = NET_IO_STATUS_EOF;
         return NET_RECV_OK;
       }
       if ((n < 0) && (errno != EAGAIN && errno != EWOULDBLOCK)) {
@@ -1859,12 +1900,8 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
         return NET_RECV_ERROR;
       }
 
-      /* Monotonic deadline budget across subsequent chunk receptions:
+      /* Single monotonic deadline budget spanning initial poll and subsequent chunk receptions:
          cannot re-grant full timeout on each retry */
-      uint64_t io_budget_ms = (uint64_t)norm_tv.tv_sec * 1000ULL + (uint64_t)norm_tv.tv_usec / 1000ULL;
-      if (io_budget_ms == 0) io_budget_ms = 50; /* minimum bounded drain window */
-      uint64_t start_ms = net_monotonic_ms();
-
       while (n > 0) {
         int truncated = 0;
         size_t dgram_len = (size_t)n;
@@ -1885,31 +1922,33 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
         memcpy(&(*response_buf)[*len], temp_buf, dgram_len);
         (*response_buf)[(*len) + dgram_len] = '\0';
         *len = *len + dgram_len;
-        net_last_io_status = NET_IO_STATUS_OK;
+        if (!sockopt_err) net_last_io_status = NET_IO_STATUS_OK;
         if (cb) {
           cb((const uint8_t *)temp_buf, dgram_len, is_dgram, truncated, user);
         }
 
         /* Check remaining monotonic time budget before next recv */
-        uint64_t elapsed_ms = net_monotonic_ms() - start_ms;
-        if (elapsed_ms >= io_budget_ms) {
-          net_last_io_status = NET_IO_STATUS_TIMEOUT;
+        elapsed_ms = net_monotonic_ms() - op_start_ms;
+        if (elapsed_ms >= total_budget_ms) {
+          if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
           break;
         }
-        uint64_t remaining_ms = io_budget_ms - elapsed_ms;
-        struct timeval rem_tv;
+        remaining_ms = total_budget_ms - elapsed_ms;
         rem_tv.tv_sec = remaining_ms / 1000;
         rem_tv.tv_usec = (remaining_ms % 1000) * 1000;
-        setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&rem_tv, sizeof(rem_tv));
+        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&rem_tv, sizeof(rem_tv)) < 0) {
+          net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
+          sockopt_err = 1;
+        }
 
         n = recv(sockfd, temp_buf, sizeof(temp_buf), flags);
         if (n == 0) {
-          net_last_io_status = NET_IO_STATUS_EOF;
+          if (!sockopt_err) net_last_io_status = NET_IO_STATUS_EOF;
           break;
         }
         if (n < 0) {
           if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            net_last_io_status = NET_IO_STATUS_TIMEOUT;
+            if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
             break;
           }
           net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
@@ -1921,7 +1960,7 @@ int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,
     net_last_io_status = NET_IO_STATUS_SYSCALL_ERR;
     return NET_RECV_ERROR;
   } else {
-    net_last_io_status = NET_IO_STATUS_TIMEOUT;
+    if (!sockopt_err) net_last_io_status = NET_IO_STATUS_TIMEOUT;
   }
 
   // rv == 0 poll timeout or all data pending after poll has been received successfully

@@ -164,6 +164,7 @@ struct proto_engine {
   uint64_t resp_unrelated,resp_correlation_mismatches,resp_expected_complete;
   uint64_t resp_by_purpose[7];
   unsigned exec_purpose;
+  int mutating_mode;
   unsigned semantic_state;
   uint32_t ua_sequence;
   uint8_t receive[MAX_FILE];size_t receive_size;
@@ -696,6 +697,11 @@ void proto_set_execution_purpose(proto_engine *e, unsigned purpose){
   e->exec_purpose = (purpose < 7) ? purpose : 0;
   if(e->generic)gr_set_execution_purpose(e->generic, purpose);
 }
+void proto_set_mutating_mode(proto_engine *e, int mode){
+  if(!e)return;
+  e->mutating_mode = mode;
+  if(e->generic)gr_set_mutating_mode(e->generic, mode);
+}
 /* Live responses may arrive split across net_recv calls or coalesced. Only a
  * complete validated, correlated response may supply connection bindings. */
 static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
@@ -870,6 +876,11 @@ int proto_validate_sequence(proto_engine *e,
         return fail(err, cap, "max_bytes exceeded across sequence (%zu > %zu)",
                     total_replay_bytes, e->max_bytes);
 
+      if (s == 1 && (e->mutating_mode == PROTO_NEAR_VALID || e->mutating_mode == PROTO_INVALID)) {
+        p += z;
+        continue;
+      }
+
       int m = model_for(e, buf + p, z, 0);
       if (m < 0)
         return fail(err, cap, "%s message outside semantic model", seg_names[s]);
@@ -910,7 +921,8 @@ static int who_is_content(const uint8_t *b,size_t n,const char *locator){
          v.kind==1 && b[v.service]==8;
 }
 int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint8_t *candidate,size_t cn,int mode,int layer,proto_random rng,const uint8_t **out,size_t *olen,char *err,size_t cap){
-  if(e&&e->generic)return gr_mutate(e->generic,records,length,candidate,cn,mode,layer,rng,out,olen,err,cap);
+  if(e)e->mutating_mode=mode;
+  if(e&&e->generic){gr_set_mutating_mode(e->generic,mode);return gr_mutate(e->generic,records,length,candidate,cn,mode,layer,rng,out,olen,err,cap);}
   if(out)*out=NULL;if(olen)*olen=0;
   if(!e || !rng || !out || !olen || (!candidate && cn))return fail(err,cap,"missing mutation engine, random callback, candidate or output");
   session_snapshot live;save_session(e,&live);

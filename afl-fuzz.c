@@ -2061,6 +2061,7 @@ int send_over_network()
           if (protocol_log)
             fprintf(protocol_log,"{\"event\":\"session_rejected\",\"reason\":\"%s\"}\n",error);
           ck_free(send_buf);
+          is_transmission_complete = 0;
           goto HANDLE_RESPONSES;
         }
       }
@@ -2141,7 +2142,7 @@ HANDLE_RESPONSES:
   if (experiment_active && protocol_candidate_dir && complete_messages &&
       protocol_candidates_saved < protocol_candidate_limit) {
     u8 *sample = alloc_printf("%s/%06u.replay", protocol_candidate_dir, protocol_candidates_saved);
-    save_executed_messages_to_file(exec_msgs, complete_messages, (char *)sample);
+    save_executed_messages_to_file(exec_msgs, messages_sent, (char *)sample);
     ck_free(sample);
     u8 *metadata = alloc_printf("%s/%06u.json", protocol_candidate_dir, protocol_candidates_saved);
     FILE *record = fopen((char *)metadata, "w");
@@ -5655,8 +5656,8 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
 #endif /* ^!SIMPLE_FILES */
 
-    if (complete_messages == 0) {
-      /* P19: No complete messages transmitted; reject from queue */
+    if (complete_messages == 0 || !is_transmission_complete) {
+      /* P19/B08: Incomplete messages or partial send; reject truncated prefix from queue */
       ck_free(fn);
       return keeping;
     }
@@ -6013,17 +6014,27 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
             protocol_structured_runs, protocol_raw_runs, protocol_rejections,
             protocol_complete_transmissions, protocol_valid_observations, protocol_reward_committed);
     u8 *stats_path = alloc_printf("%s/protocol_stats.json", out_dir);
-    proto_write_stats(protocol_engine, (char *)stats_path);
+    if (proto_write_stats(protocol_engine, (char *)stats_path) < 0) {
+      WARNF("Unable to write '%s'", stats_path);
+    }
     ck_free(stats_path);
     fprintf(f, "protocol_schedule : %s\n", protocol_adaptive ? "adaptive" : "uniform");
     if (protocol_adaptive) {
-      stats_path = alloc_printf("%s/protocol_schedule.json", out_dir);
-      FILE *schedule_file = fopen((char *)stats_path, "w");
+      u8 *schedule_path = alloc_printf("%s/protocol_schedule.json", out_dir);
+      u8 *schedule_tmp = alloc_printf("%s/protocol_schedule.json.tmp.%d", out_dir, (int)getpid());
+      FILE *schedule_file = fopen((char *)schedule_tmp, "w");
       if (schedule_file) {
         proto_schedule_write(&protocol_scheduler, schedule_file);
-        fclose(schedule_file);
+        if (fflush(schedule_file) != 0 || fclose(schedule_file) != 0) {
+          unlink((char *)schedule_tmp);
+        } else {
+          if (rename((char *)schedule_tmp, (char *)schedule_path) != 0) {
+            unlink((char *)schedule_tmp);
+          }
+        }
       }
-      ck_free(stats_path);
+      ck_free(schedule_tmp);
+      ck_free(schedule_path);
     }
   }
 
@@ -7095,7 +7106,9 @@ static void show_init_stats(void) {
     ck_free(path);
     if (protocol_engine) {
       path = alloc_printf("%s/experiment_protocol_baseline.json", out_dir);
-      proto_write_stats(protocol_engine, (char *)path);
+      if (proto_write_stats(protocol_engine, (char *)path) < 0) {
+        WARNF("Unable to write '%s'", path);
+      }
       ck_free(path);
     }
   }
@@ -7181,6 +7194,7 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
     *feedback_layer = layer;
   }
   int mode = protocol_mode == PROTO_HYBRID ? PROTO_VALID : protocol_mode;
+  proto_set_mutating_mode(protocol_engine, mode);
   protocol_candidate_attempts++;
   if (proto_mutate(protocol_engine, protocol_base, protocol_base_len,
                    *wire, *wire_len, mode, layer, protocol_random,
@@ -7201,7 +7215,8 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
       fputs("{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"full_sequence_MAX_FILE\"}\n", protocol_log);
     return NULL;
   }
-  if (proto_validate_sequence(protocol_engine, protocol_prefix, protocol_prefix_len,
+  if (mode == PROTO_VALID &&
+      proto_validate_sequence(protocol_engine, protocol_prefix, protocol_prefix_len,
                               records, length, protocol_suffix, protocol_suffix_len,
                               error, sizeof(error)) < 0) {
     protocol_rejections++;
@@ -7226,7 +7241,6 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
   }
   *wire = protocol_wire; *wire_len = off;
   protocol_structured_run = 1;
-  protocol_structured_runs++;
   return regions;
 }
 
@@ -7399,8 +7413,9 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   u32 feedback_queue_before = queued_paths, feedback_states_before = state_ids_count;
   u64 feedback_crashes_before = unique_crashes, feedback_hangs_before = unique_hangs;
   protocol_structured_sent = 0;
+  if (protocol_structured_run) protocol_structured_runs++;
   fault = run_target(argv, exec_tmout, afl_fsrv);
-  u8 feedback_delivered = protocol_count && protocol_structured_sent == protocol_count;
+  u8 feedback_delivered = protocol_count && (protocol_structured_sent == protocol_count) && is_transmission_complete;
   if (feedback_delivered) protocol_complete_transmissions++;
 
   /* P20: Log executed candidate status with requested/actual modes, stage, and outcome */
@@ -7454,7 +7469,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   /* This handles FAULT_ERROR for us: */
 
   protocol_new_tuples = protocol_new_buckets = 0;
-  protocol_collect_coverage = feedback_layer && feedback_delivered && fault == crash_mode;
+  protocol_collect_coverage = feedback_layer && feedback_delivered && !response_budget_exceeded && fault == crash_mode;
   if (protocol_collect_coverage) protocol_valid_observations++;
   queued_discovered += save_if_interesting(argv, out_buf, len, fault);
   protocol_collect_coverage = 0;
@@ -11664,14 +11679,21 @@ int main(int argc, char** argv) {
 
   /* P26: Validate cold-start segment lineage and manifest attribution */
   if (protocol_engine) {
-    const char *spec_file = generic_spec_path ? (const char *)generic_spec_path : (const char *)protocol_spec_path;
+    char spec_context[512];
+    if (generic_spec_path) {
+      snprintf(spec_context, sizeof(spec_context), "%s", generic_spec_path);
+    } else if (protocol_spec_path && protocol_state_path) {
+      snprintf(spec_context, sizeof(spec_context), "%s:%s", protocol_spec_path, protocol_state_path);
+    } else {
+      snprintf(spec_context, sizeof(spec_context), "%s", protocol_spec_path ? protocol_spec_path : "");
+    }
     const char *proto_name = generic_spec_path ? "generic-wire" : "protocol-ir";
     const char *mode_str = protocol_mode == PROTO_VALID ? "valid" :
                            protocol_mode == PROTO_NEAR_VALID ? "near_valid" :
                            protocol_mode == PROTO_INVALID ? "invalid" :
                            protocol_mode == PROTO_RAW ? "raw" : "hybrid";
     char merr[256];
-    if (manifest_init_or_resume((char *)out_dir, proto_name, spec_file, mode_str,
+    if (manifest_init_or_resume((char *)out_dir, proto_name, spec_context, mode_str,
                                 fixed_random_seed ? experiment_seed : 0,
                                 &manifest_ctx, merr, sizeof(merr)) < 0) {
       FATAL("Run manifest validation: %s", merr);

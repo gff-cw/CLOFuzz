@@ -35,6 +35,7 @@ struct gr_engine {
   uint64_t resp_unrelated,resp_correlation_mismatches,resp_expected_complete;
   uint64_t resp_by_purpose[7];
   unsigned exec_purpose;
+  int mutating_mode;
   unsigned pending,pending_request,pending_response,pending_next;
   uint64_t cache[GR_CORRELATIONS];
   FILE *log;
@@ -443,6 +444,11 @@ int gr_validate_sequence(const gr_engine *e,
       if (gr_validate_framing(e, buf + p, n, seg_names[s], err, cap) < 0)
         return -1;
 
+      if (s == 1 && (e->mutating_mode == PROTO_NEAR_VALID || e->mutating_mode == PROTO_INVALID)) {
+        p += n;
+        continue;
+      }
+
       unsigned model = 0;
       if (gr_match(e, buf + p, n, 0, &model, err, cap) < 0)
         return gr_error(err, cap, "%s message outside description grammar", seg_names[s]);
@@ -475,6 +481,7 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
               char *err,size_t cap){
   gr_record rr[GR_RECORDS]={0};size_t count=0,selected=0,before=0;int status=-1;
   if(out)*out=NULL;if(out_length)*out_length=0;if(err&&cap)err[0]=0;
+  if(e)e->mutating_mode=mode;
   if(!e||!out||!out_length||!random||(!candidate&&cn)||cn>MAX_FILE||
      mode!=PROTO_VALID||
      (layer!=PROTO_HEAD&&layer!=PROTO_CONTENT&&layer!=PROTO_SEQUENCE))
@@ -603,6 +610,10 @@ int gr_before_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap
 void gr_set_execution_purpose(gr_engine *e, unsigned purpose){
   if(!e)return;
   e->exec_purpose = (purpose < 7) ? purpose : 0;
+}
+void gr_set_mutating_mode(gr_engine *e, int mode){
+  if(!e)return;
+  e->mutating_mode = mode;
 }
 static void gr_response_frame(gr_engine *e,const uint8_t *wire,size_t length){
   unsigned model;char err[128];
