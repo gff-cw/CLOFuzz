@@ -734,27 +734,17 @@ void update_region_annotations(struct queue_entry* q, const execution_observatio
     }
 
     if (obs->provider == STATE_OBS_PROVIDER_TRACER) {
-      /* P02/P03: In StateAFL tracer mode, sequence layout starts with State 0 (initial
-         pre-message context at index 0) followed by snapshots after each message:
-         seq[0] = 0 (initial state)
-         seq[1] = state after message 0
-         ...
-         seq[i+1] = state after message i.
-         Therefore, snapshot boundary for region i requires at least i + 2 states:
-         obs->has_state_observation == 1, status COMPLETE or TRUNCATED, and
-         obs->state_count >= i + 2. */
-      if (!obs->has_state_observation || !obs->state_sequence ||
-          (obs->status != STATE_TRACER_STATUS_COMPLETE && obs->status != STATE_TRACER_STATUS_TRUNCATED) ||
-          obs->state_count < i + 2) {
-        /* Missing or incomplete state observation boundary; mark unknown */
-        continue;
-      }
-
-      u32 regional_state_count = i + 2;
-      unsigned int *state_sequence = (unsigned int *)ck_alloc(regional_state_count * sizeof(unsigned int));
-      memcpy(state_sequence, obs->state_sequence, regional_state_count * sizeof(unsigned int));
-      q->regions[i].state_sequence = state_sequence;
-      q->regions[i].state_count = regional_state_count;
+      /* B01: In StateAFL tracer mode, state-tracer.h currently provides no per-message
+         boundary markers or attribution metadata; target socket buffering and TCP packet
+         merging/splitting mean snapshot index cannot be assumed to equal message index i+1.
+         Unless an observation provider explicitly provides per-message boundary attribution
+         metadata, do NOT assume seq[i+1]. Leave regional intermediate states as UNKNOWN
+         (state_sequence = NULL, state_count = 0) to prevent misattribution of non-zero states.
+         The full candidate sequence (orig_obs->state_sequence) is kept intact for the
+         overall test case path and IPSM state machine reachability. */
+      q->regions[i].state_sequence = NULL;
+      q->regions[i].state_count = 0;
+      continue;
 
     } else {
       /* In AFLNet ASCII response code mode, extract codes up to response_bytes[i] */
@@ -816,12 +806,14 @@ u8* choose_source_region(u32 *out_len) {
 }
 
 /* Update #fuzzs visiting a specific state.
-   P25: Check provider capability so -u / coverage executions without tracer probes
-   do not credit unobserved state visits. */
+   P25/B05: Check provider capability and tracer execution validity so that state visits
+   are credited only when a real, complete/truncated tracer execution occurred.
+   In dual-forkserver mode (target_path_afl), only stateafl_fsrv runs with the tracer.
+   In single-forkserver mode (target_path_afl == NULL), both forkservers run with the tracer. */
 void update_fuzzs() {
   if (extract_response_codes == extract_response_state_tracer) {
-    if (target_path_afl || current_fsrv != stateafl_fsrv) {
-      /* Coverage run has no state tracer; do not credit unobserved visits */
+    if (!(target_path_afl ? (current_fsrv == stateafl_fsrv) : 1)) {
+      /* Coverage run in dual-forkserver mode has no state tracer; do not credit unobserved visits */
       return;
     }
     if (!state_shared_ptr || state_shared_ptr->exec_id != state_exec_id ||
@@ -5372,7 +5364,7 @@ static void perform_dry_run(char** argv) {
 
 /* Helper function: link() if possible, copy otherwise. */
 
-static void link_or_copy(u8* old_path, u8* new_path) {
+static void __attribute__((unused)) link_or_copy(u8* old_path, u8* new_path) {
 
   s32 i = link(old_path, new_path);
   s32 sfd, dfd;
@@ -5663,6 +5655,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     /* Re-run with state analyzer to update state machine */
     if (state_aware_mode) {
       run_target(argv, exec_tmout * 2, stateafl_fsrv);
+      update_fuzzs();
       update_state_aware_variables(queue_top, 0, argv);
     }
 

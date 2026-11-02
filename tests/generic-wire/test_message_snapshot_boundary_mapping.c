@@ -84,18 +84,17 @@ static void test_update_region_annotations(struct mock_queue_entry *q, const exe
     }
 
     if (obs->provider == STATE_OBS_PROVIDER_TRACER) {
-      /* In StateAFL tracer mode, snapshot boundary for region i requires obs->state_count >= i + 2 */
-      if (!obs->has_state_observation || !obs->state_sequence ||
-          (obs->status != STATE_TRACER_STATUS_COMPLETE && obs->status != STATE_TRACER_STATUS_TRUNCATED) ||
-          obs->state_count < i + 2) {
-        continue;
-      }
-
-      u32 regional_state_count = i + 2;
-      unsigned int *state_sequence = (unsigned int *)mock_alloc(regional_state_count * sizeof(unsigned int));
-      memcpy(state_sequence, obs->state_sequence, regional_state_count * sizeof(unsigned int));
-      q->regions[i].state_sequence = state_sequence;
-      q->regions[i].state_count = regional_state_count;
+      /* B01: In StateAFL tracer mode, state-tracer.h currently provides no per-message
+         boundary markers or attribution metadata; target socket buffering and TCP packet
+         merging/splitting mean snapshot index cannot be assumed to equal message index i+1.
+         Unless an observation provider explicitly provides per-message boundary attribution
+         metadata, do NOT assume seq[i+1]. Leave regional intermediate states as UNKNOWN
+         (state_sequence = NULL, state_count = 0) to prevent misattribution of non-zero states.
+         The full candidate sequence (orig_obs->state_sequence) is kept intact for the
+         overall test case path and IPSM state machine reachability. */
+      q->regions[i].state_sequence = NULL;
+      q->regions[i].state_count = 0;
+      continue;
 
     } else {
       /* In AFLNet ASCII response code mode */
@@ -143,7 +142,11 @@ int main(void) {
     assert(q.regions[i].state_count == 0);
   }
 
-  /* 2. StateAFL tracer mode: 3 regions, 2 sent, valid responses for msg 0 and 1 */
+  /* 2. B01: StateAFL tracer mode without explicit per-message boundary metadata
+     3 regions, 2 sent, valid responses for msg 0 and 1.
+     Regional intermediate states MUST be left as UNKNOWN (state_sequence = NULL, state_count = 0)
+     to prevent misattributing unproven non-zero states to message regions.
+     The full test case sequence (obs->state_sequence) MUST be preserved intact for whole-path evaluation. */
   execution_observation_t *obs = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
   assert(obs != NULL);
   obs->messages_sent = 2; /* Only 2 of 3 sent */
@@ -163,65 +166,50 @@ int main(void) {
   obs->state_sequence[1] = 0xAA;
   obs->state_sequence[2] = 0xBB;
 
+  /* Pre-populate regions with dummy old allocations to ensure cleanup */
+  for (u32 i = 0; i < 3; i++) {
+    q.regions[i].state_sequence = (unsigned int *)malloc(sizeof(unsigned int));
+    q.regions[i].state_sequence[0] = 777;
+    q.regions[i].state_count = 1;
+  }
+
   test_update_region_annotations(&q, obs);
 
-  /* Region 0:
-     - Boundary evidence verified
-     - regional_state_count == 2
-     - state_sequence = [0, 0xAA]
-     - Reached state (last element) == 0xAA */
-  assert(q.regions[0].state_count == 2);
-  assert(q.regions[0].state_sequence != NULL);
-  assert(q.regions[0].state_sequence[0] == 0);
-  assert(q.regions[0].state_sequence[1] == 0xAA);
-  assert(q.regions[0].state_sequence[q.regions[0].state_count - 1] == 0xAA);
-
-  /* Region 1:
-     - Boundary evidence verified
-     - regional_state_count == 3
-     - state_sequence = [0, 0xAA, 0xBB]
-     - Reached state (last element) == 0xBB */
-  assert(q.regions[1].state_count == 3);
-  assert(q.regions[1].state_sequence != NULL);
-  assert(q.regions[1].state_sequence[0] == 0);
-  assert(q.regions[1].state_sequence[1] == 0xAA);
-  assert(q.regions[1].state_sequence[2] == 0xBB);
-  assert(q.regions[1].state_sequence[q.regions[1].state_count - 1] == 0xBB);
-
-  /* Region 2:
-     - Not sent (i >= messages_sent)
-     - Marked unknown: state_count == 0, state_sequence == NULL */
+  /* B01 Regional intermediate state checks:
+     All regions must be marked UNKNOWN (NULL / 0) so that unproven non-zero states
+     (e.g., 0xAA, 0xBB) are never misattributed to individual message regions. */
+  assert(q.regions[0].state_count == 0);
+  assert(q.regions[0].state_sequence == NULL);
+  assert(q.regions[1].state_count == 0);
+  assert(q.regions[1].state_sequence == NULL);
   assert(q.regions[2].state_count == 0);
   assert(q.regions[2].state_sequence == NULL);
 
-  /* 3. Test missing response boundary: msg 1 receives 0 delta bytes */
-  obs->response_bytes[1] = 10; /* delta = 10 - 10 = 0 */
-  test_update_region_annotations(&q, obs);
+  /* B01 Whole-path sequence intactness check:
+     The full candidate sequence (obs->state_sequence) must remain untouched and intact
+     for whole-path evaluation and IPSM state machine reachability. */
+  assert(obs->state_sequence != NULL);
+  assert(obs->state_count == 3);
+  assert(obs->state_sequence[0] == 0);
+  assert(obs->state_sequence[1] == 0xAA);
+  assert(obs->state_sequence[2] == 0xBB);
 
-  assert(q.regions[0].state_count == 2); /* Msg 0 still valid */
-  assert(q.regions[1].state_count == 0); /* Msg 1 boundary rejected */
-  assert(q.regions[1].state_sequence == NULL);
-  assert(q.regions[2].state_count == 0);
-
-  /* 4. Test insufficient tracer snapshots: obs->state_count < i + 2 */
-  obs->response_bytes[1] = 25; /* restore positive delta */
-  obs->state_count = 2;        /* Only seq[0], seq[1] available, region 1 needs 3 */
-  test_update_region_annotations(&q, obs);
-
-  assert(q.regions[0].state_count == 2); /* Region 0 has 2 states available */
-  assert(q.regions[1].state_count == 0); /* Region 1 requires 3 states, unavailable */
-  assert(q.regions[1].state_sequence == NULL);
-
-  /* 5. Test tracer status UNAVAILABLE */
-  obs->state_count = 3;
-  obs->status = STATE_TRACER_STATUS_UNAVAILABLE;
+  /* 3. B01 under STATE_TRACER_STATUS_TRUNCATED: regional states remain UNKNOWN, seq preserved */
+  obs->status = STATE_TRACER_STATUS_TRUNCATED;
   test_update_region_annotations(&q, obs);
   assert(q.regions[0].state_count == 0);
   assert(q.regions[0].state_sequence == NULL);
   assert(q.regions[1].state_count == 0);
   assert(q.regions[1].state_sequence == NULL);
+  assert(q.regions[2].state_count == 0);
+  assert(q.regions[2].state_sequence == NULL);
+  assert(obs->state_sequence != NULL);
+  assert(obs->state_count == 3);
+  assert(obs->state_sequence[0] == 0);
+  assert(obs->state_sequence[1] == 0xAA);
+  assert(obs->state_sequence[2] == 0xBB);
 
-  /* 6. Test AFLNet ASCII response codes mode */
+  /* 4. AFLNet ASCII response codes mode: per-message boundary mapping active */
   obs->provider = STATE_OBS_PROVIDER_CODES;
   obs->status = STATE_TRACER_STATUS_COMPLETE;
   obs->response_buf = (char *)malloc(30);
@@ -242,6 +230,20 @@ int main(void) {
   assert(q.regions[1].state_sequence[0] == 220);
   assert(q.regions[1].state_sequence[1] == 250);
   assert(q.regions[1].state_sequence[2] == 331);
+
+  /* Region 2: not sent (i >= messages_sent) */
+  assert(q.regions[2].state_count == 0);
+  assert(q.regions[2].state_sequence == NULL);
+
+  /* 5. Missing response boundary in ASCII mode: msg 1 receives 0 delta bytes */
+  obs->response_bytes[1] = 10; /* delta = 10 - 10 = 0 */
+  test_update_region_annotations(&q, obs);
+  assert(q.regions[0].state_count == 2);
+  assert(q.regions[0].state_sequence != NULL);
+  assert(q.regions[1].state_count == 0);
+  assert(q.regions[1].state_sequence == NULL);
+  assert(q.regions[2].state_count == 0);
+  assert(q.regions[2].state_sequence == NULL);
 
   /* Cleanup */
   test_update_region_annotations(&q, NULL);
