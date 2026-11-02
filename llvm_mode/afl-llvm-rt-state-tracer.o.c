@@ -1360,14 +1360,19 @@ unsigned int compute_state_value(Tlsh * t, int data_size, MVPTree * tree, unsign
 
       LOG_DEBUG("APPENDING HASH TO REFERENCE SEQUENCE FOR CALIBRATION: %d\n", calib_shm->ref_len);
 
-      strcpy(calib_shm->ref_state_seq[calib_shm->ref_len], tlsh_hash);
-      calib_shm->ref_len++;
+      if (calib_shm->ref_len < MAX_NUM_STATES) {
+        strcpy(calib_shm->ref_state_seq[calib_shm->ref_len], tlsh_hash);
+        calib_shm->ref_len++;
+      } else {
+        LOG_DEBUG("WARNING: calibration reference state sequence full (%d >= %d)\n",
+                  calib_shm->ref_len, MAX_NUM_STATES);
+      }
     }
     else {
 
       //int current_state_number = state_shared_ptr->seq_len - 1;
 
-      if(current_state_number <= calib_shm->ref_len) {
+      if(current_state_number >= 0 && current_state_number < calib_shm->ref_len && current_state_number < MAX_NUM_STATES) {
 
         Tlsh * ref_tlsh = Tlsh_new();
 
@@ -1377,8 +1382,10 @@ unsigned int compute_state_value(Tlsh * t, int data_size, MVPTree * tree, unsign
 
         LOG_DEBUG("TLSH DISTANCE FROM REF: %d\n", diff);
 
-        calib_shm->dist[calib_shm->dist_len] = diff;
-        calib_shm->dist_len++;
+        if (calib_shm->dist_len < (MAX_NUM_STATES * MAX_REPETITIONS)) {
+          calib_shm->dist[calib_shm->dist_len] = diff;
+          calib_shm->dist_len++;
+        }
 
         Tlsh_delete(ref_tlsh);
       }
