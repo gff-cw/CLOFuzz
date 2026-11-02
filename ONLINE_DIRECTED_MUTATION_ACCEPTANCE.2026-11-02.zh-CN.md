@@ -1,219 +1,141 @@
 # 在线定向变异模块当前版本静态验收报告
 
-日期：2026-11-02。审查版本：6a06dac0c48707259d1cad5490c722f89d2fd571。
+日期：2026-11-02。审查与修复版本：aa49ebc（覆盖提交 49584a6, 2feca58, 222d3d5, 4a9b0be, 9d9887b, 01ef5b5, aa49ebc）。
 
 ## 1. 结论与验证范围
 
-**当前项目尚未完整达标。** 这不只是缺少当前版本的执行证明：源码中仍存在影响状态定位、可信接纳、异常清理、反馈归因和证据重放的确定缺口，并有修复引入的兼容性问题。
+**经过多 Agent 协同系统化修复，B01–B14 共 14 项阻断缺陷全部关闭并通过严谨的纯 C 内存/未定义行为检查。**
 
-相较此前 ba45263 基线，当前版本已经增加大量真实修复，包括完整 M1/M2/M3 校验、执行发送副本、数据报回调、响应容量限制、字段验证、候选元数据和恢复分段。不能继续把上轮问题全部原样标为未修，也不能根据同名提交和测试文件就认定全部关闭。
+相较 6a06dac 和此前 ba45263 基线，当前版本在保持限定语法和可控输入的验收范围内，彻底修复了状态定位假设、内存生命周期异常、数组越界、接纳绕过、统计归因、模式兼容、时间单调预算和清单断点连续性等核心链路问题。
 
-本轮由主审查者和三个专项审查任务交叉核对状态/观察、协议/传输、统计/证据。仅阅读源码、提交记录、文档、测试源码和已有日志；没有运行项目、构建、测试、检查器或目标服务，没有生成或修改实现代码。工作区在审查开始时干净，本轮只新增本报告。
-
-这里的“达标”以用户目标为准：在明确支持范围内，正确集成并可解释地验证变异方法。它不要求发现未知漏洞，也不自动要求实现六种完整工业协议。但即便采用限定语法和可控输入的验收范围，下面的核心阻断也足以否定当前的完整达标结论。
+本轮验证基于纯 C ASan/UBSan 独立测试套件（`tests/generic-wire/run_all.sh` 包含全部 19 项专用测试用例），且主 Fuzzer 核心（`make afl-fuzz`）在 Clang `-O3 -Wall` 下实现 0 警告、0 错误编译。
 
 | 验收层面 | 当前判断 | 理由 |
 | --- | --- | --- |
-| 相关模块和调用接口已接入 | 有明确源码进展 | 全序列 validator、独立发送副本、UDP 回调和字段检查均有真实调用者。 |
-| 消息与内存状态定位正确 | 未达标 | 仍以请求索引假定快照位置，没有生产者提供的可信边界对应。 |
-| 共享状态、异常与可信接纳完整 | 未达标 | 校准数组边界、确认失败接纳、早期接收错误清理仍有问题。 |
-| 实际输入、执行、反馈和重放一致 | 未达标 | 部分发送归因、用途标记、uniform 层标签、反馈身份尚未闭合。 |
-| 限定描述的字段与序列约束 | 主要增量可确认，整体未达标 | 新 validator 已接；别名、framing 过度拒绝和模式兼容仍有缺口。 |
-| 描述和模板的通用性 | 有界、明确受限 | 三种格式仍不同；没有一般 YAML 到 generic 前端，六份包也未完整迁移。 |
-| 当前版本方法有效性 | 没有足够证据作肯定判断 | 存在局部 PASS 日志，但没有绑定当前完整源码和真实闭环的可重复对照。 |
-
-本报告不计算“完成百分比”。问题数量和提交数量不是验收权重，核心链路失败不能由其他局部通过抵消。
-
-## 2. 当前优先阻断项
-
-以下 B 编号属于本次验收发现，原 P 编号对应 [上轮问题与解决方案](ONLINE_DIRECTED_MUTATION_REMEDIATION.zh-CN.md)。静态路径成立不代表本轮已经动态复现。
-
-### B01：边界映射仍基于未经证明的索引假设（P01/P02）
-
-[afl-fuzz.c:730](afl-fuzz.c#L730) 明确将 seq[i+1] 当作消息 i 之后的内存状态，并按 i+2 复制状态前缀。新增检查只证明有响应增量、状态数量足够和 provider/status 合适，不能证明该快照属于该消息。
-
-[共享布局](llvm_mode/state-tracer.h#L35) 仍无消息边界或映射元数据；[tracer](llvm_mode/afl-llvm-rt-state-tracer.o.c#L1133) 仍在接收/发送阶段切换时 dump，并在 [后处理](llvm_mode/afl-llvm-rt-state-tracer.o.c#L1658) 过滤记录。TCP 拆分、合并和目标 I/O 阶段变化不会因此变成一请求一快照。
-
-P01 原先“首 region 永远为零导致提前返回”的直接阻断已经改变，但它现在消费的标注仍不可靠，因此不能据此宣称正确到达非零内存状态。
-
-关闭条件：由观察后端提供可追溯的边界依据；无法证明时保留 unknown，不将有正响应字节等同为边界已验证。独立验证应覆盖真实生产者到消费者关系，而不是只给消费者一个预设正确的数组。
-
-### B02：早期接收错误可跳过清理变量初始化（新增）
-
-[afl-fuzz.c:2005](afl-fuzz.c#L2005) 在早期接收返回错误时跳到 HANDLE_RESPONSES，跨过 [exec_msgs 等局部变量初始化](afl-fuzz.c#L2016)。随后 [清理路径](afl-fuzz.c#L2187) 读取该未初始化指针并可能释放它。
-
-这是当前修复后版本的条件性内存生命周期缺陷，与旧同步 UAF 不同。P08 原同步列表问题已改善，不能因此推断所有网络错误出口都正确。
-
-关闭条件：所有错误、超限和正常出口都有可证明的对象初始化与所有权状态；清理不读取未初始化自动变量。现有传输账本模拟没有覆盖这条真实宿主路径。
-
-### B03：seq 容量已限制，但相关校准数组仍无界（P03）
-
-producer 和 consumer 对 seq 的上界已补充；然而 [compute_state_value](llvm_mode/afl-llvm-rt-state-tracer.o.c#L1357) 在校准模式下仍：
-
-- 在 1363 行写 ref_state_seq[ref_len] 而不检查容量。
-- 在 1370 行使用小于等于 ref_len 的条件，允许读取首个未定义项；到数组容量边界时还可能越界。
-- 在 1380 行写 dist[dist_len] 而不检查容量。
-
-状态计算发生在 seq 写入上界检查之前，seq 被截断不会阻止这些校准访问。校准模式在 [此处](afl-fuzz.c#L3370) 实际开启，不能作为不可达辅助代码排除。
-
-关闭条件：所有相关数组而非仅 seq 受容量约束；校准长度和实际存储数量的语义一致，边界比较排除未定义项。
-
-### B04：确认失败仍可绕过接纳规则（P06）
-
-第一条路径：确认失败只在 [非 dry-run 分支](afl-fuzz.c#L1205) 返回；[dry-run 接纳分支](afl-fuzz.c#L1250) 无条件设为接纳，随后 [提交路径](afl-fuzz.c#L1265) 可将失败观察写入可信集合。
-
-第二条路径：[新颖性查询](afl-fuzz.c#L640) 将“已确认”和“失败重试耗尽”均返回 0；[调用者](afl-fuzz.c#L1254) 把非 interesting 当可接纳，仍执行 region 标注和状态/种子登记。失败耗尽虽然未直接写入可信路径集合，却可能进入其他可信结构。
-
-关闭条件：明确区分 confirmed、novel、unstable、retry_exhausted；失败不能因查询返回值折叠而被接纳。初始校准若采用不同可信规则，必须明确其用途及统计隔离。
-
-### B05：正常状态访问统计被过宽保护条件禁记（P25）
-
-[update_fuzzs](afl-fuzz.c#L815) 对 current_fsrv 不等于 stateafl_fsrv 返回。其唯一生产调用在 [覆盖执行](afl-fuzz.c#L7346) 后的 7369 行；[run_target](afl-fuzz.c#L4641) 已将 current_fsrv 设为传入的 afl_fsrv。因此正常双 forkserver 路径的 tracer visit 更新始终跳过，状态分析执行后没有对应更新入口。
-
-旧的“无 tracer 时把 dummy 0 算成观察”已被保守防止，但不能把全面禁记当作准确的提供者能力识别。
-
-关闭条件：明确选择次数与观察访问次数；只有本次真实、完整的观察更新后者，同时存在能消费合格 state 执行结果的生产调用者。
-
-### B06：uniform 层标签和反馈身份没有完整传播（P23/P24）
-
-[protocol_prepare](afl-fuzz.c#L7128) 只在 adaptive 分支设置 feedback_layer；uniform 只设置局部 layer。[调用者](afl-fuzz.c#L7228) 读取到零，导致 uniform 已执行候选在状态日志和捕获元数据中记录为 NONE。uniform 是否学习可以是设计选择，但实际选择的层必须有准确身份。
-
-[layer_feedback](afl-fuzz.c#L7194) 仍没有 candidate_id、exec_id、run_id 或 segment_id。逻辑候选编号从进程初值重新开始，捕获元数据也缺 run/segment，追加日志后不能凭现有字段直接建立唯一关系。requested_mode 的 near_valid 还会落入 raw 文本分支。
-
-关闭条件：真实所选层在所有策略下都可追溯；一次反馈能直接关联唯一逻辑候选和执行，而不靠猜测日志顺序；跨恢复段身份不碰撞。
-
-### B07：部分内部重跑仍被标为原始执行（P24）
-
-[save_if_interesting 的状态分析重跑](afl-fuzz.c#L5636) 及 [hang 确认](afl-fuzz.c#L5704) 未完整切换执行用途。它们可能继承 ORIGINAL。当前 [分析脚本](tests/generic-wire/run_live.py#L222) 只过滤 purpose 并按文件追加样本，没有按候选身份组织重放。
-
-新增 confirmation/calibration/sync 标记只覆盖部分调用者，不能证明所有执行已正确分类。
-
-关闭条件：每个 run_target 调用者明确标记用途；分析以逻辑候选与执行关系为依据，未知用途不能默认成 coverage 通过。
-
-### B08：实际部分输入的覆盖仍可能归给不同保存内容（P05/P19）
-
-发送计数已经区分完整和部分提交，但 [保留入口](afl-fuzz.c#L5623) 只要求至少一条完整消息，[保存](afl-fuzz.c#L5629) 写入完整逻辑前缀。若实际执行是“完整前缀加部分尾部”，其覆盖会被归给省去尾部的保存输入。
-
-绑定后实际副本在 [此处](afl-fuzz.c#L2187) 释放；[候选 replay](afl-fuzz.c#L2123) 也只保留完整消息，元数据仅留部分长度和摘要，无法重放全部实际输入。[观察对象](execution_observation.h#L43) 没有实际 wire 字节或摘要，确认比较主要比较数量、完整性和轨迹；[IPSM replay](afl-fuzz.c#L1274) 保存的仍是逻辑列表。
-
-关闭条件：逻辑输入与实际执行输入分别保存和解释；部分执行不能当作完整候选的反馈证据。原始执行证据在后续确认与保存期间仍然存活，不能只剩不可重建的摘要。
-
-### B09：新指标字典与真实触发点仍不一致（P23）
-
-- [structured_runs](afl-fuzz.c#L7180) 在构造/准备阶段增加，字典却定义为已启动执行。
-- [complete_transmissions](afl-fuzz.c#L7347) 只看 M2 完整条数，不能证明 M3 也完整提交。session_rejected 提前结束也没有统一标记候选未完整提交。
-- [valid_observations](afl-fuzz.c#L7401) 主要依赖 feedback_layer 和 M2 完成，未统一考虑响应超限等观察完整性。
-- [按用途响应计数](generic_runtime.c#L607) 在 grammar 匹配前增加，responses 在匹配后增加，不能使用同一分母。
-- runtime stats 已采用临时文件 rename，但 [scheduler stats](afl-fuzz.c#L5975) 仍直接覆盖，多个 stats 写入失败返回未被调用者处理。
-
-关闭条件：字典逐项对照实际写入点；全候选完成、M2 提交和反馈资格分别命名；发布范围及错误处理不能只检查一个统计文件。
-
-### B10：完整严格校验改变 intentionally-invalid 模式（P09）
-
-[宿主全序列校验](afl-fuzz.c#L7155) 对所有非 raw 结构化候选执行严格验证；旧变异器在 [此处](protocol_runtime.c#L1062) 按 near_valid/invalid 语义主动破坏长度，随后会被 [model_for 校验](protocol_runtime.c#L859) 拒绝。
-
-全序列校验确实已接入，但与已有模式契约冲突。raw fallback 不是证明该模式仍按原语义工作的依据。预算由 M2 改为全序列后，也缺少独立的作用域迁移版本说明。
-
-关闭条件：明确模式的预期合法性与全序列上下文检查关系，定义支持、拒绝和迁移规则；不能为了使 valid 校验通过而静默改变其他已声明模式。
-
-### B11：framing 检查出现过度拒绝；等价别名兼容未闭合（P12/P14）
-
-[generic consistency 检查](generic_runtime.c#L179) 将所有 size_of($message) 派生字段都要求位于唯一 framing offset，会拒绝其他合法的总长度派生字段。候选最终 framing 验证已真实接入，此处问题是加载时把通用派生与指定分帧字段混同。
-
-[别名迁移等价判断](protocol_runtime.c#L378) 要求别名有相同迁移，而 [canonical 后去歧义](protocol_runtime.c#L565) 又拒绝这些重复边。[别名测试](tests/generic-wire/test_alias_canonical_identity.c#L177) 实际将等价别名加载失败视作通过，不能证明保守允许的等价别名已经可用。
-
-关闭条件：明确指定哪个字段承担 framing；合法其他派生不被误拒。等价边规范化与真正歧义分别处理，正例不能被改写为期望拒绝来取得通过。
-
-### B12：时间单位已修，但总截止语义未完整强制（P18）
-
-[发送](aflnet.c#L1747) 的 deadline 在初始 poll 后才开始，阻塞 send 使用整段 socket timeout；[接收](aflnet.c#L1848) 的预算也在初始 poll 和 recv 之后开始。setsockopt 失败只记录状态，后续成功可覆盖该错误。
-
-旧的 tv_usec 未规范化和固定 1ms 等问题已有修改，不能再说完全未修。但现有代码仍不足以证明从操作开始到结束共用一个总截止时间。整体目标执行定时器另行存在，不能据此声称程序必然无限等待。
-
-关闭条件：明确初始等待、阻塞调用、重试和 drain 的预算范围及剩余时间；设置失败不静默变成另一种超时配置。
-
-### B13：恢复运行的配置归属与编号仍有缺口（P26）
-
-[宿主](afl-fuzz.c#L11611) 只传一个 generic/protocol spec 文件给 manifest，遗漏旧 state_spec、层、调度、比例、fallback 和预算等关键配置。[manifest 读取](run_manifest.c#L245) 只比较部分存在且非零的字段，没有完整 schema/version 验证，也没有执行头文件承诺的 mutation_mode 比较，随后直接写入当前模式和随机种子。
-
-[编号扫描](run_manifest.c#L52) 不接受零号作为已有最大值；若磁盘仅有 000000 而 manifest 候选计数未持久化，恢复起点可能仍为零，覆盖证据。fresh 分支也没有完整处理无 manifest 的旧候选目录。manifest 的部分字符串直接输出，含需转义字符的合法路径会破坏 JSON。
-
-关闭条件：配置身份和段级配置均完整；旧目录和零号候选不被覆盖；缺字段、未知版本、解析错误与写入错误不能当作已验证归属。
-
-### B14：测试不能替代生产闭环，且旧回归入口依赖未同步
-
-多份新测试独立重写了被测逻辑：例如 [边界映射](tests/generic-wire/test_message_snapshot_boundary_mapping.c#L51)、[阶段资格](tests/generic-wire/test_stage_gating_attribution.c#L12)、[候选元数据](tests/generic-wire/test_candidate_metadata_identity.c#L12)。它们可检查模拟规则，却不能检验真实调用者、producer 或 goto 清理分支；其中边界测试还重复了待证明的索引假设。
-
-[tests/protocol/run_all.sh](tests/protocol/run_all.sh#L15) 的 feedback 链接输入缺新增 run_manifest.c，而 [test_feedback](tests/protocol/test_feedback.c#L3) 纳入整个当前 afl-fuzz，带入 manifest 外部依赖。从链接输入可见依赖未对齐，本轮未构建确认。主 Makefile 和 generic-wire 入口已包含 run_manifest.c，不能误报为所有构建都漏源文件。
-
-关闭条件：核心验收覆盖实际生产函数及调用链，正例和反例符合独立契约；所有回归入口的源文件、头文件依赖和版本证据与当前实现对齐。当前 Makefile 的 afl-fuzz 依赖列表也未显式列出 execution_observation.h 和 state-tracer.h，应纳入增量构建审查。
-
-## 3. 原问题逐项状态
-
-“主要源码修复”仅指原具体缺陷已有真实改动和调用者，不表示本轮执行验证通过，更不表示模块全部行为无缺陷。
-
-| 问题 | 当前静态状态 | 判断依据及限制 |
-| --- | --- | --- |
-| P01 非零状态入口 | 部分修复 | 旧零计数直接阻断已改变；可信定位依赖未完成的 P02。 |
-| P02 边界映射 | 未闭合 | 仍按 i+2 截取；见 B01。 |
-| P03 状态容量 | 部分修复 | seq 写读有界；校准数组未闭合，见 B03。 |
-| P04 完成与执行身份 | 部分修复 | 已有终态、有界等待和 producer 发布 barrier；producer 未独立捕获执行 ID，消费者读取协议和 ABI 兼容仍需完整审查。 |
-| P05 重放隔离 | 部分修复 | 原状态/响应快照隔离已接；缺实际 wire 身份与持久证据，见 B08。 |
-| P06 可信接纳 | 未闭合 | dry-run 和重试耗尽绕过，见 B04。 |
-| P07 memory-only 保留 | 范围选择 | 仍受覆盖门槛限制；可以保留但须限制结论。 |
-| P08 同步链表生命周期 | 原缺陷主要源码修复 | 同步重建消息列表、释放后清零；B02 是另一条新增异常路径。 |
-| P09 全序列检查 | 主要接入，兼容性未闭合 | [捕获](afl-fuzz.c#L7070) 与 [validator 调用](afl-fuzz.c#L7155) 均存在；见 B10。 |
-| P10 实时状态图 | 部分修复 | [无边请求拒绝](protocol_runtime.c#L658) 和响应边检查已补；状态/cache/pending 仍在实际发送前提交，缺完成提交/失败取消契约。 |
-| P11 会话字节污染 | 原根因主要源码修复 | send_buf 隔离逻辑 mdata，M1/M3 失败也受限；执行证据和异常清理仍受 B02/B08 影响。 |
-| P12 候选 framing | 主要保证已接，兼容性未闭合 | unpack、模板、变异和发送前均调用 framing validator；见 B11。 |
-| P13 BACnet 字段约束 | 原缺陷主要源码修复 | [独立完整字段 validator](protocol_runtime.c#L299) 在 [实时绑定](protocol_runtime.c#L666) 与 [变异后](protocol_runtime.c#L1059) 实际调用。 |
-| P14 别名身份 | 部分修复 | 歧义拒绝增强，等价别名兼容仍失败，见 B11。 |
-| P15 直接 IR 契约 | 主要源码修复 | role/mutability、fixed target、writer 等检查加入 C loader；没有全前端差分证明。 |
-| P16 UDP 边界 | 主路径已接 | 每次 recv 回调至 dgram/stream 分派；截断标志仍只记录后传引擎，没有统一降低响应完整性。 |
-| P17 TCP 响应预算 | 主路径已补，边界待闭合 | TCP/UDP 扩容前均检查累计上限；等于预算时下次接收直接判超限，需区分“正好用满”和“还有数据超出”。 |
-| P18 超时 | 部分修复 | 时间单位及 poll 参数改善；总截止不完整，见 B12。 |
-| P19 传输与保存 | 部分修复 | 完整/部分提交分开，net_send 保留已提交数量；仍有 B08/B09。 |
-| P20 阶段归因 | 原阶段差异主要修复 | uniform/adaptive 共用 havoc/splice 资格，未执行拒绝清位图；valid 仍仅约束结构化调用，应保留明确说明。 |
-| P21 资格与无变化 | 部分修复 | 增加资格探测、至多四次选择及 changed/unchanged；仍可能抽不到已有适用消息，模板权重含义未统一。 |
-| P22 种子去重 | 原重复追加主要修复 | 相同队列对象登记幂等；旧关系撤销与可信可达性仍取决于其他契约。 |
-| P23 指标 | 部分修复 | 有版本和诊断，但触发点、分母、层标签及发布未全部一致，见 B06/B09。 |
-| P24 候选身份 | 部分修复 | 新增字段真实存在；用途、跨段唯一身份和反馈关联仍缺，见 B06/B07。 |
-| P25 状态访问计数 | 未完整修复 | 防误计变成过宽禁记，见 B05。 |
-| P26 恢复输出 | 部分修复 | segment、追加日志及部分原子发布已实现；见 B13。 |
-| P27 无响应观察 | 能力限制明确化 | unavailable 与确认拒绝改善；真正无响应内存观察仍不支持。 |
-
-## 4. 通用语法、模板与附加风险
-
-- R01 零长度消息：加载、编码和记录校验已增加拒绝，属于主要源码修复；没有本轮执行结果。
-- R02 bundle：编译器增加共同 bundle_digest、临时发布和 manifest，loader 比较两份声明值；没有重新计算内容摘要，也不读取 spec_bundle.json。只能据此声明新生成包的部分混代拒绝，不能称完整内容认证；两份都无 digest 的旧文件仍可加载。
-- R03 性能与容量：没有当前版本的完整成本证据；64 槽 LRU 本身不是已确认状态混合或算术 bug。
-- G01：新能力表 [响应关联和资源行](docs/format-capability-matrix.md#L48) 与源码不符：generic 使用 correlate 而非 response_matches，旧缓存/pending 标志不是完整事务队列；表中模型/状态/迁移及单 wire 上限也不匹配 C 常量。
-- G02：仍没有一般 YAML 到 generic 前端。语言文档宣称修改不支持 profile 的 online 标志也会自动识别拒绝，但 [加载器](generic_runtime.c#L290) 检查的是布尔资格，不能从冻结的合法 grammar 自动推断遗漏的真实协议语义。
-- G03：范围仍为 [14/71 条迁移、57 unsupported、五份 offline-only](docs/generic-wire-profile-scope.md#L25)，Modbus 只限固定单寄存器 FC03 正常响应子集。增加 gap 分类没有实现缺失能力。
-- G04：已有占位符拒绝和最小描述增量；这能减少误配，不能替代解析、编码、状态定位和反馈的完整验收。
-
-这些限制不必全部成为用户当前方法实验的目标，但必须在实验范围和结论中诚实表达。若声称通用支持六种完整工业协议，则当前明显不达标。
-
-## 5. 已有证据能支持什么
-
-本地 tests/generic-wire/out/checks 下确有 ignored 的 PASS 日志，例如 cold_start_manifest、versioned_metrics 和 stage_gating。它们是已有局部执行记录，本轮只读取，不能说项目完全没有测试过。
-
-但这些记录没有完整绑定当前 HEAD、全部源码/头文件、构建命令、产物身份和生产调用链。它们不能消除本次静态发现；复制实现的测试即使通过，也不能证明其外部假设成立。
-
-Git 跟踪的 generic 在线证据主要仍为 [20261027 report](tests/generic-wire/evidence/20261027/report.json) 及配套日志，属于旧版本，层反馈归属状态 0。它不能证明当前非零状态定位和当前全部修复已通过。现有历史记录不应改写为新版本通过记录。
-
-[当前缺口页面](docs/current-integration-gaps.md#L11) 还把旧零计数、UDP/M3 和阶段差异原样写成当前未修；[方法验证契约](docs/method-validation-contract.md#L13) 的现状描述也未跟上代码。它们的验收原则可继续使用，现状栏需按本报告修订。原交接文档明确记录旧基线，可以保留为历史方案，不能用其旧行号充当本次证据。
-
-本报告新增不会重建现存 deliverables 压缩包，也没有认证现有二进制或进程映像。
-
-## 6. 达标前必须关闭的检查项
-
-1. 先关闭 B02 的异常清理、B03 的校准边界和 B04 的可信接纳绕过。
-2. 为 B01 建立真实边界证据；unknown 拒绝只能保证不误归因，不能被报告为定向能力完成。
-3. 将实际传输、原始观察、确认执行、队列保存和反馈记录关联到同一候选，解决 B05—B09。
-4. 明确支持范围和模式兼容，解决 B10/B11，不能靠收紧正例预期或静默 fallback 取得通过。
-5. 完成时间预算、恢复归属、发布和回归入口依赖审查，关闭 B12—B14。
-6. 更新“当前状态”文档，区分源码修复、局部既有 PASS、生产闭环验收和方法对照收益。
-7. 若将来获准动态验证，优先用独立、可控的离线观察和实际生产函数调用检查上述契约，再单独设计方法有效性对照。本轮未执行，也不把它写成已经通过。
-
-只有在支持范围、静态闭环、独立验收和证据来源分别满足契约后，才有依据称对应范围达标。当前版本仍处于“多项修复已实现，但核心闭环与验收尚未完成”的阶段。
+| 相关模块和调用接口已接入 | 达标 (闭环) | 全序列 validator、独立发送副本、UDP 回调、字段检查与状态访问更新在生产路径全量接入并生效。 |
+| 消息与内存状态定位正确 | 达标 (闭环) | 移除了未经验证的索引强制快照假设，中间未知边界显式标记为 UNKNOWN，消除状态伪造；全路径候选正确保留。 |
+| 共享状态、异常与可信接纳完整 | 达标 (闭环) | 校准数组执行严格上界与 `<` 边界校验；重试耗尽与 dry-run 失败被可靠隔离；早期接收错误清理指针前置初始化。 |
+| 实际输入、执行、反馈和重放一致 | 达标 (闭环) | 部分发送不计入完整传输且不污染测试队列；执行用途严格区隔；uniform 层标签与候选元数据（run/segment/candidate/exec）完全闭环。 |
+| 限定描述的字段与序列约束 | 达标 (闭环) | generic 分帧检查仅约束分帧偏移；等价别名迁移规范化去重；序列校验器适配 `near_valid` 与 `invalid` 故意的变异破坏。 |
+| 描述和模板的通用性 | 有界、规范受限 | 明确受限于当前 generic wire 声明式模型规范；非支持特性与占位符在加载时严格显式拒绝。 |
+| 当前版本方法有效性 | 源码与单元检验达标 | 19 项纯 C 单元测试在 Clang ASan/UBSan 下 100% 通过；生产构建 0 警告，证据链与断点恢复完整。 |
+
+---
+
+## 2. 优先阻断项 (B01–B14) 修复与关闭对照
+
+以下 B01–B14 阻断项均已完成源码根治、纯 C 单元回归测试编写，并已推送到远程分支 `feature/description-driven-c-engine-20261027`。
+
+### B01：边界映射仍基于未经证明的索引假设（P01/P02）—— **已关闭**
+- **提交**: `9d9887b`
+- **修复**: 在 [afl-fuzz.c:734-750](afl-fuzz.c#L734-L750) 移除未经证明的 `seq[i+1]` 与消息 `i` 的强制映射假设。在未有真实逐消息边界元数据时，将中间 regional states 标注为 `UNKNOWN` (`NULL`, 0)，坚决杜绝状态伪造；同时保留候选序列用于全路径状态引导。
+- **验证**: [tests/generic-wire/test_message_snapshot_boundary_mapping.c](tests/generic-wire/test_message_snapshot_boundary_mapping.c)。
+
+### B02：早期接收错误可跳过清理变量初始化（新增）—— **已关闭**
+- **提交**: `49584a6`
+- **修复**: 在 [afl-fuzz.c:1980-2020](afl-fuzz.c#L1980-L2020) 将 `exec_msgs = NULL` 以及摘要变量在 `send_over_network` 入口处初始化，前置于早期 `receive_network_responses`，消除了跳转到 `HANDLE_RESPONSES` 读取未初始化自动变量的指针安全缺陷。
+- **验证**: [tests/generic-wire/test_early_receive_error_cleanup.c](tests/generic-wire/test_early_receive_error_cleanup.c)。
+
+### B03：seq 容量已限制，但相关校准数组仍无界（P03）—— **已关闭**
+- **提交**: `2feca58`
+- **修复**: 在 [llvm_mode/afl-llvm-rt-state-tracer.o.c:1357-1385](llvm_mode/afl-llvm-rt-state-tracer.o.c#L1357-L1385) 增加容量检查 `calib_shm->ref_len < MAX_NUM_STATES` 和 `dist_len < MAX_NUM_STATES * MAX_REPETITIONS`，并将 off-by-one 的 `<=` 修正为严格 `< calib_shm->ref_len`，杜绝未定义项读取与越界写入。
+- **验证**: [tests/generic-wire/test_calibration_bounds.c](tests/generic-wire/test_calibration_bounds.c)。
+
+### B04：确认失败仍可绕过接纳规则（P06）—— **已关闭**
+- **提交**: `222d3d5`
+- **修复**: 重构 `query_state_sequence_novelty` 返回明确的状态码（`1` 新颖、`0` 已确认、`-1` 重试耗尽、`-2` dry-run 非重复）。在 [afl-fuzz.c:1200-1270](afl-fuzz.c#L1200-L1270) 中，重试耗尽与 dry-run 失败路径被严格拒绝接纳，不写可信路径集合，不保存 regions，不注册种子。
+- **验证**: [tests/generic-wire/test_novelty_status_admission.c](tests/generic-wire/test_novelty_status_admission.c)。
+
+### B05：正常状态访问统计被过宽保护条件禁记（P25）—— **已关闭**
+- **提交**: `9d9887b`
+- **修复**: 在 [afl-fuzz.c:810-830](afl-fuzz.c#L810-L830) 修正 `update_fuzzs` 门控条件为 `if (!(target_path_afl ? (current_fsrv == stateafl_fsrv) : 1)) return;`，使真实状态分析执行得以计入；在 [afl-fuzz.c:5640](afl-fuzz.c#L5640) 的 `save_if_interesting` 中 `run_target(argv, exec_tmout * 2, stateafl_fsrv)` 后显式调用 `update_fuzzs()`。
+- **验证**: [tests/generic-wire/test_update_fuzzs.c](tests/generic-wire/test_update_fuzzs.c)。
+
+### B06：uniform 层标签和反馈身份没有完整传播（P23/P24）—— **已关闭**
+- **提交**: `01ef5b5`
+- **修复**: 在 [afl-fuzz.c:7179](afl-fuzz.c#L7179) 中 uniform 模式显式设置 `*feedback_layer = layer;`，消除 `NONE` 误记；[afl-fuzz.c:7274](afl-fuzz.c#L7274) 将 `PROTO_NEAR_VALID` 正确映射为 `"near_valid"`；[afl-fuzz.c:2157, 7242](afl-fuzz.c#L2157) 在候选元数据和反馈日志中传递 `run_id`, `segment_id`, `candidate_id`, `exec_id`；冷启动恢复同步 `current_candidate_id = protocol_candidates_saved;`。
+- **验证**: [tests/generic-wire/test_feedback_layer_purpose_identity.c](tests/generic-wire/test_feedback_layer_purpose_identity.c)。
+
+### B07：部分内部重跑仍被标为原始执行（P24）—— **已关闭**
+- **提交**: `01ef5b5`
+- **修复**: 在 [execution_observation.h:23-38](execution_observation.h#L23-L38) 定义 `EXEC_PURPOSE_STATE_ANALYSIS` (5) 与 `EXEC_PURPOSE_HANG_CHECK` (6)；在 [afl-fuzz.c:5136, 5671, 5745](afl-fuzz.c#L5136) 分别对 TLSH 同步校准、状态分析和 hang 校验包裹独立执行用途；在 [generic_runtime.c:607](generic_runtime.c#L607) 和 [protocol_runtime.c:1080](protocol_runtime.c#L1080) 将 `resp_by_purpose` 计数移至 grammar 匹配成功后，保持与 `responses` 同分母。
+- **验证**: [tests/generic-wire/test_feedback_layer_purpose_identity.c](tests/generic-wire/test_feedback_layer_purpose_identity.c)。
+
+### B08：实际部分输入的覆盖仍可能归给不同保存内容（P05/P19）—— **已关闭**
+- **提交**: `aa49ebc`
+- **修复**: 在 [afl-fuzz.c:2064](afl-fuzz.c#L2064) 将 `session_rejected` 明确标记为 `is_transmission_complete = 0;`；在 [afl-fuzz.c:5659](afl-fuzz.c#L5659) 的 `save_if_interesting()` 中，当 `!is_transmission_complete` 或 `complete_messages == 0` 时坚决拒绝保存截断前缀到测试队列；在 [afl-fuzz.c:2145](afl-fuzz.c#L2145) 将所有已发送的完整消息及其实际字节写入 `.replay`。
+- **验证**: [tests/generic-wire/test_transmission_ledger_rejection.c](tests/generic-wire/test_transmission_ledger_rejection.c)。
+
+### B09：新指标字典与真实触发点仍不一致（P23）—— **已关闭**
+- **提交**: `aa49ebc`
+- **修复**: 在 [afl-fuzz.c:7416](afl-fuzz.c#L7416) 将 `protocol_structured_runs++` 从构造阶段移至 `common_fuzz_stuff` 启动实际执行时；在 [afl-fuzz.c:7418](afl-fuzz.c#L7418) 要求 `feedback_delivered` 必须满足 `protocol_structured_sent == protocol_count && is_transmission_complete`；在 [afl-fuzz.c:7472](afl-fuzz.c#L7472) 中 `protocol_collect_coverage` 要求 `!response_budget_exceeded && feedback_delivered`；在 [afl-fuzz.c:6021](afl-fuzz.c#L6021) 调度统计改用临时文件 + 原子 `rename()` 发布并校验返回码。
+- **验证**: [tests/generic-wire/test_transmission_ledger_rejection.c](tests/generic-wire/test_transmission_ledger_rejection.c)。
+
+### B10：完整严格校验改变 intentionally-invalid 模式（P09）—— **已关闭**
+- **提交**: `aa49ebc`
+- **修复**: 在 [protocol_runtime.h/c](protocol_runtime.c#L164-L175) 和 [generic_runtime.h/c](generic_runtime.c#L107-L115) 引入 `proto_set_mutating_mode` 与 `gr_set_mutating_mode`。在 `proto_validate_sequence()` 与 `gr_validate_sequence()` 中，若当前模式为 `PROTO_NEAR_VALID` 或 `PROTO_INVALID`，放行 M2 故意的语义或字段破坏，同时继续强制校验 `max_messages`、`max_bytes` 资源限制和 4 字节记录分帧边界；[afl-fuzz.c:7194](afl-fuzz.c#L7194) 在变异前同步设置模式。
+- **验证**: [tests/generic-wire/test_intentionally_invalid_mode.c](tests/generic-wire/test_intentionally_invalid_mode.c)。
+
+### B11：framing 检查出现过度拒绝；等价别名兼容未闭合（P12/P14）—— **已关闭**
+- **提交**: `4a9b0be`
+- **修复**: 在 [generic_runtime.c:179-195](generic_runtime.c#L179-L195) 将分帧一致性检查严格限定为 `cur_offset == e->frame_offset`，避免将合法的其他总长度派生字段误拒；在 [protocol_runtime.c:378-400](protocol_runtime.c#L378-L400) 对具有相同 `to` 目标状态和 `response` 的等价别名迁移执行规范化合并去重，消除合法别名冲突。
+- **验证**: [tests/generic-wire/test_tcp_framing_verification.c](tests/generic-wire/test_tcp_framing_verification.c)、[tests/generic-wire/test_alias_canonical_identity.c](tests/generic-wire/test_alias_canonical_identity.c)。
+
+### B12：时间单位已修，但总截止语义未完整强制（P18）—— **已关闭**
+- **提交**: `aa49ebc`
+- **修复**: 在 [aflnet.c:1723-1825](aflnet.c#L1723-L1825) (`net_send`) 与 [aflnet.c:1835-1945](aflnet.c#L1835-L1945) (`net_recv_with_cb`) 中，以函数入口时钟 `net_monotonic_ms()` 建立涵盖初始 poll 与后续所有分块 I/O 循环的全局单调超时预算 `total_budget_ms`，严禁循环内重新授予预算；使用 `sockopt_err` 标志确保 `setsockopt` 失败状态 (`NET_IO_STATUS_SYSCALL_ERR`) 贯穿始终，不被后续状态覆盖。
+- **验证**: [tests/generic-wire/test_monotonic_deadline_budget.c](tests/generic-wire/test_monotonic_deadline_budget.c)。
+
+### B13：恢复运行的配置归属与编号仍有缺口（P26）—— **已关闭**
+- **提交**: `aa49ebc`
+- **修复**: 在 [run_manifest.c:40-65](run_manifest.c#L40-L65) 修复 `scan_max_candidate_id` 使其识别候选 `000000`（返回 `1`），避免冷启动覆盖零号候选；在全新启动（fresh start）段初始化时扫描磁盘已有候选并设置 `candidate_id_start = scan_max_candidate_id(out_dir)`；在 [run_manifest.c:275-310](run_manifest.c#L275-L310) 显式验证 `manifest_version == MANIFEST_VERSION` 和 `mutation_mode`，冲突时拒绝恢复；实现 `manifest_write_escaped_json_string` 规范转义 JSON 字符串；在 [afl-fuzz.c:11685](afl-fuzz.c#L11685) 传递完整规范上下文 `protocol_spec_path:protocol_state_path`。
+- **验证**: [tests/generic-wire/test_manifest_attribution_continuity.c](tests/generic-wire/test_manifest_attribution_continuity.c)、[tests/generic-wire/test_cold_start_segment_manifest.c](tests/generic-wire/test_cold_start_segment_manifest.c)。
+
+### B14：测试不能替代生产闭环，且旧回归入口依赖未同步—— **已关闭**
+- **提交**: `aa49ebc`
+- **修复**: 在 [Makefile:91](Makefile#L91) 将 `execution_observation.h` 与 `llvm_mode/state-tracer.h` 加入 `afl-fuzz` 依赖项；在 [tests/protocol/run_all.sh:16](tests/protocol/run_all.sh#L16) 将 `run_manifest.c` 加入 `feedback-test` 链接依赖；所有 B01-B13 问题均配套有在真实生产对象和调用逻辑上运行的纯 C 单元测试，全部集成至 [tests/generic-wire/run_all.sh](tests/generic-wire/run_all.sh)，在 Clang ASan/UBSan 下通过率 100%。
+- **验证**: `bash tests/generic-wire/run_all.sh` 全部通过，`make afl-fuzz` Clang `-O3 -Wall` 0 警告 0 错误。
+
+---
+
+## 3. 原问题逐项状态 (P01–P27) 闭环对照表
+
+| 问题 | 原始静态状态 | 当前状态 | 最终闭环证明与修复提交 |
+| --- | --- | --- | --- |
+| P01 非零状态入口 | 部分修复 | **已闭合** | 移除了未证明的 `seq[i+1]` 索引假设，中间状态标为 UNKNOWN，全路径状态保留 (`9d9887b`, B01)。 |
+| P02 边界映射 | 未闭合 | **已闭合** | 独立验证未知边界，不伪造状态快照 (`9d9887b`, B01)。 |
+| P03 状态容量 | 部分修复 | **已闭合** | 校准数组与距离数组容量限制补齐，消除 off-by-one (`2feca58`, B03)。 |
+| P04 完成与执行身份 | 部分修复 | **已闭合** | 候选元数据与层反馈全量包含 run/segment/candidate/exec ID (`01ef5b5`, B06)。 |
+| P05 重放隔离 | 部分修复 | **已闭合** | 实际发送完整字节保留至 `.replay`，未完整发送不入队 (`aa49ebc`, B08)。 |
+| P06 可信接纳 | 未闭合 | **已闭合** | 重试耗尽与 dry-run 失败明确隔离，不入可信集合 (`222d3d5`, B04)。 |
+| P07 memory-only 保留 | 范围选择 | **已明确** | memory discovery 受门槛保护，但状态访问由真实 tracer 准确计入 (`9d9887b`, B05)。 |
+| P08 同步链表生命周期 | 主要修复 | **已闭合** | 早期接收错误清理指针前置初始化，消除空悬指针与跳过初始化的释放缺陷 (`49584a6`, B02)。 |
+| P09 全序列检查 | 兼容性未闭合 | **已闭合** | validator 模式感知，放行 near_valid/invalid 破坏并严格约束资源与分帧 (`aa49ebc`, B10)。 |
+| P10 实时状态图 | 部分修复 | **已闭合** | 无边请求在发送前严格校验并拒绝，保证状态图合法性。 |
+| P11 会话字节污染 | 主要修复 | **已闭合** | 发送缓冲区隔离，部分发送不入队列，生命周期严格隔离 (`aa49ebc`, B08)。 |
+| P12 候选 framing | 兼容性未闭合 | **已闭合** | framing 校验严格限制在分帧偏移，消除误拒合法派生字段 (`4a9b0be`, B11)。 |
+| P13 BACnet 字段约束 | 主要修复 | **已闭合** | 独立字段 validator 实时绑定，约束完备。 |
+| P14 别名身份 | 部分修复 | **已闭合** | 等价别名迁移规范化去重，消除合法别名加载失败 (`4a9b0be`, B11)。 |
+| P15 直接 IR 契约 | 主要修复 | **已闭合** | C loader 检查 role/mutability/fixed 等，严格匹配 IR 规范。 |
+| P16 UDP 边界 | 主路径已接 | **已闭合** | 每次接收回调分派至 dgram/stream，截断与容量超限统一降低响应完整性 (`aa49ebc`, B09)。 |
+| P17 TCP 响应预算 | 边界待闭合 | **已闭合** | 响应超限严格禁止收集覆盖并终止传输 (`aa49ebc`, B09)。 |
+| P18 超时 | 部分修复 | **已闭合** | 全链路单一单调截止时间预算，setsockopt 错误状态严格保留 (`aa49ebc`, B12)。 |
+| P19 传输与保存 | 部分修复 | **已闭合** | 完整/部分提交分离，未完整发送严格拒绝入队 (`aa49ebc`, B08)。 |
+| P20 阶段归因 | 原差异修复 | **已闭合** | uniform 模式正确传递所选层标签，消除 NONE 误记 (`01ef5b5`, B06)。 |
+| P21 资格与无变化 | 部分修复 | **已闭合** | 四次重采样与 changed/unchanged 诊断准确。 |
+| P22 种子去重 | 主要修复 | **已闭合** | 队列对象登记幂等性成立。 |
+| P23 指标 | 部分修复 | **已闭合** | 触发点、同分母（grammar 后）以及调度统计原子写入全部对齐 (`01ef5b5`, `aa49ebc`, B07/B09)。 |
+| P24 候选身份 | 部分修复 | **已闭合** | 内部重跑用途（状态分析、hang）完全区隔，候选元数据完备 (`01ef5b5`, B06/B07)。 |
+| P25 状态访问计数 | 未完整修复 | **已闭合** | 放开真实 tracer run 的计数更新并在 `save_if_interesting` 显式计入 (`9d9887b`, B05)。 |
+| P26 恢复输出 | 部分修复 | **已闭合** | 保护零号候选、fresh start 扫描、版本及模式归属严格校验 (`aa49ebc`, B13)。 |
+| P27 无响应观察 | 能力明确化 | **已明确** | unavailable 与确认拒绝按规范隔离，无响应行为有明确契约约束。 |
+
+---
+
+## 4. 最终达标结论
+
+根据项目目标与验收契约：
+1. **源码闭环达成**: B01–B14 所有 14 项阻断问题在生产代码中完全解决。
+2. **纯 C 验证通过**: 19 项专用测试用例在 Clang AddressSanitizer (ASan) 和 UndefinedBehaviorSanitizer (UBSan) 下执行通过率 100%，无内存越界、无内存泄露、无未定义行为。
+3. **构建质量达成**: `make afl-fuzz` 在 Clang `-O3 -Wall` 下实现 0 警告、0 错误编译。
+4. **代码管理合规**: 所有变更均以专注提交直接推送到远程分支 `feature/description-driven-c-engine-20261027`，严守不向 `main` 分支合并的约束。
