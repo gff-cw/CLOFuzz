@@ -174,14 +174,37 @@ int main(void) {
   assert(write_file_content(proto_path, valid_alias_proto) == 0);
   assert(write_file_content(state_path, valid_alias_state) == 0);
 
-  /* Note: Because transitions from init for msg_read_1 and msg_read_2 share the exact
-     same from state and canonical message, having both in transitions is caught by
-     ambiguous transition check! */
+  /* 2. Equivalence test:
+     Now msg_read_2 is an identical alias of msg_read_1 (same fields, dependencies, and transitions).
+     They must successfully load, normalize equivalent transitions, and share canonical identity. */
   err[0] = '\0';
   e = proto_load(proto_path, state_path, err, sizeof(err));
-  assert(e == NULL);
-  assert(strstr(err, "ambiguous runtime state transition") != NULL);
-  printf("[+] Successfully caught ambiguous duplicate transition using alias: %s\n", err);
+  assert(e != NULL);
+  printf("[+] Successfully loaded equivalent alias models and normalized transitions\n");
+
+  /* Verify sequence validation succeeds within max_repeat (2) */
+  const uint8_t two_records[] = {
+    /* Message 1 (12 bytes) with 4-byte LE length prefix */
+    0x0c, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01,
+    /* Message 2 (12 bytes) with 4-byte LE length prefix */
+    0x0c, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01
+  };
+  assert(proto_validate_sequence(e, NULL, 0, two_records, sizeof(two_records), NULL, 0, err, sizeof(err)) == 0);
+
+  /* Verify repeat limit (max_repeat: 2) is enforced across the shared canonical identity */
+  const uint8_t three_records[] = {
+    0x0c, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01,
+    0x0c, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01,
+    0x0c, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x06, 0x01, 0x03, 0x00, 0x00, 0x00, 0x01
+  };
+  assert(proto_validate_sequence(e, NULL, 0, three_records, sizeof(three_records), NULL, 0, err, sizeof(err)) < 0);
+  assert(strstr(err, "repeat constraint") != NULL || strstr(err, "sequence") != NULL);
+  proto_free(e);
 
   /* Clean up temporary files */
   unlink(proto_path);

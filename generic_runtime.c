@@ -179,26 +179,27 @@ static int gr_check_framing_grammar_consistency(const gr_engine *e, const nj_val
     if (nj_string_equal(role, "derived") && derived) {
       if (nj_string_equal(nj_get(derived, "op"), "size_of") &&
           nj_string_equal(nj_get(derived, "target"), "$message")) {
-        if (cur_offset != e->frame_offset) {
-          return gr_error(err, cap, "message '%s': grammar derived rule offset %zu conflicts with global TCP framing offset %u",
-                          mid, cur_offset, e->frame_offset);
-        }
-        if (!is_uint) {
-          return gr_error(err, cap, "message '%s': derived TCP framing field must be uint", mid);
-        }
-        if (field_width != e->frame_width) {
-          return gr_error(err, cap, "message '%s': TCP framing width %u conflicts with grammar field width %u",
-                          mid, e->frame_width, field_width);
-        }
-        if (little != e->frame_little) {
-          return gr_error(err, cap, "message '%s': TCP framing byte_order conflicts with grammar field", mid);
-        }
-        int64_t d_add = 0;
-        if (nj_get(derived, "add") && nj_i64(nj_get(derived, "add"), &d_add, err, cap) < 0)
-          return -1;
-        if (d_add != -e->frame_add) {
-          return gr_error(err, cap, "message '%s': grammar derived size_of add (%lld) conflicts with TCP framing add (%lld)",
-                          mid, (long long)d_add, (long long)e->frame_add);
+        /* Only verify TCP framing consistency when this derived field is at the framing offset.
+         * Secondary size_of($message) fields at other offsets (e.g. payload length) do not
+         * represent the TCP framing length field and are not conflicts. */
+        if (cur_offset == e->frame_offset) {
+          if (!is_uint) {
+            return gr_error(err, cap, "message '%s': derived TCP framing field must be uint", mid);
+          }
+          if (field_width != e->frame_width) {
+            return gr_error(err, cap, "message '%s': TCP framing width %u conflicts with grammar field width %u",
+                            mid, e->frame_width, field_width);
+          }
+          if (little != e->frame_little) {
+            return gr_error(err, cap, "message '%s': TCP framing byte_order conflicts with grammar field", mid);
+          }
+          int64_t d_add = 0;
+          if (nj_get(derived, "add") && nj_i64(nj_get(derived, "add"), &d_add, err, cap) < 0)
+            return -1;
+          if (d_add != -e->frame_add) {
+            return gr_error(err, cap, "message '%s': grammar derived size_of add (%lld) conflicts with TCP framing add (%lld)",
+                            mid, (long long)d_add, (long long)e->frame_add);
+          }
         }
       }
     }

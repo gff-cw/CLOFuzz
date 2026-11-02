@@ -151,24 +151,27 @@ int main(void) {
   assert(bad_width == NULL);
   assert(strstr(err, "conflicts with grammar field width") != NULL);
 
-  /* c) Framing offset conflicts with grammar derived rule offset (or direction differences) */
-  const char misaligned_offset_json[] =
+  /* c) Derived size_of($message) field at a different offset from framing offset
+        (e.g., payload or internal layer length) must NOT be rejected as a framing conflict.
+        Only the field at frame_offset represents TCP framing. */
+  const char secondary_offset_json[] =
     "{\n"
     "  \"format\": \"stateafl.generic-wire\",\n"
     "  \"version\": 1,\n"
     "  \"protocol_id\": \"test_tcp\",\n"
     "  \"transport\": \"tcp\",\n"
     "  \"online\": true,\n"
-    "  \"framing\": {\"kind\": \"length_field\", \"offset\": 2, \"width\": 2, \"byte_order\": \"big\", \"add\": 6},\n"
+    "  \"framing\": {\"kind\": \"length_field\", \"offset\": 4, \"width\": 2, \"byte_order\": \"big\", \"add\": 6},\n"
     "  \"messages\": [{\n"
     "    \"id\": \"msg\", \"direction\": \"request\", \"weight\": 1,\n"
-    "    \"example_hex\": \"000100000007010300000001\",\n"
+    "    \"example_hex\": \"000100040006010300000001\",\n"
     "    \"grammar\": {\n"
     "      \"kind\": \"struct\",\n"
     "      \"fields\": [\n"
     "        {\"id\": \"tx\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"big\", \"role\": \"head\", \"min\": 0, \"max\": 65535},\n"
-    "        {\"id\": \"proto\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"big\", \"role\": \"fixed\", \"expected\": 0, \"min\": 0, \"max\": 0},\n"
-    "        {\"id\": \"len\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"big\", \"role\": \"derived\", \"min\": 0, \"max\": 65535,\n"
+    "        {\"id\": \"inner_len\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"big\", \"role\": \"derived\", \"min\": 0, \"max\": 65535,\n"
+    "         \"derived\": {\"op\": \"size_of\", \"target\": \"$message\", \"add\": -8}},\n"
+    "        {\"id\": \"wire_len\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"big\", \"role\": \"derived\", \"min\": 0, \"max\": 65535,\n"
     "         \"derived\": {\"op\": \"size_of\", \"target\": \"$message\", \"add\": -6}},\n"
     "        {\"id\": \"rest\", \"kind\": \"bytes\", \"length\": \"rest\", \"role\": \"content\", \"min\": 1, \"max\": 10}\n"
     "      ]\n"
@@ -178,9 +181,40 @@ int main(void) {
     "  \"limits\": {\"max_messages\": 4, \"max_repeat\": 2, \"max_bytes\": 1024}\n"
     "}";
 
-  gr_engine *bad_misaligned = load_from_string(misaligned_offset_json, err, sizeof(err));
-  assert(bad_misaligned == NULL);
-  assert(strstr(err, "conflicts with global TCP framing offset") != NULL);
+  gr_engine *ok_secondary = load_from_string(secondary_offset_json, err, sizeof(err));
+  assert(ok_secondary != NULL);
+  gr_free(ok_secondary);
+
+  /* d) Derived TCP framing field at frame_offset conflicts on byte_order */
+  const char conflicting_endian_json[] =
+    "{\n"
+    "  \"format\": \"stateafl.generic-wire\",\n"
+    "  \"version\": 1,\n"
+    "  \"protocol_id\": \"test_tcp\",\n"
+    "  \"transport\": \"tcp\",\n"
+    "  \"online\": true,\n"
+    "  \"framing\": {\"kind\": \"length_field\", \"offset\": 4, \"width\": 2, \"byte_order\": \"big\", \"add\": 6},\n"
+    "  \"messages\": [{\n"
+    "    \"id\": \"msg\", \"direction\": \"request\", \"weight\": 1,\n"
+    "    \"example_hex\": \"000100000007010300000001\",\n"
+    "    \"grammar\": {\n"
+    "      \"kind\": \"struct\",\n"
+    "      \"fields\": [\n"
+    "        {\"id\": \"tx\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"big\", \"role\": \"head\", \"min\": 0, \"max\": 65535},\n"
+    "        {\"id\": \"proto\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"big\", \"role\": \"fixed\", \"expected\": 0, \"min\": 0, \"max\": 0},\n"
+    "        {\"id\": \"len\", \"kind\": \"uint\", \"width\": 2, \"byte_order\": \"little\", \"role\": \"derived\", \"min\": 0, \"max\": 65535,\n"
+    "         \"derived\": {\"op\": \"size_of\", \"target\": \"$message\", \"add\": -6}},\n"
+    "        {\"id\": \"rest\", \"kind\": \"bytes\", \"length\": \"rest\", \"role\": \"content\", \"min\": 1, \"max\": 10}\n"
+    "      ]\n"
+    "    }\n"
+    "  }],\n"
+    "  \"states\": {\"initial\": \"ready\", \"transitions\": [{\"from\": \"ready\", \"message\": \"msg\", \"to\": \"ready\"}]},\n"
+    "  \"limits\": {\"max_messages\": 4, \"max_repeat\": 2, \"max_bytes\": 1024}\n"
+    "}";
+
+  gr_engine *bad_endian = load_from_string(conflicting_endian_json, err, sizeof(err));
+  assert(bad_endian == NULL);
+  assert(strstr(err, "TCP framing byte_order conflicts with grammar field") != NULL);
 
   printf("[+] P12 generic candidate unified TCP framing verification tests passed successfully!\n");
   return 0;

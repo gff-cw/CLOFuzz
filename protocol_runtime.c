@@ -563,7 +563,21 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
   {uint8_t reachable[SMAX]={0};reachable[e->initial]=1;for(int i=0;i<e->ns;i++)for(int t=0;t<e->nt;t++)if(reachable[e->tr[t].from])reachable[e->tr[t].to]=1;for(int i=0;i<e->ns;i++)if(!reachable[i]){fail(err,cap,"unreachable IR state %s",e->state[i]);goto bad;}}
   for(int mi=0;mi<e->nm;mi++)e->canonical[mi]=mi;
   for(int mi=0;mi<e->nm;mi++){for(int prior=0;prior<mi;prior++)if(equivalent_models(e,mi,prior)&&equivalent_transitions(e,mi,prior)){e->canonical[mi]=e->canonical[prior];break;}}
-  for(int old=0;old<e->nt;old++)for(int prior=0;prior<old;prior++)if(e->tr[old].from==e->tr[prior].from && e->canonical[e->tr[old].message]==e->canonical[e->tr[prior].message]){fail(err,cap,"ambiguous runtime state transition");goto bad;}
+  for(int old=0;old<e->nt;old++){
+    for(int prior=0;prior<old;prior++){
+      if(e->tr[old].from==e->tr[prior].from && e->canonical[e->tr[old].message]==e->canonical[e->tr[prior].message]){
+        int resp_old=e->tr[old].response>=0?e->canonical[e->tr[old].response]:-1;
+        int resp_prior=e->tr[prior].response>=0?e->canonical[e->tr[prior].response]:-1;
+        if(e->tr[old].to!=e->tr[prior].to || resp_old!=resp_prior){
+          fail(err,cap,"ambiguous runtime state transition");goto bad;
+        }
+        memmove(&e->tr[old],&e->tr[old+1],(e->nt-old-1)*sizeof(pt));
+        e->nt--;
+        old--;
+        break;
+      }
+    }
+  }
   for(int mi=0;mi<e->nm;mi++){for(int prior=0;prior<mi;prior++){
     if(e->codec>0 && e->m[mi].response==e->m[prior].response && codecs[e->codec].same(e->m[mi].example,e->m[mi].size,e->m[prior].example,e->m[prior].size)){
       if(e->canonical[mi]!=e->canonical[prior]){fail(err,cap,"ambiguous wire identity with differing semantics: %s and %s",e->m[prior].id,e->m[mi].id);goto bad;}
