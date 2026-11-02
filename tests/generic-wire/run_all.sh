@@ -92,6 +92,8 @@ done
 "$generic_test_output/protocol_capability_gaps" > "$generic_test_output/protocol_capability_gaps.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_template_misconfiguration_guard.c "${generic_test_objs[@]}" -o "$generic_test_output/template_misconfiguration_guard"
 "$generic_test_output/template_misconfiguration_guard" > "$generic_test_output/template_misconfiguration_guard.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_early_receive_error_cleanup.c -o "$generic_test_output/early_receive_cleanup"
+"$generic_test_output/early_receive_cleanup" > "$generic_test_output/early_receive_cleanup.log"
 "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 printf 'Generic C grammar/runtime checks passed. Logs: %s\n' "$generic_test_output"

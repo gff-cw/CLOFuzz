@@ -1888,7 +1888,13 @@ int send_over_network()
   u8 likely_buggy = 0;
   struct sockaddr_in serv_addr;
   struct sockaddr_in local_serv_addr;
+  kliter_t(lms) *it = NULL;
+  executed_message_t *exec_msgs = NULL;
+  u32 exec_msgs_cap = 0;
+  u32 logical_digest = 0;
+  u32 executed_digest = 0;
   protocol_structured_sent = 0;
+  messages_sent = 0;
   complete_messages = 0;
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
@@ -2005,7 +2011,6 @@ int send_over_network()
   if (receive_network_responses(sockfd, timeout, poll_wait_msecs_total)) goto HANDLE_RESPONSES;
 
   //write the request messages
-  kliter_t(lms) *it;
   messages_sent = 0;
   complete_messages = 0;
   total_bytes_sent = 0;
@@ -2013,10 +2018,6 @@ int send_over_network()
   is_transmission_complete = 1;
   is_response_complete = 1;
   response_budget_exceeded = 0;
-  executed_message_t *exec_msgs = NULL;
-  u32 exec_msgs_cap = 0;
-  u32 logical_digest = 0;
-  u32 executed_digest = 0;
 
   if (kl_messages) {
     for (it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it)) {
