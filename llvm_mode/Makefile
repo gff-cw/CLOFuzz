@@ -78,7 +78,7 @@ CONTAINER_OBJECTS = $(patsubst Containers/src/%.c,$(BUILD_DIR)/containers/%.o,$(
 STDCXX = $(shell $(CXX) -print-file-name=libstdc++.a)
 
 # Changing compiler, LLVM version, flags or the optional mode rebuilds all artifacts.
-.PHONY: FORCE test_deps obj_section_rename test_build all_done
+.PHONY: FORCE test_deps obj_section_rename build-only test_build all_done
 FORCE:
 $(BUILD_DIR)/config: FORCE
 	@mkdir -p $(BUILD_DIR)
@@ -86,6 +86,10 @@ $(BUILD_DIR)/config: FORCE
 	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
 
 all: test_deps $(PROGS) test_build all_done
+
+# Produce usable instrumentation artifacts without executing a target. Section
+# isolation is part of the build, even when the optional smoke test is skipped.
+build-only: test_deps $(PROGS) obj_section_rename
 
 test_deps:
 ifndef AFL_TRACE_PC
@@ -133,7 +137,7 @@ $(TLSH): patches/tlsh-return-value.patch $(wildcard tlsh/src/*.cpp tlsh/include/
 	cp -a tlsh/. $(BUILD_DIR)/tlsh-src/
 	patch -d $(BUILD_DIR)/tlsh-src -p1 < patches/tlsh-return-value.patch
 	$(CMAKE) -S $(BUILD_DIR)/tlsh-src -B $(BUILD_DIR)/tlsh -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-	$(CMAKE) --build $(BUILD_DIR)/tlsh --target tlsh
+	+$(CMAKE) --build $(BUILD_DIR)/tlsh --target tlsh
 	cp $(BUILD_DIR)/tlsh-src/lib/libtlsh.a $@
 
 $(BUILD_DIR)/state-tracer-core.o: afl-llvm-rt-state-tracer.o.c state-tracer.h $(BUILD_DIR)/config $(CONTAINERS) $(TLSH) $(MVPTREE)
@@ -160,7 +164,7 @@ $(BUILD_DIR)/state-tracer-core.o: afl-llvm-rt-state-tracer.o.c state-tracer.h $(
 	@rm -f $@; $(CC) $(CFLAGS) -m64 -fPIC -c $< -o $@ 2>/dev/null; if [ "$$?" = "0" ]; then echo "success!"; else echo "failed (that's fine)"; fi
 
 obj_section_rename: $(PROGS)
-	for OBJ_FILE in ../afl-llvm-rt*.o ; do \
+	set -e; for OBJ_FILE in ../afl-llvm-rt*.o ; do \
 		objcopy --rename-section .data=.tracer_data $${OBJ_FILE}; \
 		objcopy --rename-section .bss=.tracer_bss $${OBJ_FILE}; \
 	done

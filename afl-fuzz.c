@@ -1029,6 +1029,20 @@ static u8 submitted_execution_complete(void) {
          !response_budget_exceeded;
 }
 
+static u8 protocol_feedback_ready(u8 delivered) {
+  return delivered && is_response_complete && !response_budget_exceeded;
+}
+
+static u8 current_execution_matches_wire(const execution_observation_t *expected) {
+  /* Borrow the last execution's wire for comparison; expected owns its copy. */
+  execution_observation_t current = {0};
+  current.planned_messages = planned_messages;
+  current.wire_count = last_execution_wire_count;
+  current.wire = last_execution_wire;
+  current.has_wire_observation = last_execution_wire_count != 0;
+  return execution_wire_equal(expected, &current);
+}
+
 /* Capture an execution observation snapshot from current state and response buffers.
    P05: Isolates observations to prevent confirmation replays from mutating original results. */
 static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
@@ -5004,7 +5018,9 @@ static void show_stats(void);
    new paths are discovered to detect variable behavior and so on. */
 
 static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 len,
-                         u32 handicap, u8 from_queue) {
+                         u32 handicap, u8 from_queue,
+                         const execution_observation_t *expected_wire,
+                         const u8 *expected_trace) {
 
   u8 prev_purpose = current_exec_purpose;
   current_exec_purpose = EXEC_PURPOSE_CALIBRATION;
@@ -5040,7 +5056,8 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
 
 
 
-  if (q->exec_cksum) memcpy(first_trace, trace_bits, MAP_SIZE);
+  if (q->exec_cksum)
+    memcpy(first_trace, expected_trace ? expected_trace : trace_bits, MAP_SIZE);
 
   start_us = get_cur_time_us();
 
@@ -5058,6 +5075,19 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
        we want to bail out quickly. */
 
     if (stop_soon || fault != crash_mode) goto abort_calibration;
+
+    /* Network execution sends kl_messages and may apply fresh session bindings;
+       writing use_mem alone does not replay the original submitted bytes. */
+    if (expected_wire && (!submitted_execution_complete() ||
+                          !current_execution_matches_wire(expected_wire))) {
+      if (protocol_log)
+        fprintf(protocol_log, "{\"event\":\"calibration_rejected\","
+                "\"reason\":\"submitted_input_changed_or_incomplete\","
+                "\"expected_exec_id\":%u,\"exec_id\":%u}\n",
+                expected_wire->exec_id, state_exec_id);
+      fault = FAULT_NOBITS;
+      goto abort_calibration;
+    }
 
     if (!dumb_mode && !stage_cur && !count_bytes(trace_bits)) {
       fault = FAULT_NOINST;
@@ -5214,7 +5244,7 @@ static void perform_dry_run(char** argv) {
     /* AFLNet construct the kl_messages linked list for this queue entry*/
     kl_messages = construct_kl_messages(q->fname, q->regions, q->region_count);
 
-    res = calibrate_case(argv, q, use_mem, q->len, 0, 1);
+    res = calibrate_case(argv, q, use_mem, q->len, 0, 1, NULL, NULL);
 
     ck_free(use_mem);
 
@@ -5748,6 +5778,8 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       free_execution_observation(coverage_obs);
       return 0;
     }
+    u8 *coverage_trace = ck_alloc_nozero(MAP_SIZE);
+    memcpy(coverage_trace, trace_bits, MAP_SIZE);
 
 #ifndef SIMPLE_FILES
 
@@ -5803,8 +5835,10 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       memcpy(coverage_input + input_offset, coverage_obs->wire[w].data, coverage_obs->wire[w].size);
       input_offset += coverage_obs->wire[w].size;
     }
-    res = calibrate_case(argv, queue_top, coverage_input, full_len, queue_cycle - 1, 0);
+    res = calibrate_case(argv, queue_top, coverage_input, full_len, queue_cycle - 1, 0,
+                         coverage_obs, coverage_trace);
     ck_free(coverage_input);
+    ck_free(coverage_trace);
     free_execution_observation(coverage_obs);
 
     if (res == FAULT_ERROR)
@@ -7557,6 +7591,9 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   current_feedback_exec_id = state_exec_id;
   current_feedback_executed = 1;
   u8 feedback_delivered = protocol_count && (protocol_structured_sent == protocol_count) && is_transmission_complete;
+  /* Freeze eligibility together with the original execution identity. Later
+     confirmation/calibration runs may change the network observation globals. */
+  u8 feedback_eligible = protocol_feedback_ready(feedback_delivered);
   if (feedback_delivered) protocol_complete_transmissions++;
 
   /* P20: Log executed candidate status with requested/actual modes, stage, and outcome */
@@ -7610,8 +7647,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   /* This handles FAULT_ERROR for us: */
 
   protocol_new_tuples = protocol_new_buckets = 0;
-  protocol_collect_coverage = feedback_layer && feedback_delivered &&
-      is_response_complete && !response_budget_exceeded && fault == crash_mode;
+  protocol_collect_coverage = feedback_layer && feedback_eligible && fault == crash_mode;
   if (protocol_collect_coverage) protocol_valid_observations++;
   queued_discovered += save_if_interesting(argv, out_buf, len, fault);
   protocol_collect_coverage = 0;
@@ -7621,7 +7657,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   if (unique_crashes > feedback_crashes_before) discoveries |= PROTO_FEEDBACK_CRASH;
   if (unique_hangs > feedback_hangs_before) discoveries |= PROTO_FEEDBACK_HANG;
   protocol_observe_candidate(feedback_state, feedback_layer,
-                             feedback_delivered ? discoveries : 0,
+                             feedback_eligible ? discoveries : 0,
                              protocol_new_tuples, protocol_new_buckets);
 
   if (!(stage_cur % stats_update_freq) || stage_cur + 1 == stage_max)

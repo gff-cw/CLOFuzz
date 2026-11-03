@@ -51,6 +51,11 @@ COMM_HDR    = alloc-inl.h config.h debug.h types.h
 
 all: test_x86 $(PROGS) afl-as test_build all_done
 
+# Compile every standard tool without executing the optional instrumentation
+# smoke test. The LLVM components have their own matching build-only target.
+.PHONY: build-only
+build-only: test_x86 $(PROGS) afl-as
+
 ifndef AFL_NO_X86
 
 test_x86:
@@ -88,6 +93,8 @@ MESSAGE_FILE_TEST_SOURCE = tests/protocol/test_message_files.c
 MESSAGE_FILE_TEST_BINARY = tests/protocol/test-message-files
 MESSAGE_FILE_TEST_SANITIZED = tests/protocol/test-message-files-sanitized
 MESSAGE_FILE_TEST_HEADERS = aflnet.h klist.h khash.h $(COMM_HDR)
+aflnet.o: aflnet.c aflnet.h klist.h khash.h $(COMM_HDR)
+
 afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(GENERIC_WIRE_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h execution_observation.h llvm_mode/state-tracer.h | test_x86
 	$(CC) $(CFLAGS) $@.c protocol_runtime.c protocol_schedule.c $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
 

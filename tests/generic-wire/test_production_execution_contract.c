@@ -42,6 +42,10 @@ int main(void) {
   execution_observation_t *obs = capture_execution_observation(EXEC_PURPOSE_STATE_ANALYSIS);
   assert(obs && obs->has_state_observation && obs->has_verified_boundaries);
   assert(obs->exec_id == 17 && obs->wire[0].data != a);
+  assert(current_execution_matches_wire(obs));
+  a[0] ^= 1; /* Fresh live bindings can change actual network input. */
+  assert(!current_execution_matches_wire(obs));
+  a[0] ^= 1;
   region_t regions[2] = {{0}};
   struct queue_entry q = {0};
   q.regions = regions; q.region_count = 2;
@@ -85,6 +89,19 @@ int main(void) {
   assert(strstr(line, "\"candidate_id\":9,\"exec_id\":17,"));
   assert(!strstr(line, "\"exec_id\":99"));
   fclose(protocol_log); protocol_log = NULL;
+
+  /* Sending every request is insufficient if the original response observation
+   * failed. Apply the same gate to every discovery category, before replays. */
+  is_response_complete = 0;
+  assert(!protocol_feedback_ready(1));
+  is_response_complete = 1; response_budget_exceeded = 1;
+  assert(!protocol_feedback_ready(1));
+  response_budget_exceeded = 0;
+  assert(!protocol_feedback_ready(0));
+  u8 original_feedback_eligible = protocol_feedback_ready(1);
+  assert(original_feedback_eligible);
+  is_response_complete = 0; /* A later replay cannot revoke the frozen result. */
+  assert(original_feedback_eligible);
 
   /* Reject before has_new_bits mutates the original coverage virgin map. */
   static u8 trace[MAP_SIZE], before[MAP_SIZE];

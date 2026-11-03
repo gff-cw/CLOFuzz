@@ -14,9 +14,11 @@ These instructions record the user's version-control preferences for this checko
   Use ordinary pushes, not force pushes.
 - Verify the remote branch tip after pushing and report the commit and any sync
   failure accurately. A stale local tracking reference is not remote confirmation.
-- The current user instruction is to defer tests. Perform static review and
-  formatting checks without running tests, builds, examples or target services.
-  A later user instruction may change this validation scope.
+- The user now authorizes compiling StateAFL and its components to find build
+  problems, alongside static review and formatting checks. Compile-only checks
+  may include regression sources; do not execute tests, examples or target
+  services unless a later user instruction authorizes them. Use build-only
+  targets rather than default targets that also execute instrumentation tests.
 
 The offline tools have their own documented scope. Version-control delivery does
 not establish runtime validation or change their integration status.

@@ -75,6 +75,18 @@ make -j2
 make -C llvm_mode -j2
 ```
 
+For compilation without running the instrumentation smoke tests, use:
+
+```bash
+make -j2 build-only
+make -C llvm_mode -j2 build-only
+```
+
+The LLVM build-only target includes the required runtime data-section isolation.
+It does not run compiled fixtures or start a target service. Optional 32-bit
+coverage objects still require multilib headers; their skipped build does not
+establish 32-bit target support.
+
 The defaults are `CC=clang`, `CXX=clang++`, `LLVM_CONFIG=llvm-config`,
 `CLANG=clang`, and `CLANGXX=clang++`, resolved through PATH. The LLVM build checks
 that the selected Clang commands and LLVM configuration have matching major

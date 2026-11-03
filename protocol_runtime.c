@@ -3,6 +3,7 @@
 #include "protocol_runtime.h"
 #include "protocol_codecs.h"
 #include "generic_runtime.h"
+#include "native_json.h"
 #include "config.h"
 #include "alloc-inl.h"
 #include <stdlib.h>
