@@ -1,4 +1,6 @@
 {
+  "bundle_digest": "b3fec6bf823bed91a8dc13c789473c16a898fe67ae3c97dbc8434f6ae431a97a",
+  "format": "stateafl.state-ir",
   "format_version": 1,
   "initial": "stopped",
   "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",

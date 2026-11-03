@@ -1,228 +1,154 @@
-#define _DEFAULT_SOURCE
+/* Real runtime validation of a bounded fixture, entirely in files/memory. */
 #define _POSIX_C_SOURCE 200809L
+#include "protocol_runtime.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-#include "types.h"
-#include "protocol_runtime.h"
-
-enum {
-  TEST_MODE_VALID = 0,
-  TEST_MODE_NEAR_VALID = 1,
-  TEST_MODE_INVALID = 2,
-  TEST_MODE_RAW = 3,
-  TEST_MODE_HYBRID = 4
-};
-
-/* Helper to pack a message with a 4-byte little-endian length prefix */
-static uint8_t *make_record(const uint8_t *payload, uint32_t len, uint32_t *rec_len_out) {
-  uint8_t *rec = (uint8_t *)malloc(4 + len);
-  assert(rec != NULL);
-  rec[0] = (uint8_t)(len & 0xFF);
-  rec[1] = (uint8_t)((len >> 8) & 0xFF);
-  rec[2] = (uint8_t)((len >> 16) & 0xFF);
-  rec[3] = (uint8_t)((len >> 24) & 0xFF);
-  memcpy(rec + 4, payload, len);
-  *rec_len_out = 4 + len;
-  return rec;
+static uint32_t zero(uint32_t limit){(void)limit;return 0;}
+static size_t append(uint8_t *out,size_t at,const uint8_t *wire,size_t size){
+  for(unsigned i=0;i<4;i++)out[at+i]=(uint8_t)(size>>(8*i));
+  memcpy(out+at+4,wire,size);
+  return at+4+size;
+}
+static void write_text(const char *path,const char *text){
+  FILE *f=fopen(path,"wb");assert(f);
+  assert(fwrite(text,1,strlen(text),f)==strlen(text));
+  assert(fclose(f)==0);
 }
 
-/* Mock whole-sequence validation under test implementing B10 contract */
-static int test_validate_sequence_mode(int mode,
-                                       size_t max_messages,
-                                       size_t max_bytes,
-                                       const uint8_t *m1, size_t m1_len,
-                                       const uint8_t *m2, size_t m2_len,
-                                       const uint8_t *m3, size_t m3_len,
-                                       int (*semantic_model_check)(const uint8_t *buf, size_t len),
-                                       char *err, size_t cap) {
-  if (!m2 || !m2_len) {
-    snprintf(err, cap, "M2 candidate record sequence cannot be empty");
-    return -1;
+static const char protocol_json[]=
+  "{\"format\":\"stateafl.protocol-ir\",\"ir_version\":1,"
+  "\"protocol_id\":\"projection_contract\",\"codec\":\"bacnet\",\"transport\":\"udp\","
+  "\"support\":{\"runtime\":true},\"messages\":["
+  "{\"id\":\"start\",\"direction\":\"request\",\"weight\":1,"
+  "\"example\":\"810b000801001008\","
+  "\"fields\":["
+  "{\"id\":\"function\",\"locator\":\"bvlc.function\",\"width\":1,\"type\":\"uint8\","
+  "\"endian\":\"big\",\"role\":\"fixed\",\"mutability\":\"fixed\",\"min\":11,\"max\":11,\"values\":[11],\"strategies\":[\"enum\"]},"
+  "{\"id\":\"length\",\"locator\":\"bvlc.length\",\"width\":2,\"type\":\"uint16\","
+  "\"endian\":\"big\",\"role\":\"derived\",\"mutability\":\"derived\",\"min\":8,\"max\":16,\"values\":[],\"strategies\":[]},"
+  "{\"id\":\"priority\",\"locator\":\"npdu.control\",\"width\":1,\"type\":\"uint8\","
+  "\"endian\":\"big\",\"role\":\"head\",\"mutability\":\"fuzzable\",\"min\":0,\"max\":3,\"values\":[0,1],\"strategies\":[\"enum\"]}],"
+  "\"dependencies\":[{\"op\":\"length_of\",\"target\":\"length\",\"source\":\"$message\",\"unit\":1,\"multiply\":1,\"add\":0}]},"
+  "{\"id\":\"finish\",\"direction\":\"request\",\"weight\":1,"
+  "\"example\":\"810a000801001008\","
+  "\"fields\":["
+  "{\"id\":\"function\",\"locator\":\"bvlc.function\",\"width\":1,\"type\":\"uint8\","
+  "\"endian\":\"big\",\"role\":\"fixed\",\"mutability\":\"fixed\",\"min\":10,\"max\":10,\"values\":[10],\"strategies\":[\"enum\"]},"
+  "{\"id\":\"length\",\"locator\":\"bvlc.length\",\"width\":2,\"type\":\"uint16\","
+  "\"endian\":\"big\",\"role\":\"derived\",\"mutability\":\"derived\",\"min\":8,\"max\":16,\"values\":[],\"strategies\":[]},"
+  "{\"id\":\"priority\",\"locator\":\"npdu.control\",\"width\":1,\"type\":\"uint8\","
+  "\"endian\":\"big\",\"role\":\"head\",\"mutability\":\"fuzzable\",\"min\":0,\"max\":3,\"values\":[0,1],\"strategies\":[\"enum\"]}],"
+  "\"dependencies\":[{\"op\":\"length_of\",\"target\":\"length\",\"source\":\"$message\",\"unit\":1,\"multiply\":1,\"add\":0}]}]}";
+static const char state_json[]=
+  "{\"format\":\"stateafl.state-ir\",\"ir_version\":1,\"protocol_id\":\"projection_contract\","
+  "\"states\":[{\"id\":\"ready\"},{\"id\":\"started\"}],\"initial\":\"ready\","
+  "\"transitions\":["
+  "{\"from\":\"ready\",\"message\":\"start\",\"to\":\"started\",\"response\":\"\"},"
+  "{\"from\":\"started\",\"message\":\"finish\",\"to\":\"ready\",\"response\":\"\"}],"
+  "\"limits\":{\"max_messages\":3,\"max_repeat\":2,\"max_bytes\":36}}";
+
+int main(void){
+  char protocol_path[]="/tmp/stateafl-projection-protocol-XXXXXX";
+  char state_path[]="/tmp/stateafl-projection-state-XXXXXX";
+  int pfd=mkstemp(protocol_path),sfd=mkstemp(state_path);
+  assert(pfd>=0&&sfd>=0);close(pfd);close(sfd);
+  write_text(protocol_path,protocol_json);write_text(state_path,state_json);
+  char error[512]={0};
+  proto_engine *engine=proto_load(protocol_path,state_path,error,sizeof(error));
+  if(!engine)fprintf(stderr,"load: %s\n",error);
+  assert(engine);
+  const uint8_t start[]={0x81,11,0,8,1,0,16,8};
+  const uint8_t finish[]={0x81,10,0,8,1,0,16,8};
+  const uint8_t long_finish[]={0x81,10,0,16,1,0,16,8,0x0b,0,0,0,0x1b,0,0,1};
+  uint8_t seed[32],suffix[80],tampered[32],original[32];
+  size_t seed_size=append(seed,0,start,sizeof(start));
+  const uint8_t *candidate=NULL;size_t candidate_size=0;
+  assert(proto_set_prefix(engine,NULL,0,error,sizeof(error))==0);
+
+  /* A mode flag cannot invent model provenance for arbitrary damaged input. */
+  proto_set_mutating_mode(engine,PROTO_INVALID);
+  memcpy(tampered,seed,seed_size);tampered[7]++;
+  assert(proto_validate_sequence(engine,NULL,0,tampered,seed_size,NULL,0,error,sizeof(error))<0);
+  assert(strstr(error,"provenance"));
+
+  const int modes[]={PROTO_NEAR_VALID,PROTO_INVALID};
+  for(size_t m=0;m<sizeof(modes)/sizeof(modes[0]);m++){
+    assert(proto_mutate(engine,seed,seed_size,start,sizeof(start),modes[m],
+                        PROTO_HEAD,zero,&candidate,&candidate_size,error,sizeof(error))==0);
+    assert(candidate_size==seed_size);
+    memcpy(original,candidate,candidate_size);
+    assert(candidate[7]==9); /* The generated BVLC length remains intentionally wrong. */
+    assert(proto_is_intentional_violation(engine,candidate+4,candidate_size-4)==1);
+    assert(proto_is_intentional_violation(engine,start,sizeof(start))==0);
+    assert(proto_is_intentional_violation(engine,finish,sizeof(finish))==0);
+    proto_session_begin(engine);
+    assert(proto_set_prefix(engine,NULL,0,error,sizeof(error))==0);
+    assert(proto_is_intentional_violation(engine,candidate+4,candidate_size-4)==1);
+    uint8_t send_wire[sizeof(start)];memcpy(send_wire,candidate+4,sizeof(send_wire));
+    assert(proto_prepare_send(engine,send_wire,sizeof(send_wire),error,sizeof(error))<0);
+    assert(memcmp(send_wire,candidate+4,sizeof(send_wire))==0);
+    assert(proto_commit_send(engine,error,sizeof(error))<0);
+    /* Exact damaged bytes cannot bypass a live semantic-state error. These two
+     * normal no-response requests must also avoid creating a permanent pending. */
+    memcpy(send_wire,start,sizeof(send_wire));
+    assert(proto_prepare_send(engine,send_wire,sizeof(send_wire),error,sizeof(error))==0);
+    assert(proto_commit_send(engine,error,sizeof(error))==0);
+    assert(proto_is_intentional_violation(engine,candidate+4,sizeof(start))==0);
+    memcpy(send_wire,finish,sizeof(send_wire));
+    assert(proto_prepare_send(engine,send_wire,sizeof(send_wire),error,sizeof(error))==0);
+    assert(proto_commit_send(engine,error,sizeof(error))==0);
+    assert(proto_is_intentional_violation(engine,candidate+4,sizeof(start))==1);
+    size_t suffix_size=append(suffix,0,finish,sizeof(finish));
+    assert(proto_validate_sequence(engine,NULL,0,candidate,candidate_size,
+                                    suffix,suffix_size,error,sizeof(error))==0);
+    assert(memcmp(candidate,original,candidate_size)==0);
+
+    /* M3 must follow the projected outcome of start, not the initial state. */
+    suffix_size=append(suffix,0,start,sizeof(start));
+    assert(proto_validate_sequence(engine,NULL,0,candidate,candidate_size,
+                                    suffix,suffix_size,error,sizeof(error))<0);
+    assert(strstr(error,"state graph"));
+
+    memcpy(tampered,candidate,candidate_size);tampered[11]^=1;
+    assert(proto_validate_sequence(engine,NULL,0,tampered,candidate_size,
+                                    NULL,0,error,sizeof(error))<0);
+    assert(strstr(error,"provenance"));
+
+    suffix_size=append(suffix,0,finish,sizeof(finish));
+    suffix_size=append(suffix,suffix_size,start,sizeof(start));
+    suffix_size=append(suffix,suffix_size,finish,sizeof(finish));
+    assert(proto_validate_sequence(engine,NULL,0,candidate,candidate_size,
+                                    suffix,suffix_size,error,sizeof(error))<0);
+    assert(strstr(error,"max_messages"));
+
+    suffix_size=append(suffix,0,long_finish,sizeof(long_finish));
+    suffix_size=append(suffix,suffix_size,start,sizeof(start));
+    assert(proto_validate_sequence(engine,NULL,0,candidate,candidate_size,
+                                    suffix,suffix_size,error,sizeof(error))<0);
+    assert(strstr(error,"max_bytes"));
   }
-
-  const uint8_t *segs[3] = {m1, m2, m3};
-  size_t lens[3] = {m1_len, m2_len, m3_len};
-  size_t total_messages = 0;
-  size_t total_replay_bytes = 0;
-
-  for (int s = 0; s < 3; s++) {
-    const uint8_t *buf = segs[s];
-    size_t len = lens[s];
-    if (!len) continue;
-
-    size_t p = 0;
-    while (p < len) {
-      if (p + 4 > len) {
-        snprintf(err, cap, "truncated record header");
-        return -1;
-      }
-      uint32_t z = (uint32_t)buf[p] |
-                   ((uint32_t)buf[p + 1] << 8) |
-                   ((uint32_t)buf[p + 2] << 16) |
-                   ((uint32_t)buf[p + 3] << 24);
-      p += 4;
-      if (p + z > len) {
-        snprintf(err, cap, "record length %u overflows available buffer", z);
-        return -1;
-      }
-
-      total_messages++;
-      total_replay_bytes += 4 + z;
-
-      if (total_messages > max_messages) {
-        snprintf(err, cap, "max_messages exceeded across sequence (%zu > %zu)", total_messages, max_messages);
-        return -1;
-      }
-      if (total_replay_bytes > max_bytes) {
-        snprintf(err, cap, "max_bytes exceeded across sequence (%zu > %zu)", total_replay_bytes, max_bytes);
-        return -1;
-      }
-
-      /* B10: Intentionally invalid and near_valid modes break length or constraint
-         by design in M2; whole-sequence validation must NOT reject M2 as outside
-         model when intentionally broken, preserving sequence context. */
-      int is_m2 = (s == 1);
-      int is_intentionally_broken = (is_m2 && (mode == TEST_MODE_NEAR_VALID || mode == TEST_MODE_INVALID));
-
-      if (!is_intentionally_broken) {
-        if (semantic_model_check && semantic_model_check(buf + p, z) < 0) {
-          snprintf(err, cap, "%s message outside semantic model", s == 0 ? "M1" : s == 1 ? "M2" : "M3");
-          return -1;
-        }
-      }
-
-      p += z;
-    }
-  }
-
-  return 0;
-}
-
-/* Mock semantic model checker: recognizes packet starting with 0xAA 0xBB as valid */
-static int mock_semantic_check(const uint8_t *buf, size_t len) {
-  if (len >= 2 && buf[0] == 0xAA && buf[1] == 0xBB) return 0;
-  return -1;
-}
-
-int main(void) {
-  printf("[*] Testing B10 intentionally-invalid mode whole-sequence validation contract...\n");
-
-  char err[256];
-  uint32_t rec1_len = 0, rec2_valid_len = 0, rec2_broken_len = 0, rec3_len = 0;
-
-  /* M1 valid message */
-  uint8_t m1_payload[] = { 0xAA, 0xBB, 0x01, 0x02 };
-  uint8_t *rec1 = make_record(m1_payload, sizeof(m1_payload), &rec1_len);
-
-  /* M2 valid candidate */
-  uint8_t m2_valid_payload[] = { 0xAA, 0xBB, 0x10, 0x20 };
-  uint8_t *rec2_valid = make_record(m2_valid_payload, sizeof(m2_valid_payload), &rec2_valid_len);
-
-  /* M2 intentionally broken candidate (length violation / outside model) */
-  uint8_t m2_broken_payload[] = { 0xEE, 0xFF, 0x99, 0x88, 0x77 }; /* Doesn't start with 0xAA 0xBB */
-  uint8_t *rec2_broken = make_record(m2_broken_payload, sizeof(m2_broken_payload), &rec2_broken_len);
-
-  /* M3 valid suffix */
-  uint8_t m3_payload[] = { 0xAA, 0xBB, 0xCC, 0xDD };
-  uint8_t *rec3 = make_record(m3_payload, sizeof(m3_payload), &rec3_len);
-
-  /* ========================================================================
-   * 1. PROTO_VALID mode rejects broken M2 as outside model
-   * ======================================================================== */
-  err[0] = '\0';
-  int res = test_validate_sequence_mode(TEST_MODE_VALID, 10, 1024,
-                                        rec1, rec1_len,
-                                        rec2_broken, rec2_broken_len,
-                                        rec3, rec3_len,
-                                        mock_semantic_check, err, sizeof(err));
-  assert(res < 0);
-  assert(strstr(err, "outside semantic model") != NULL);
-  printf("[+] 1: PROTO_VALID correctly rejects broken message as outside model\n");
-
-  /* ========================================================================
-   * 2. PROTO_VALID accepts valid candidate
-   * ======================================================================== */
-  err[0] = '\0';
-  res = test_validate_sequence_mode(TEST_MODE_VALID, 10, 1024,
-                                    rec1, rec1_len,
-                                    rec2_valid, rec2_valid_len,
-                                    rec3, rec3_len,
-                                    mock_semantic_check, err, sizeof(err));
-  assert(res == 0);
-  printf("[+] 2: PROTO_VALID successfully accepts fully conforming candidate\n");
-
-  /* ========================================================================
-   * 3. PROTO_NEAR_VALID mode: intentionally broken M2 is NOT rejected as
-   *    outside model, preserving sequence context.
-   * ======================================================================== */
-  err[0] = '\0';
-  res = test_validate_sequence_mode(TEST_MODE_NEAR_VALID, 10, 1024,
-                                    rec1, rec1_len,
-                                    rec2_broken, rec2_broken_len,
-                                    rec3, rec3_len,
-                                    mock_semantic_check, err, sizeof(err));
-  assert(res == 0);
-  printf("[+] 3: PROTO_NEAR_VALID preserves sequence context without false rejection as outside model\n");
-
-  /* ========================================================================
-   * 4. PROTO_INVALID mode: intentionally broken M2 is NOT rejected as
-   *    outside model, preserving sequence context.
-   * ======================================================================== */
-  err[0] = '\0';
-  res = test_validate_sequence_mode(TEST_MODE_INVALID, 10, 1024,
-                                    rec1, rec1_len,
-                                    rec2_broken, rec2_broken_len,
-                                    rec3, rec3_len,
-                                    mock_semantic_check, err, sizeof(err));
-  assert(res == 0);
-  printf("[+] 4: PROTO_INVALID preserves sequence context without false rejection as outside model\n");
-
-  /* ========================================================================
-   * 5. Sequence resource limits are still strictly enforced under near_valid/invalid
-   * ======================================================================== */
-  /* 5a. Exceeding max_messages */
-  err[0] = '\0';
-  res = test_validate_sequence_mode(TEST_MODE_NEAR_VALID, 2 /* max 2 msgs, sequence has 3 */, 1024,
-                                    rec1, rec1_len,
-                                    rec2_broken, rec2_broken_len,
-                                    rec3, rec3_len,
-                                    mock_semantic_check, err, sizeof(err));
-  assert(res < 0);
-  assert(strstr(err, "max_messages exceeded") != NULL);
-  printf("[+] 5a: max_messages constraint correctly enforced even in PROTO_NEAR_VALID\n");
-
-  /* 5b. Exceeding max_bytes */
-  err[0] = '\0';
-  res = test_validate_sequence_mode(TEST_MODE_INVALID, 10, 12 /* tight byte limit */,
-                                    rec1, rec1_len,
-                                    rec2_broken, rec2_broken_len,
-                                    rec3, rec3_len,
-                                    mock_semantic_check, err, sizeof(err));
-  assert(res < 0);
-  assert(strstr(err, "max_bytes exceeded") != NULL);
-  printf("[+] 5b: max_bytes constraint correctly enforced even in PROTO_INVALID\n");
-
-  /* 5c. Broken framing header */
-  uint8_t malformed_header[] = { 0x0A, 0x00, 0x00, 0x00, 0x01 }; /* Claims 10 bytes, only 1 provided */
-  err[0] = '\0';
-  res = test_validate_sequence_mode(TEST_MODE_NEAR_VALID, 10, 1024,
-                                    rec1, rec1_len,
-                                    malformed_header, sizeof(malformed_header),
-                                    rec3, rec3_len,
-                                    mock_semantic_check, err, sizeof(err));
-  assert(res < 0);
-  assert(strstr(err, "overflows available buffer") != NULL);
-  printf("[+] 5c: Record framing overflow correctly caught in PROTO_NEAR_VALID\n");
-
-  free(rec1);
-  free(rec2_valid);
-  free(rec2_broken);
-  free(rec3);
-
-  printf("[+] All B10 intentionally-invalid mode validation tests passed successfully!\n");
+  /* Host sending examines one wire record at a time, while provenance stores
+   * the entire M2 sequence. Only its damaged member may bypass preparation. */
+  uint8_t multi_seed[32],multi_wire[sizeof(start)+sizeof(finish)];
+  size_t multi_size=append(multi_seed,0,start,sizeof(start));
+  multi_size=append(multi_seed,multi_size,finish,sizeof(finish));
+  memcpy(multi_wire,start,sizeof(start));
+  memcpy(multi_wire+sizeof(start),finish,sizeof(finish));
+  assert(proto_mutate(engine,multi_seed,multi_size,multi_wire,sizeof(multi_wire),
+                      PROTO_INVALID,PROTO_HEAD,zero,&candidate,&candidate_size,
+                      error,sizeof(error))==0);
+  assert(candidate_size==24);
+  assert(proto_is_intentional_violation(engine,candidate+4,sizeof(start))==1);
+  assert(proto_is_intentional_violation(engine,candidate+16,sizeof(finish))==0);
+  size_t suffix_size=append(suffix,0,start,sizeof(start));
+  assert(proto_validate_sequence(engine,NULL,0,candidate,candidate_size,
+                                  suffix,suffix_size,error,sizeof(error))==0);
+  proto_free(engine);unlink(protocol_path);unlink(state_path);
+  puts("PASS: production mutation provenance and full-sequence resource/state validation");
   return 0;
 }

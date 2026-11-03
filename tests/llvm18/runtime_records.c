@@ -16,7 +16,12 @@ static void expect_ignored(void *address, size_t size) {
 }
 
 int main(void) {
-  assert(sizeof(struct state_shared) == 436);
+  assert(STATE_SHARED_VERSION == 3U);
+  assert(offsetof(struct state_shared, seq) == 8 * sizeof(uint32_t));
+  assert(sizeof(((struct state_shared *)0)->boundary_state_index) ==
+         MAX_NUM_STATES * sizeof(uint32_t));
+  assert(sizeof(struct state_shared) == offsetof(struct state_shared, state_iteration) +
+         MAX_NUM_STATES * sizeof(uint32_t));
   assert(sizeof(struct calibration) == 407324);
   assert(offsetof(struct calibration, dist) == 7316);
 
@@ -116,6 +121,23 @@ int main(void) {
   trace_recvmsg(&message);
   expect_ignored(&message, sizeof(struct msghdr));
   trace_sendmsg(&message);
+
+  /* Call the real cooperative provider, without assuming IO call count equals
+   * application message count. It records the current raw iteration explicitly. */
+  int boundary_iteration = curr_iter_no;
+  size_t boundary_dumps = queue_size(alloc_dumps_queue);
+  trace_message_boundary(0);
+  assert(explicit_boundary_count == 1 && !explicit_boundaries_invalid);
+  assert(explicit_boundary_iteration[0] == (uint32_t)boundary_iteration);
+  assert(curr_iter_no == boundary_iteration + 1);
+  assert(curr_tracer_state == SENDING);
+  assert(queue_size(alloc_dumps_queue) > boundary_dumps);
+  assert(state_shared_ptr->producer_pid == (uint32_t)getpid());
+  assert(observed_exec_id == state_shared_ptr->exec_id);
+  /* A duplicate ordinal invalidates evidence instead of inventing a map. */
+  trace_message_boundary(0);
+  assert(explicit_boundaries_invalid && explicit_boundary_count == 1);
+  assert(curr_iter_no == boundary_iteration + 1);
 
   int stream_fd = fileno(stream);
   assert(set_contains(sockets_set, &stream_fd));

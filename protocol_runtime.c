@@ -148,6 +148,12 @@ typedef struct {int op,target,source,message,unit,add,algorithm,multiply;} pd;
 typedef struct {char id[64];pf f[FMAX];pd d[DMAX];int nf,nd,weight,response;uint8_t *example;size_t size;} pm;
 typedef struct {int from,to,message,response;} pt;
 typedef struct {size_t offset,size,wire_offset;int model;} pr;
+typedef struct {
+  uint64_t cache[PMAX][FMAX];
+  uint8_t cached[PMAX][FMAX],outstanding[256],pending[PMAX];
+  unsigned state;
+  uint32_t ua_sequence;
+} session_snapshot;
 struct proto_engine {
   gr_engine *generic;
   int codec,simulating,prefix_state,prefix_valid;
@@ -167,8 +173,28 @@ struct proto_engine {
   int mutating_mode;
   unsigned semantic_state;
   uint32_t ua_sequence;
+  session_snapshot prepared_session;
+  unsigned send_prepared;
+  uint8_t *validation_projection,*validation_candidate;
+  size_t validation_length;
+  int validation_mode;
   uint8_t receive[MAX_FILE];size_t receive_size;
 };
+static void save_session(proto_engine *e,session_snapshot *s){
+  memcpy(s->cache,e->cache,sizeof(e->cache));
+  memcpy(s->cached,e->cached,sizeof(e->cached));
+  memcpy(s->outstanding,e->outstanding,sizeof(e->outstanding));
+  memcpy(s->pending,e->pending,sizeof(e->pending));
+  s->state=e->semantic_state;s->ua_sequence=e->ua_sequence;
+}
+static void restore_session(proto_engine *e,const session_snapshot *s){
+  memcpy(e->cache,s->cache,sizeof(s->cache));
+  memcpy(e->cached,s->cached,sizeof(s->cached));
+  memcpy(e->outstanding,s->outstanding,sizeof(s->outstanding));
+  memcpy(e->pending,s->pending,sizeof(s->pending));
+  e->semantic_state=s->state;e->ua_sequence=s->ua_sequence;
+  e->simulating=0;
+}
 
 typedef struct {
   const char *name;
@@ -594,7 +620,7 @@ proto_engine *proto_load_generic(const char *path, char *err, size_t cap){
   if(!e->generic){ck_free(e);return NULL;}
   return e;
 }
-void proto_free(proto_engine *e){if(!e)return;gr_free(e->generic);for(int i=0;i<e->nm;i++)ck_free(e->m[i].example);ck_free(e);}
+void proto_free(proto_engine *e){if(!e)return;gr_free(e->generic);for(int i=0;i<e->nm;i++)ck_free(e->m[i].example);free(e->validation_projection);free(e->validation_candidate);ck_free(e);}
 int proto_mode_parse(const char *s){const char *names[]={"valid","near_valid","invalid","raw","hybrid"};if(s)for(int i=0;i<5;i++)if(!strcmp(s,names[i]))return i;return -1;}
 int proto_layers_parse(const char *s){if(!s)return -1;if(!strcmp(s,"head"))return 1;if(!strcmp(s,"head,content"))return 3;if(!strcmp(s,"head,content,sequence"))return 7;return -1;}
 void proto_set_log(proto_engine *e,FILE *f){if(e){e->log=f;gr_set_log(e->generic,f);}}
@@ -657,7 +683,7 @@ static int repair(proto_engine *e,int mi,uint8_t *b,size_t n,char *err,size_t ca
   if(v.kind==0 && b[v.service]==12){size_t o,w;for(int x=0;x<2;x++){const char *loc=x?"bacnet.property":"bacnet.object";if(proto_bacnet_field(b,n,loc,&o,&w,err,cap)!=1 || (x?(w<1||w>4):w!=4))return fail(err,cap,"ReadProperty required context tag missing");}}
   return 0;
 }
-void proto_session_begin(proto_engine *e){if(!e)return;if(e->generic){gr_session_begin(e->generic);return;}memset(e->cached,0,sizeof(e->cached));memset(e->cache,0,sizeof(e->cache));memset(e->outstanding,0,sizeof(e->outstanding));memset(e->pending,0,sizeof(e->pending));e->semantic_state=e->initial;e->ua_sequence=0;if(!e->simulating)e->receive_size=0;}
+void proto_session_begin(proto_engine *e){if(!e)return;if(e->generic){gr_session_begin(e->generic);return;}e->send_prepared=0;memset(e->cached,0,sizeof(e->cached));memset(e->cache,0,sizeof(e->cache));memset(e->outstanding,0,sizeof(e->outstanding));memset(e->pending,0,sizeof(e->pending));e->semantic_state=e->initial;e->ua_sequence=0;if(!e->simulating)e->receive_size=0;}
 static void remember(proto_engine *e,int mi,uint8_t *b,size_t n){
   char err[128];for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi]){
     for(int f=0;f<e->m[model].nf;f++){size_t o,w;pf *p=&e->m[model].f[f];
@@ -675,22 +701,60 @@ static int bind_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t
   int target_tr=-1;
   for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[mi]){target_tr=t;break;}
   if(target_tr<0)return fail(err,cap,"request outside current semantic state %s",e->state[e->semantic_state]);
+  for(int model=0;model<e->nm;model++)if(e->pending[model])
+    return fail(err,cap,"legacy runtime permits one outstanding request per session");
   /* Only session bindings here. Wire-invalid tests must never be repaired again. */
   pm *m=&e->m[mi];for(int i=0;i<m->nd;i++){pd *d=&m->d[i];if(d->op==4 || d->op==5 || d->op==7){uint8_t done[FMAX]={0};if(repair_field(e,mi,d->target,b,n,done,err,cap)<0)return -1;}}
   if(e->codec && (codecs[e->codec].validate(b,n,err,cap)<0 || model_for(e,b,n,0)<0))return fail(err,cap,"live binding violates wire structure or model bounds");
-  if(proto_validate_message_fields(e,mi,b,n,err,cap)<0)return fail(err,cap,"live binding violates field bounds: %s",err);
-  remember(e,mi,b,n);for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi])e->pending[model]=1;layout v;if(!e->codec && bacnet_layout(b,n,&v,err,cap)==0 && v.kind==0)e->outstanding[b[v.invoke]]=1;
+  if(proto_validate_message_fields(e,mi,b,n,err,cap)<0)return -1;
+  layout v={0};
+  if(!e->codec){
+    if(bacnet_layout(b,n,&v,err,cap)<0)return -1;
+    /* Request values are stored per model. Until those values are keyed by
+       transaction, a second confirmed request could overwrite the first one's
+       correlation evidence even when its invoke ID differs. */
+    if(v.kind==0)for(size_t i=0;i<sizeof(e->outstanding);i++)
+      if(e->outstanding[i])return fail(err,cap,"BACnet permits one outstanding confirmed request per session");
+  }
+  remember(e,mi,b,n);
+  if(e->tr[target_tr].response>=0)for(int model=0;model<e->nm;model++)
+    if(e->canonical[model]==e->canonical[mi])e->pending[model]=1;
+  if(!e->codec && v.kind==0)e->outstanding[b[v.invoke]]=1;
   e->semantic_state=e->tr[target_tr].to;
   return 0;
 }
-int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
-  if(e&&e->generic)return gr_before_send(e->generic,b,n,err,cap);
+int proto_prepare_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
+  if(e&&e->generic)return gr_prepare_send(e->generic,b,n,err,cap);
   if(err && cap)err[0]=0;
   if(!e || !b || !n || n>WMAX)return fail(err,cap,"missing engine/wire or unsupported request size");
+  if(e->send_prepared)return fail(err,cap,"a send is already prepared");
   uint8_t *bound=ck_alloc(n);memcpy(bound,b,n);
+  session_snapshot committed;save_session(e,&committed);
   int result=bind_before_send(e,bound,n,err,cap);
-  if(result==0)memcpy(b,bound,n);
+  if(result==0){
+    save_session(e,&e->prepared_session);
+    memcpy(b,bound,n);
+  }
+  restore_session(e,&committed);
+  e->send_prepared=(result==0);
   ck_free(bound);return result;
+}
+int proto_commit_send(proto_engine *e,char *err,size_t cap){
+  if(e&&e->generic)return gr_commit_send(e->generic,err,cap);
+  if(err&&cap)err[0]=0;
+  if(!e || !e->send_prepared)return fail(err,cap,"no prepared send to commit");
+  restore_session(e,&e->prepared_session);
+  e->send_prepared=0;
+  return 0;
+}
+void proto_cancel_send(proto_engine *e){
+  if(!e)return;
+  if(e->generic){gr_cancel_send(e->generic);return;}
+  e->send_prepared=0;
+}
+int proto_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t cap){
+  if(proto_prepare_send(e,b,n,err,cap)<0)return -1;
+  return proto_commit_send(e,err,cap);
 }
 void proto_set_execution_purpose(proto_engine *e, unsigned purpose){
   if(!e)return;
@@ -705,30 +769,21 @@ void proto_set_mutating_mode(proto_engine *e, int mode){
 /* Live responses may arrive split across net_recv calls or coalesced. Only a
  * complete validated, correlated response may supply connection bindings. */
 static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
-  char err[128];int mi=-1,target_tr=-1;
-  if(!e->codec){
-    layout v;
-    if(bacnet_layout(b,n,&v,err,sizeof(err))<0){
-      e->resp_grammar_mismatches++;
-      return;
-    }
-    e->responses++;
-    if(e->exec_purpose < 7) e->resp_by_purpose[e->exec_purpose]++;
-    if(v.invoke!=SIZE_MAX && v.kind>=2 && e->outstanding[b[v.invoke]]){
-      e->correlated++;
-      e->resp_expected_complete++;
-      e->outstanding[b[v.invoke]]=0;
-    } else if(v.invoke!=SIZE_MAX && v.kind>=2) {
-      e->resp_correlation_mismatches++;
-    } else {
-      e->resp_unrelated++;
-    }
+  char err[128];int matched_grammar=0,correlation_failed=0;
+  layout v;
+  if(!e->codec && bacnet_layout(b,n,&v,err,sizeof(err))<0){
+    e->resp_grammar_mismatches++;
+    return;
   }
-  int matched_grammar=0;
   for(int m=0;m<e->nm;m++){
     if(!e->m[m].response)continue;
     if(e->codec && !codecs[e->codec].same(b,n,e->m[m].example,e->m[m].size))continue;
-    matched_grammar=1;
+    if(proto_validate_message_fields(e,m,b,n,err,sizeof(err))<0)continue;
+    if(!matched_grammar){
+      e->responses++;
+      if(e->exec_purpose < 7)e->resp_by_purpose[e->exec_purpose]++;
+      matched_grammar=1;
+    }
     int resp_tr=-1;
     for(int t=0;t<e->nt;t++){
       if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[m]){
@@ -737,13 +792,15 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
     }
     if(resp_tr<0)continue;
     int fits=1,linked=0;
-    for(int f=0;f<e->m[m].nf;f++){pf *field=&e->m[m].f[f];size_t o,w;
-      int present=locate(e,b,n,field,&o,&w,err,sizeof(err));if(!present && field->mut==3)continue;
-      if(present!=1){fits=0;break;}
-      uint64_t value=field->width?getint(b+o,w,field->little):w;
-      if(value<field->min || value>field->max){fits=0;break;}
+    /* Invoke matching is evidence only after the declared response grammar and
+       current state edge matched. It must not consume outstanding on rejection. */
+    if(!e->codec && v.invoke!=SIZE_MAX && v.kind>=2){
+      if(!e->outstanding[b[v.invoke]]){
+        correlation_failed=1;
+        continue;
+      }
+      linked=1;
     }
-    if(!fits)continue;
     for(int d=0;d<e->m[m].nd;d++){pd *dep=&e->m[m].d[d];if(dep->op!=4 && dep->op!=5 && dep->op!=6)continue;
       if(dep->op==6)linked=1;
       size_t o,w;pf *field=&e->m[m].f[dep->target];
@@ -757,19 +814,47 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
       }
       if(locate(e,b,n,field,&o,&w,err,sizeof(err))!=1 || getint(b+o,w,field->little)!=source){fits=0;break;}
     }
-    if(!fits)continue;
-    if(e->codec){e->responses++;if(e->exec_purpose < 7)e->resp_by_purpose[e->exec_purpose]++;e->resp_expected_complete++;if(linked)e->correlated++;}
-    mi=m;target_tr=resp_tr;for(int d=0;d<e->m[m].nd;d++){pd *dep=&e->m[m].d[d];if(dep->op==6)for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[dep->message])e->pending[model]=0;}break;
+    if(!fits){correlation_failed=1;continue;}
+    int declared_pending=-1;
+    for(int t=0;t<e->nt;t++){
+      pt *request=&e->tr[t];
+      if(request->response>=0 &&
+         e->canonical[request->response]==e->canonical[m] &&
+         e->pending[e->canonical[request->message]]){
+        declared_pending=e->canonical[request->message];
+        break;
+      }
+    }
+    /* A declared follow-up response can advance the graph after the expected
+       first response completed its pending request. Do not invent a second
+       completion for that follow-up (for example IEC104 ACT_TERM). */
+    if(linked || declared_pending>=0){
+      e->resp_expected_complete++;
+      if(linked)e->correlated++;
+      if(!e->codec && v.invoke!=SIZE_MAX && v.kind>=2)e->outstanding[b[v.invoke]]=0;
+      if(declared_pending>=0)for(int model=0;model<e->nm;model++)
+        if(e->canonical[model]==declared_pending)e->pending[model]=0;
+      for(int d=0;d<e->m[m].nd;d++){
+        pd *dep=&e->m[m].d[d];
+        if(dep->op==6)for(int model=0;model<e->nm;model++)
+          if(e->canonical[model]==e->canonical[dep->message])e->pending[model]=0;
+      }
+    }
+    remember(e,m,(uint8_t*)b,n);
+    e->semantic_state=e->tr[resp_tr].to;
+    return;
   }
-  if(e->codec){
-    if(!matched_grammar) e->resp_grammar_mismatches++;
-    else if(mi<0) e->resp_unrelated++;
-  }
-  if(mi>=0 && target_tr>=0){remember(e,mi,(uint8_t*)b,n);e->semantic_state=e->tr[target_tr].to;}
+  if(!matched_grammar)e->resp_grammar_mismatches++;
+  else if(correlation_failed)e->resp_correlation_mismatches++;
+  else e->resp_unrelated++;
 }
 void proto_after_dgram(proto_engine *e,const uint8_t *b,size_t n){
   if(e&&e->generic){gr_after_dgram(e->generic,b,n);return;}
   if(!e || !b || !n)return;
+  if(e->send_prepared){
+    if(e->log)fputs("{\"event\":\"response_ignored\",\"reason\":\"send_not_committed\"}\n",e->log);
+    return;
+  }
   if(!e->codec){
     /* P16: Discrete UDP datagram delivered with preserved boundary. */
     response_frame(e,b,n);
@@ -779,6 +864,10 @@ void proto_after_dgram(proto_engine *e,const uint8_t *b,size_t n){
 void proto_after_stream(proto_engine *e,const uint8_t *b,size_t n){
   if(e&&e->generic){gr_after_stream(e->generic,b,n);return;}
   if(!e || !b || !n)return;
+  if(e->send_prepared){
+    if(e->log)fputs("{\"event\":\"response_ignored\",\"reason\":\"send_not_committed\"}\n",e->log);
+    return;
+  }
   if(n>MAX_FILE-e->receive_size){e->receive_size=0;e->resp_framing_errors++;if(e->log)fputs("{\"event\":\"response_rejected\",\"reason\":\"receive_limit\"}\n",e->log);return;}
   memcpy(e->receive+e->receive_size,b,n);e->receive_size+=n;size_t p=0;char err[128];
   while(p<e->receive_size){size_t z=0;int result=codecs[e->codec].frame(e->receive+p,e->receive_size-p,&z,err,sizeof(err));
@@ -840,10 +929,30 @@ int proto_validate_sequence(proto_engine *e,
                             char *err, size_t cap) {
   if (e && e->generic)
     return gr_validate_sequence(e->generic, m1, m1_len, m2, m2_len, m3, m3_len, err, cap);
+  if(err&&cap)err[0]=0;
   if (!e) return fail(err, cap, "missing protocol engine");
   if (!m2 || !m2_len) return fail(err, cap, "M2 candidate record sequence cannot be empty");
+  if(e->mutating_mode!=PROTO_VALID && e->mutating_mode!=PROTO_NEAR_VALID &&
+     e->mutating_mode!=PROTO_INVALID)
+    return fail(err,cap,"unsupported structured sequence validation mode");
 
-  const uint8_t *segs[3] = {m1, m2, m3};
+  const uint8_t *semantic_m2=m2;
+  if(e->mutating_mode!=PROTO_VALID){
+    size_t actual_count;
+    if(proto_records_validate(m2,m2_len,&actual_count,err,cap)<0)return -1;
+    /* A deliberately damaged wire message has no trustworthy model identity on
+       its own. Accept only this mutator's exact candidate and validate the
+       private valid projection captured before its declared length corruption.
+       This preserves repeat accounting and the model outcome before M3. */
+    if(!e->validation_length || e->validation_mode!=e->mutating_mode ||
+       m2_len!=e->validation_length || !e->validation_candidate ||
+       !e->validation_projection ||
+       memcmp(m2,e->validation_candidate,m2_len)!=0)
+      return fail(err,cap,"intentional violation lacks matching mutation provenance");
+    semantic_m2=e->validation_projection;
+  }
+
+  const uint8_t *segs[3] = {m1, semantic_m2, m3};
   size_t lens[3] = {m1_len, m2_len, m3_len};
   const char *seg_names[3] = {"M1", "M2", "M3"};
 
@@ -876,14 +985,10 @@ int proto_validate_sequence(proto_engine *e,
         return fail(err, cap, "max_bytes exceeded across sequence (%zu > %zu)",
                     total_replay_bytes, e->max_bytes);
 
-      if (s == 1 && (e->mutating_mode == PROTO_NEAR_VALID || e->mutating_mode == PROTO_INVALID)) {
-        p += z;
-        continue;
-      }
-
       int m = model_for(e, buf + p, z, 0);
       if (m < 0)
         return fail(err, cap, "%s message outside semantic model", seg_names[s]);
+      if(proto_validate_message_fields(e,m,buf+p,z,err,cap)<0)return -1;
 
       int c_model = e->canonical[m];
       if (++repeats[c_model] > (size_t)e->max_repeat)
@@ -903,9 +1008,33 @@ int proto_validate_sequence(proto_engine *e,
 
   return 0;
 }
-typedef struct {uint64_t cache[PMAX][FMAX];uint8_t cached[PMAX][FMAX],outstanding[256],pending[PMAX];unsigned state;uint32_t ua_sequence;} session_snapshot;
-static void save_session(proto_engine *e,session_snapshot *s){memcpy(s->cache,e->cache,sizeof(s->cache));memcpy(s->cached,e->cached,sizeof(s->cached));memcpy(s->outstanding,e->outstanding,sizeof(s->outstanding));memcpy(s->pending,e->pending,sizeof(s->pending));s->state=e->semantic_state;s->ua_sequence=e->ua_sequence;}
-static void restore_session(proto_engine *e,const session_snapshot *s){memcpy(e->cache,s->cache,sizeof(s->cache));memcpy(e->cached,s->cached,sizeof(s->cached));memcpy(e->outstanding,s->outstanding,sizeof(s->outstanding));memcpy(e->pending,s->pending,sizeof(s->pending));e->semantic_state=s->state;e->ua_sequence=s->ua_sequence;e->simulating=0;}
+int proto_is_intentional_violation(proto_engine *e,const uint8_t *wire,size_t length){
+  if(!e || e->generic || !wire || !length || !e->validation_length ||
+     e->send_prepared ||
+     (e->mutating_mode!=PROTO_NEAR_VALID && e->mutating_mode!=PROTO_INVALID) ||
+     e->validation_mode!=e->mutating_mode || !e->validation_candidate ||
+     !e->validation_projection)return 0;
+  size_t p=0;
+  while(p<e->validation_length){
+    if(e->validation_length-p<4)return 0;
+    size_t n=getint(e->validation_candidate+p,4,1);
+    if(n!=getint(e->validation_projection+p,4,1))return 0;
+    p+=4;
+    if(!n || n>e->validation_length-p)return 0;
+    if(n==length && memcmp(wire,e->validation_candidate+p,n)==0 &&
+       memcmp(e->validation_candidate+p,e->validation_projection+p,n)!=0){
+      uint8_t *projection=malloc(n);if(!projection)return 0;
+      memcpy(projection,e->validation_projection+p,n);
+      char error[128];
+      int allowed=proto_prepare_send(e,projection,n,error,sizeof(error))==0;
+      if(allowed)proto_cancel_send(e);
+      free(projection);
+      return allowed;
+    }
+    p+=n;
+  }
+  return 0;
+}
 static unsigned draw(proto_random rng,unsigned limit){return limit?rng(limit)%limit:0;}
 static int resize_record(proto_engine *e,size_t ri,size_t newlen,char *err,size_t cap){
   pr *r=&e->records[ri];size_t end=e->records[e->count-1].offset+e->records[e->count-1].size;
@@ -921,10 +1050,11 @@ static int who_is_content(const uint8_t *b,size_t n,const char *locator){
          v.kind==1 && b[v.service]==8;
 }
 int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint8_t *candidate,size_t cn,int mode,int layer,proto_random rng,const uint8_t **out,size_t *olen,char *err,size_t cap){
-  if(e)e->mutating_mode=mode;
+  if(e){e->mutating_mode=mode;e->validation_length=0;}
   if(e&&e->generic){gr_set_mutating_mode(e->generic,mode);return gr_mutate(e->generic,records,length,candidate,cn,mode,layer,rng,out,olen,err,cap);}
   if(out)*out=NULL;if(olen)*olen=0;
   if(!e || !rng || !out || !olen || (!candidate && cn))return fail(err,cap,"missing mutation engine, random callback, candidate or output");
+  if(e->send_prepared)return fail(err,cap,"cannot mutate while a send is prepared");
   session_snapshot live;save_session(e,&live);
   size_t ri=0,before=0;int fi=-1,mi=-1;const char *strategy="none";int broken=mode==PROTO_NEAR_VALID || mode==PROTO_INVALID;
   e->attempts++;if(mode<0 || mode>PROTO_INVALID || (layer!=1 && layer!=2 && layer!=4)){fail(err,cap,"invalid structured mode/layer");goto bad;}
@@ -935,11 +1065,12 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   e->simulating=1;proto_session_begin(e);
   int layer_idx = (layer == 1) ? 0 : (layer == 2) ? 1 : 2;
 
-  /* P21: Operability check: verify sequence contains mutable fields for requested layer */
-  if (layer == 1 || layer == 2) {
-    int req_role = (layer == 1) ? 1 : 2;
-    size_t eligible_messages = 0;
-    for (size_t i = 0; i < e->count; i++) {
+  /* Apply message weights only to records with an operable field in this layer. */
+  uint8_t eligible[NMAX]={0};unsigned total_weight=0;
+  for(size_t i=0;i<e->count;i++){
+    if(layer==PROTO_SEQUENCE)eligible[i]=1;
+    else {
+      int req_role=(layer==PROTO_HEAD)?1:2;
       int m_idx = e->records[i].model;
       pm *m = &e->m[m_idx];
       uint8_t *b = e->work + e->records[i].offset;
@@ -947,12 +1078,14 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
         pf *p = &m->f[f];
         size_t o, w;
         if (p->role == req_role && (p->mut == 1 || p->mut == 3) && locate(e, b, e->records[i].size, p, &o, &w, NULL, 0) == 1) {
-          eligible_messages++;
+          eligible[i]=1;
           break;
         }
       }
     }
-    if (!eligible_messages) {
+    if(eligible[i])total_weight+=e->m[e->records[i].model].weight;
+  }
+  if(!total_weight){
       e->unavailable[layer_idx]++;
       if (e->log) {
         fprintf(e->log, "{\"event\":\"unavailable\",\"layer\":\"%s\",\"reason\":\"no_operable_fields\"}\n",
@@ -960,26 +1093,13 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       }
       fail(err, cap, "layer unavailable: no operable fields in sequence for requested layer");
       goto bad;
-    }
   }
-
-  /* Bounded retry (up to 4 attempts) to draw an operable message if available */
-  for (int retry = 0; retry < 4; retry++) {
-    unsigned total=0;for(size_t i=0;i<e->count;i++)total+=e->m[e->records[i].model].weight;
-    unsigned pick=draw(rng,total);for(ri=0;ri+1<e->count;ri++){unsigned w=e->m[e->records[ri].model].weight;if(pick<w)break;pick-=w;}
-    if (layer == PROTO_SEQUENCE) break;
-    int m_idx = e->records[ri].model;
-    pm *m = &e->m[m_idx];
-    uint8_t *b = e->work + e->records[ri].offset;
-    int has_fields = 0;
-    for (int f = 0; f < m->nf; f++) {
-      pf *p = &m->f[f];
-      size_t o, w;
-      if (p->role == (layer == 1 ? 1 : 2) && (p->mut == 1 || p->mut == 3) && locate(e, b, e->records[ri].size, p, &o, &w, NULL, 0) == 1) {
-        has_fields = 1; break;
-      }
-    }
-    if (has_fields) break;
+  unsigned pick=draw(rng,total_weight);
+  for(ri=0;ri<e->count;ri++){
+    if(!eligible[ri])continue;
+    unsigned w=e->m[e->records[ri].model].weight;
+    if(pick<w)break;
+    pick-=w;
   }
   mi=e->records[ri].model;pm *m=&e->m[mi];pr *r=&e->records[ri];
   if(layer==PROTO_SEQUENCE){
@@ -995,7 +1115,18 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       pr tmp=e->records[ri];e->records[ri]=e->records[other];e->records[other]=tmp;
     } else {
       if(e->count==(size_t)e->max_messages){fail(err,cap,"sequence insertion max_messages");goto bad;}
-      if(op==0){int choices[PMAX],n=0;for(int j=0;j<e->nm;j++)if(!e->m[j].response)choices[n++]=j;if(!n){fail(err,cap,"no request template");goto bad;}mi=choices[draw(rng,n)];m=&e->m[mi];}
+      if(op==0){
+        unsigned template_weight=0;for(int j=0;j<e->nm;j++)
+          if(!e->m[j].response)template_weight+=e->m[j].weight;
+        if(!template_weight){fail(err,cap,"no request template");goto bad;}
+        unsigned template_pick=draw(rng,template_weight);
+        for(mi=0;mi<e->nm;mi++){
+          if(e->m[mi].response)continue;
+          if(template_pick<(unsigned)e->m[mi].weight)break;
+          template_pick-=e->m[mi].weight;
+        }
+        m=&e->m[mi];
+      }
       size_t z=op==0?m->size:r->size,end=e->records[e->count-1].offset+e->records[e->count-1].size;
       if(!z){fail(err,cap,"zero-length template or record cannot be inserted");goto bad;}
       if(z>MAX_FILE-end){fail(err,cap,"sequence insertion max_bytes");goto bad;}
@@ -1082,15 +1213,28 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
   for(size_t i=0;i<e->count;i++){pr *x=&e->records[i];if(!x->size){fail(err,cap,"zero-length message record produced");goto bad;}uint8_t *b=e->work+x->offset;if(repair(e,x->model,b,x->size,err,cap)<0)goto bad;
     if(e->codec && !codecs[e->codec].same(b,x->size,e->m[x->model].example,e->m[x->model].size)){fail(err,cap,"mutation changed request semantic family");goto bad;}
     if(model_for(e,b,x->size,0)!=e->canonical[x->model]){fail(err,cap,"mutation changed message model");goto bad;}
-    if(proto_validate_message_fields(e,x->model,b,x->size,err,cap)<0){fail(err,cap,"mutation violated field constraints: %s",err);goto bad;}
+    if(proto_validate_message_fields(e,x->model,b,x->size,err,cap)<0)goto bad;
     remember(e,x->model,b,x->size);
   }
-  if(broken){ri=ri<e->count?ri:0;pr *x=&e->records[ri];uint8_t *b=e->work+x->offset;
+  if(broken){
+    const uint8_t *projection=NULL;size_t projection_length=0;
+    if(pack(e,&projection,&projection_length,err,cap)<0)goto bad;
+    uint8_t *saved=realloc(e->validation_projection,projection_length);
+    if(!saved){fail(err,cap,"out of memory preserving valid mutation projection");goto bad;}
+    e->validation_projection=saved;
+    memcpy(saved,projection,projection_length);
+    ri=ri<e->count?ri:0;pr *x=&e->records[ri];uint8_t *b=e->work+x->offset;
     size_t offset=e->codec==1?4:e->codec==2?1:e->codec==5?4:2;
     size_t width=e->codec==2?1:e->codec==5?4:2;int little=e->codec>=4;
     putint(b+offset,width,little,getint(b+offset,width,little)+1);
   }
   if(pack(e,out,olen,err,cap)<0)goto bad;
+  if(broken){
+    uint8_t *saved=realloc(e->validation_candidate,*olen);
+    if(!saved){fail(err,cap,"out of memory preserving mutation provenance");goto bad;}
+    e->validation_candidate=saved;memcpy(saved,*out,*olen);
+    e->validation_length=*olen;e->validation_mode=mode;
+  }
   int changed = (e->count != before) || (*olen != length) || (memcmp(*out, records, length) != 0);
   const char *change_type = !changed ? "none" : (e->count != before) ? "structural" : "field";
   if (changed) {
@@ -1099,20 +1243,31 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
     e->unchanged[layer_idx]++;
   }
   e->success++;e->layer_count[layer_idx]++;
-  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"layer\":\"%s\",\"message\":\"%s\",\"field\":\"%s\",\"strategy\":\"%s\",\"derived_repaired\":true,\"intentional_violation\":%s,\"constraint\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"changed\":%s,\"change_type\":\"%s\",\"parse_failed\":false,\"serialize_failed\":false}\n",layer==1?"HEAD":layer==2?"CONTENT":"SEQUENCE",mi>=0?e->m[mi].id:"none",fi>=0?e->m[mi].f[fi].id:"sequence",strategy,broken?"true":"false",broken?"wire_length":"none",before,e->count,changed ? "true" : "false", change_type);
+  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"selection_policy\":\"eligible-weighted-v1\",\"layer\":\"%s\",\"message\":\"%s\",\"field\":\"%s\",\"strategy\":\"%s\",\"derived_repaired\":true,\"intentional_violation\":%s,\"constraint\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"changed\":%s,\"change_type\":\"%s\",\"parse_failed\":false,\"serialize_failed\":false}\n",layer==1?"HEAD":layer==2?"CONTENT":"SEQUENCE",mi>=0?e->m[mi].id:"none",fi>=0?e->m[mi].f[fi].id:"sequence",strategy,broken?"true":"false",broken?"wire_length":"none",before,e->count,changed ? "true" : "false", change_type);
   restore_session(e,&live);return 0;
-bad:e->errors++;if(e->log)fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%d,\"reason\":\"%s\",\"parse_or_constraint_failed\":true,\"serialize_failed\":false}\n",layer,err && cap?err:"error");restore_session(e,&live);return -1;
+bad:e->validation_length=0;if(out)*out=NULL;if(olen)*olen=0;e->errors++;
+  if(e->log){
+    const char *reason=err&&cap?err:"error";
+    fprintf(e->log,"{\"event\":\"rejected\",\"layer_id\":%d,\"reason\":",layer);
+    nj_write_string(e->log,reason,strlen(reason));
+    fputs(",\"parse_or_constraint_failed\":true,\"serialize_failed\":false}\n",e->log);
+  }
+  restore_session(e,&live);return -1;
 }
 int proto_write_stats(proto_engine *e,const char *path){
   if(e&&e->generic)return gr_write_stats(e->generic,path);
   if(!e || !path)return -1;
-  char tmp_path[512];
-  snprintf(tmp_path,sizeof(tmp_path),"%s.tmp.%d",path,(int)getpid());
-  FILE *f=fopen(tmp_path,"w");if(!f)return -1;
+  size_t path_len=strlen(path);
+  if(path_len>SIZE_MAX-32)return -1;
+  size_t tmp_cap=path_len+32;
+  char *tmp_path=malloc(tmp_cap);if(!tmp_path)return -1;
+  int tmp_n=snprintf(tmp_path,tmp_cap,"%s.tmp.%d",path,(int)getpid());
+  if(tmp_n<0 || (size_t)tmp_n>=tmp_cap){free(tmp_path);return -1;}
+  FILE *f=fopen(tmp_path,"w");if(!f){free(tmp_path);return -1;}
   int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%llu,\"structured_success\":%llu,\"rejected\":%llu,\"HEAD\":%llu,\"CONTENT\":%llu,\"SEQUENCE\":%llu,\"changed\":[%llu,%llu,%llu],\"unchanged\":[%llu,%llu,%llu],\"unavailable\":[%llu,%llu,%llu],\"responses\":%llu,\"completed_responses\":%llu,\"correlated_responses\":%llu,"
             "\"response_diagnostics\":{\"incomplete_frames\":%llu,\"framing_errors\":%llu,\"grammar_mismatches\":%llu,\"unrelated_responses\":%llu,\"correlation_mismatches\":%llu,\"expected_complete\":%llu},"
             "\"responses_by_purpose\":{\"coverage\":%llu,\"confirmation\":%llu,\"calibration\":%llu,\"sync\":%llu,\"state_analysis\":%llu,\"hang_check\":%llu,\"unknown\":%llu},"
-            "\"protocol_semantic_state\":\"%s\"}\n",
+            "\"protocol_semantic_state\":\"%s\",\"selection_policy\":\"eligible-weighted-v1\"}\n",
     (unsigned long long)e->attempts,(unsigned long long)e->success,(unsigned long long)e->errors,
     (unsigned long long)e->layer_count[0],(unsigned long long)e->layer_count[1],(unsigned long long)e->layer_count[2],
     (unsigned long long)e->changed[0],(unsigned long long)e->changed[1],(unsigned long long)e->changed[2],
@@ -1123,7 +1278,11 @@ int proto_write_stats(proto_engine *e,const char *path){
     (unsigned long long)e->resp_unrelated,(unsigned long long)e->resp_correlation_mismatches,(unsigned long long)e->resp_expected_complete,
     (unsigned long long)e->resp_by_purpose[1],(unsigned long long)e->resp_by_purpose[2],(unsigned long long)e->resp_by_purpose[3],(unsigned long long)e->resp_by_purpose[4],(unsigned long long)e->resp_by_purpose[5],(unsigned long long)e->resp_by_purpose[6],(unsigned long long)e->resp_by_purpose[0],
     e->state[e->semantic_state]) > 0);
-  if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return -1; }
-  if(rename(tmp_path, path) != 0) { unlink(tmp_path); return -1; }
+  int failed=!ok || ferror(f);
+  if(fflush(f)!=0)failed=1;
+  if(fclose(f)!=0)failed=1;
+  if(failed) { unlink(tmp_path); free(tmp_path); return -1; }
+  if(rename(tmp_path, path) != 0) { unlink(tmp_path); free(tmp_path); return -1; }
+  free(tmp_path);
   return 0;
 }

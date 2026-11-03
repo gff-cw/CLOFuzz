@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,9 +12,18 @@ int main(void) {
 
   /* Verify layout constants */
   assert(STATE_SHARED_MAGIC == 0x53544154U);
-  assert(STATE_SHARED_VERSION == 2U);
+  assert(STATE_SHARED_VERSION == 3U);
   assert(MAX_NUM_STATES == 100);
-  assert(sizeof(struct state_shared) == 436);
+  assert(offsetof(struct state_shared, seq) == 8 * sizeof(uint32_t));
+  assert(sizeof(((struct state_shared *)0)->seq) == MAX_NUM_STATES * sizeof(uint32_t));
+  assert(sizeof(((struct state_shared *)0)->boundary_state_index) ==
+         MAX_NUM_STATES * sizeof(uint32_t));
+  assert(sizeof(((struct state_shared *)0)->state_iteration) ==
+         MAX_NUM_STATES * sizeof(uint32_t));
+  assert(offsetof(struct state_shared, producer_exec_id) > offsetof(struct state_shared, iterations));
+  assert(sizeof(struct state_shared) == offsetof(struct state_shared, state_iteration) +
+         sizeof(((struct state_shared *)0)->state_iteration));
+  assert(STATE_BOUNDARY_UNKNOWN == UINT32_MAX);
 
   struct state_shared shm;
   memset(&shm, 0, sizeof(shm));

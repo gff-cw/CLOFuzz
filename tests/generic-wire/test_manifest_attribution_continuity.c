@@ -200,12 +200,14 @@ int main(void) {
     manifest_write_escaped_json_string(memf, tricky_str);
     fclose(memf);
 
-    /* Verify it is enclosed in quotes and properly escaped */
+    /* Validate semantic round-trip; either short or Unicode JSON escapes work. */
     CHECK(buf[0] == '"');
-    CHECK(strstr(buf, "\\n") != NULL);
-    CHECK(strstr(buf, "\\t") != NULL);
-    CHECK(strstr(buf, "\\\"quoted\\\"") != NULL);
-    CHECK(strstr(buf, "\\\\backslash\\\\") != NULL);
+    nj_document *escaped_doc = NULL;
+    CHECK(nj_parse_buffer((const unsigned char *)buf, strlen(buf), &escaped_doc, err, sizeof(err)) == 0);
+    CHECK(escaped_doc->root->type == NJ_STRING);
+    CHECK(escaped_doc->root->text_length == strlen(tricky_str));
+    CHECK(memcmp(escaped_doc->root->text, tricky_str, strlen(tricky_str)) == 0);
+    nj_free(escaped_doc);
 
     /* 5b. End-to-end manifest serialization and parsing with special characters */
     run_manifest *m = calloc(1, sizeof(run_manifest));
@@ -216,7 +218,12 @@ int main(void) {
     snprintf(m->spec_path, sizeof(m->spec_path), "/tmp/dir with \"spaces\" & \\slashes/spec.json");
     m->spec_hash = 987654321ULL;
     m->random_seed = 777;
-    snprintf(m->mutation_mode, sizeof(m->mutation_mode), "mode_\"special\"");
+    snprintf(m->mutation_mode, sizeof(m->mutation_mode), "valid");
+    manifest_config_init(&m->config);
+    snprintf(m->config.protocol, sizeof(m->config.protocol), "%s", m->protocol);
+    snprintf(m->config.spec_path, sizeof(m->config.spec_path), "%s", m->spec_path);
+    snprintf(m->config.mutation_mode, sizeof(m->config.mutation_mode), "%s", m->mutation_mode);
+    m->config.random_seed = m->random_seed;
     m->current_segment_id = 0;
     m->num_segments = 1;
     m->max_segments = 2;
@@ -229,6 +236,8 @@ int main(void) {
     snprintf(m->segments[0].reset_reason, sizeof(m->segments[0].reset_reason), "reason with \"quotes\"\nand\ttabs");
     m->segments[0].candidate_id_start = 0;
     m->segments[0].candidates_saved = 10;
+    m->segments[0].config = m->config;
+    m->segments[0].spec_hash = m->spec_hash;
 
     CHECK(manifest_save_atomic(m, t5_dir, err, sizeof(err)) == 0);
     manifest_free(m);
@@ -256,7 +265,7 @@ int main(void) {
 
     v = nj_get(doc->root, "mutation_mode");
     CHECK(v != NULL && v->text != NULL);
-    CHECK(strcmp(v->text, "mode_\"special\"") == 0);
+    CHECK(strcmp(v->text, "valid") == 0);
 
     const nj_value *segs = nj_get(doc->root, "segments");
     CHECK(segs != NULL && segs->type == NJ_ARRAY && segs->count == 1);

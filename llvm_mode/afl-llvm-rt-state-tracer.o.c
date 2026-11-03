@@ -85,6 +85,11 @@
 
 static int __alloc_id = 0;
 static int curr_iter_no = 0;
+static uint32_t observed_exec_id;
+static uint32_t explicit_boundary_count;
+static uint32_t explicit_boundary_iteration[MAX_NUM_STATES];
+static int explicit_boundaries_invalid;
+void check_iobuf(void *buf, size_t size);
 
 enum tracer_state { UNINITIALIZED, RECEIVING, SENDING };
 static enum tracer_state curr_tracer_state = UNINITIALIZED;
@@ -366,6 +371,9 @@ void init_state_tracer() {
 
     u32 shm_state_id = atoi(id_str);
 
+    struct shmid_ds state_info;
+    if (shmctl(shm_state_id, IPC_STAT, &state_info) < 0 ||
+        state_info.shm_segsz != sizeof(struct state_shared)) _exit(1);
     state_shared_ptr = shmat(shm_state_id, NULL, 0);
 
     if (state_shared_ptr == (void *)-1) {
@@ -380,7 +388,12 @@ void init_state_tracer() {
   else {
 
     // For testing
-    state_shared_ptr = malloc(sizeof(struct state_shared));
+    state_shared_ptr = calloc(1, sizeof(struct state_shared));
+    if (!state_shared_ptr) _exit(1);
+    state_shared_ptr->magic = STATE_SHARED_MAGIC;
+    state_shared_ptr->version = STATE_SHARED_VERSION;
+    state_shared_ptr->capacity = MAX_NUM_STATES;
+    state_shared_ptr->exec_id = 1;
 
     LOG_DEBUG("NO SHM (for testing)\n");
   }
@@ -989,6 +1002,25 @@ void trace_realloc(void * addr, size_t size, void * oldaddr) {
 static void tracer_dump() {
 
   START_TIMING("dump");
+  /* Observer bookkeeping must not become part of a target's memory state. */
+  check_iobuf(&observed_exec_id, sizeof(observed_exec_id));
+  check_iobuf(&explicit_boundary_count, sizeof(explicit_boundary_count));
+  check_iobuf(explicit_boundary_iteration, sizeof(explicit_boundary_iteration));
+  check_iobuf(&explicit_boundaries_invalid, sizeof(explicit_boundaries_invalid));
+  check_iobuf(&curr_iter_no, sizeof(curr_iter_no));
+  check_iobuf(&curr_tracer_state, sizeof(curr_tracer_state));
+  if (!observed_exec_id && state_shared_ptr &&
+      state_shared_ptr->magic == STATE_SHARED_MAGIC &&
+      state_shared_ptr->version == STATE_SHARED_VERSION)
+    observed_exec_id = state_shared_ptr->exec_id;
+  if (observed_exec_id) {
+    uint32_t owner = __sync_val_compare_and_swap(&state_shared_ptr->producer_pid, 0, (uint32_t)getpid());
+    if ((owner && owner != (uint32_t)getpid()) || state_shared_ptr->exec_id != observed_exec_id) {
+      __atomic_store_n(&state_shared_ptr->producer_conflict, 1, __ATOMIC_RELEASE);
+      __atomic_store_n(&state_shared_ptr->status, STATE_TRACER_STATUS_FAILED, __ATOMIC_RELEASE);
+      return;
+    }
+  }
 
 #ifdef __TRACER_USE_PTHREAD_MUTEX
   pthread_mutex_lock(&mutex);
@@ -1027,6 +1059,19 @@ static void tracer_dump() {
 #endif
 
   END_TIMING("dump");
+}
+
+void trace_message_boundary(uint32_t ordinal) {
+  if (ordinal != explicit_boundary_count || ordinal >= MAX_NUM_STATES) {
+    explicit_boundaries_invalid = 1;
+    return;
+  }
+  explicit_boundary_iteration[ordinal] = (uint32_t)curr_iter_no;
+  explicit_boundary_count++;
+  tracer_dump();
+  curr_iter_no++;
+  /* Do not take a second automatic snapshot when the following response sends. */
+  curr_tracer_state = SENDING;
 }
 
 
@@ -1513,6 +1558,12 @@ void end_state_tracer() {
 
   LOG_DEBUG("# DUMPS: %d\n\n", num_dumps);
   LOG_DEBUG("Latest iteration: %d\n", curr_iter_no);
+  if (state_shared_ptr && state_shared_ptr->producer_pid &&
+      (state_shared_ptr->producer_pid != (uint32_t)getpid() || state_shared_ptr->producer_conflict)) {
+    __atomic_store_n(&state_shared_ptr->producer_conflict, 1, __ATOMIC_RELEASE);
+    __atomic_store_n(&state_shared_ptr->status, STATE_TRACER_STATUS_FAILED, __ATOMIC_RELEASE);
+    goto end_analysis;
+  }
 
   if(num_dumps == 0) {
     LOG_DEBUG("No dumps found, skipping analysis...\n");
@@ -1524,7 +1575,7 @@ void end_state_tracer() {
       state_shared_ptr->total_states = 0;
       state_shared_ptr->seq_len = 0;
       __sync_synchronize();
-      state_shared_ptr->status = STATE_TRACER_STATUS_UNAVAILABLE;
+      __atomic_store_n(&state_shared_ptr->status, STATE_TRACER_STATUS_UNAVAILABLE, __ATOMIC_RELEASE);
       __sync_synchronize();
     }
     goto end_analysis;
@@ -1533,6 +1584,7 @@ void end_state_tracer() {
 
   unsigned int current_state_value = 0;
   unsigned int current_state_number = 0;
+  int active_iteration = -1;
 
   // Set number of iterations to be computed
   // (for syncing with the fuzzer)
@@ -1619,6 +1671,15 @@ void end_state_tracer() {
   current_state_number = 1;
   state_shared_ptr->total_states = current_state_number;
   state_shared_ptr->seq_len = current_state_number;
+  state_shared_ptr->producer_exec_id = observed_exec_id;
+  state_shared_ptr->boundary_count = explicit_boundary_count;
+  state_shared_ptr->boundary_status = explicit_boundaries_invalid
+      ? STATE_BOUNDARIES_INVALID : (explicit_boundary_count
+      ? STATE_BOUNDARIES_EXPLICIT : STATE_BOUNDARIES_NONE);
+  for (unsigned b = 0; b < MAX_NUM_STATES; b++) {
+    state_shared_ptr->boundary_state_index[b] = STATE_BOUNDARY_UNKNOWN;
+    state_shared_ptr->state_iteration[b] = STATE_BOUNDARY_UNKNOWN;
+  }
 
 
   Tlsh * tlsh = Tlsh_new();
@@ -1688,7 +1749,7 @@ void end_state_tracer() {
 
     // NOTE: Offset -1 because we added a dummy state "0" at the beginning
 
-    if(current_state_number-1 < dump.iter_no_dumped) {
+    if(active_iteration >= 0 && active_iteration != dump.iter_no_dumped) {
 
       current_state_value = compute_state_value(tlsh, curr_state_buffer_data, tree, &unique_states, current_state_number-1);
 
@@ -1700,6 +1761,10 @@ void end_state_tracer() {
 
       if (current_state_number < MAX_NUM_STATES) {
         state_shared_ptr->seq[current_state_number] = current_state_value;
+        state_shared_ptr->state_iteration[current_state_number] = (uint32_t)active_iteration;
+        for (uint32_t b = 0; b < explicit_boundary_count; b++)
+          if (explicit_boundary_iteration[b] == (uint32_t)active_iteration)
+            state_shared_ptr->boundary_state_index[b] = current_state_number;
       } else {
         state_shared_ptr->truncated = 1;
       }
@@ -1712,6 +1777,7 @@ void end_state_tracer() {
       current_state_value = 0;
 
     }
+    active_iteration = dump.iter_no_dumped;
 
 
     // Checksumming heap data
@@ -1823,26 +1889,33 @@ void end_state_tracer() {
   }
 
   // save the last state of the sequence with capacity bounds
-  current_state_value = compute_state_value(tlsh, curr_state_buffer_data, tree, &unique_states, current_state_number-1);
-  if (current_state_number < MAX_NUM_STATES) {
+  current_state_value = active_iteration >= 0
+      ? compute_state_value(tlsh, curr_state_buffer_data, tree, &unique_states, current_state_number-1) : 0;
+  if (active_iteration >= 0 && current_state_number < MAX_NUM_STATES) {
     state_shared_ptr->seq[current_state_number] = current_state_value;
-  } else {
+    state_shared_ptr->state_iteration[current_state_number] = (uint32_t)active_iteration;
+    for (uint32_t b = 0; b < explicit_boundary_count; b++)
+      if (explicit_boundary_iteration[b] == (uint32_t)active_iteration)
+        state_shared_ptr->boundary_state_index[b] = current_state_number;
+  } else if (active_iteration >= 0) {
     state_shared_ptr->truncated = 1;
   }
 
   LOG_INFO("SAVING STATE [# %d]: %08x\n\n", current_state_number, current_state_value);
 
-  current_state_number++;
+  if (active_iteration >= 0) current_state_number++;
 
   // save the state sequence length and publication status
   state_shared_ptr->total_states = current_state_number;
   state_shared_ptr->seq_len = (current_state_number <= MAX_NUM_STATES) ? current_state_number : MAX_NUM_STATES;
   __sync_synchronize();
-  if (state_shared_ptr->truncated) {
-    state_shared_ptr->status = STATE_TRACER_STATUS_TRUNCATED;
-  } else {
-    state_shared_ptr->status = STATE_TRACER_STATUS_COMPLETE;
-  }
+  uint32_t published_status = active_iteration < 0 ? STATE_TRACER_STATUS_UNAVAILABLE
+      : state_shared_ptr->truncated ? STATE_TRACER_STATUS_TRUNCATED : STATE_TRACER_STATUS_COMPLETE;
+  if (!observed_exec_id || observed_exec_id != state_shared_ptr->exec_id ||
+      state_shared_ptr->producer_pid != (uint32_t)getpid() ||
+      __atomic_load_n(&state_shared_ptr->producer_conflict, __ATOMIC_ACQUIRE))
+    published_status = STATE_TRACER_STATUS_FAILED;
+  __atomic_store_n(&state_shared_ptr->status, published_status, __ATOMIC_RELEASE);
   __sync_synchronize();
 
   LOG_DEBUG("TOTAL STATES: %d (stored: %d, truncated: %d)\n",

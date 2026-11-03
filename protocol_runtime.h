@@ -34,22 +34,40 @@ int proto_mutate(proto_engine *engine, const uint8_t *records, size_t length,
                  char *error, size_t error_cap);
 int proto_records_validate(const uint8_t *records, size_t length, size_t *count,
                            char *error, size_t error_cap);
-/* P09: Validate full logical candidate sequence (M1 + M2 + M3). */
+/* Validate all M1/M2/M3 resource limits and projected model transitions.
+ * Legacy intentional wire violations require the exact candidate produced by
+ * the most recent successful mutation; a private valid projection supplies
+ * model identity and transitions without altering actual candidate bytes.
+ * Generic-wire continues to accept valid mode only. */
 int proto_validate_sequence(proto_engine *engine,
                             const uint8_t *m1, size_t m1_len,
                             const uint8_t *m2, size_t m2_len,
                             const uint8_t *m3, size_t m3_len,
                             char *error, size_t cap);
+/* True only for an exact damaged record in the current legacy mutation whose
+ * private valid projection can prepare in the current session. The temporary
+ * preparation is cancelled; committed state and caller bytes are preserved. */
+int proto_is_intentional_violation(proto_engine *engine,
+                                   const uint8_t *wire, size_t length);
 /* P13: Independent complete field constraint verification for message models. */
 int proto_validate_message_fields(const proto_engine *engine, int message_index,
                                   const uint8_t *wire, size_t length,
                                   char *error, size_t cap);
 /* One cache per engine, cleared for EVERY connection/execution. */
 void proto_session_begin(proto_engine *engine);
-/* Bind a supported request atomically. Failure preserves both caller bytes
- * and session state; success commits bindings and records the pending request.
- * Callers may ignore rejection for deliberately malformed requests and send
- * their original bytes; valid sibling requests still establish bindings. */
+/* Prepare on a private wire copy without changing committed session state.
+ * At most one prepared send is allowed. The caller must commit only after the
+ * complete wire message was submitted, or cancel on any partial/error result.
+ * Both engines block new requests while one response-expecting request is
+ * pending; no-response request edges do not create a pending entry.
+ * Response observation must happen after commit/cancel, never while prepared. */
+int proto_prepare_send(proto_engine *engine, uint8_t *wire, size_t length,
+                       char *error, size_t cap);
+int proto_commit_send(proto_engine *engine, char *error, size_t cap);
+void proto_cancel_send(proto_engine *engine);
+/* Compatibility convenience for callers that already know submission succeeds:
+ * prepare and immediately commit. Network execution must use the transaction
+ * API above, so an attempted send cannot create committed pending/cache state. */
 int proto_before_send(proto_engine *engine, uint8_t *wire, size_t length,
                       char *error, size_t cap);
 void proto_after_response(proto_engine *engine, const uint8_t *wire, size_t length);

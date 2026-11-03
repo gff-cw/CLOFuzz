@@ -9,6 +9,10 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+/* The controlled target explicitly reports completed application messages when
+ * linked with the StateAFL tracer. A normal build still works without it. */
+extern void trace_message_boundary(uint32_t ordinal) __attribute__((weak));
+
 int main(int argc,char **argv){
   if(argc!=2&&argc!=3)return 2;
   unsigned long port=strtoul(argv[1],NULL,10);if(port<1024||port>65535)return 2;
@@ -37,6 +41,7 @@ int main(int argc,char **argv){
       for(unsigned j=16;j<256;j++)state[j]=(unsigned char)(j*13+data[4]*7+data[5]*3+data[6]);
     }else invalid++;
     if(trace>=0)dprintf(trace,"{\"valid\":%s,\"size\":%zd}\n",accepted?"true":"false",n);
+    if(trace_message_boundary)trace_message_boundary(i);
     unsigned char reply[2]={state[0],(unsigned char)(valid+invalid)};
     sendto(fd,reply,sizeof(reply),0,(void*)&peer,peer_len);
   }

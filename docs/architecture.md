@@ -4,7 +4,7 @@
 统一向 runtime 提供新增响应，发送绑定原子提交，并提供可选的按内存状态学习的
 变异层调度。当前构建、sanitizer、fixture 与真实目标的验证范围和结果以该记录为准。
 
-新增 [C 原生本地检查入口](native-inspection.md)：通用 JSON 布局解码、约束校验及双状态观测管理直接链接进 afl-fuzz，在 main 检查模式完成后退出，不进入候选、目标执行或反馈调度。该只读路径已通过本地 sanitizer 检查；六协议在线路径仍使用各自 codec。
+新增 [C 原生本地检查入口](native-inspection.md)：通用 JSON 布局解码、约束校验及双状态观测管理直接链接进 afl-fuzz，在 main 检查模式完成后退出，不进入候选、目标执行或反馈调度。该路径有既有本地 sanitizer 记录，本轮未重跑；六协议在线路径仍使用各自 codec。
 
 早期独立 Python 解码、字段编辑和观测分析原型及旧模板已移除。当前[布局解释](generic-offline-decoder.md)和[双状态观测报告](offline-state-relation.md)使用 C 本地检查入口；通用布局的字段编辑尚无 C 替代。下面继续描述现有 ICP-IR v1 在线路径，六套模型和 codec 尚未迁移到通用布局。
 
@@ -60,9 +60,9 @@ runtime 输出是带 LE32 长度的记录；适配层解包为线字节和精确
 
 该过程在临时模拟会话执行，结束时恢复 live cache。每次 `send_over_network` 开始调用 `proto_session_begin` 清除真实会话缓存、pending/outstanding 集合及 TCP 接收缓存。
 
-结构化发包前使用 `proto_before_send` 处理会话绑定，接收新响应字节后用 `proto_after_response` 更新字段缓存和相关响应计数。TCP 接收缓冲按 MBAP/APCI/TPKT/encapsulation/UACP 长度拆帧，等待分片余部并逐条处理合并响应；只在完整帧通过 codec、字段范围和已声明关联约束后缓存值。TCP 字节流拆帧不意味着支持 OPC UA 多 chunk 或其他被排除的协议级分段。
+结构化网络发送采用 `proto_prepare_send` 处理会话绑定，完整提交 wire 后 `proto_commit_send`，部分发送或错误时 `proto_cancel_send`；prepare 不提交 live pending/cache/state。`proto_before_send` 只保留为已知提交成功的直接 API 便利接口。接收新响应字节后按 stream/datagram 接口更新字段缓存和响应计数。TCP 接收缓冲按 MBAP/APCI/TPKT/encapsulation/UACP 长度拆帧，等待分片余部并逐条处理合并响应；只在完整帧通过 codec、字段范围和已声明关联约束后缓存值。TCP 字节流拆帧不意味着支持 OPC UA 多 chunk 或其他被排除的协议级分段。
 
-消息标记区分本次结构化 M2 与继承的 M1/M3；后者可能包含 raw 消息，解析失败时按原样发送。故意破坏的各协议长度不能在发包前重新修复。缓存键包含 engine、消息和字段；当前保存最近的标量及 pending 请求，不是通用多事务数据库，也不执行 guard/action 字符串。
+消息标记区分本次结构化 M2 与继承的 M1/M3；所有受支持结构化模式均检查完整序列。旧 near_valid/invalid 的精确当前候选可获声明破坏范围的发送豁免，其他绑定失败中止计划，不能把继承 M1/M3 任意错误自动原样发送。缓存键包含 engine、消息和字段；两套 runtime 均按单 pending 使用，不是通用多事务数据库，也不执行 guard/action 字符串。
 
 ## 两条状态通路
 
@@ -70,6 +70,8 @@ runtime 输出是带 LE32 长度的记录；适配层解包为线字节和精确
 | --- | --- | --- |
 | StateAFL 内存状态 | LLVM 18 插桩的目标长期对象快照，TLSH/MVPTree 推断，原状态/种子选择 | 原 IPSM 图、内存状态 ID 和队列注解 |
 | 协议语义状态 | 用户描述的状态和消息边；runtime 会话、请求序列检查及响应观察 | 独立 `protocol_semantic_state` 和协议日志/统计 |
+
+共享 ABI v3 增加受控目标的显式应用消息完成接口 `trace_message_boundary()`，提供 ordinal→保留快照映射；契约限定单进程、单线程。没有有效提供者、无保留快照或有身份冲突时仍为 UNKNOWN，不按 recv/send 次数或序号假设恢复边界。需 producer/consumer 一致重建，并实际验证非零状态种子和 M2 入口。
 
 协议模型中的 `ready`、`pending` 等名字不代表 StateAFL 已观察到相同数量的内存状态。语义状态图可达不证明目标行为正确；非零 invoke 关联计数也不证明覆盖增加。两种反馈应分别检查和报告。
 
@@ -79,7 +81,7 @@ runtime 输出是带 LE32 长度的记录；适配层解包为线字节和精确
 
 没有提供描述文件时，协议 engine 不创建，候选继续走现有 AFL 路径。新增模块被链接进 fuzzer 不等于启用结构化变异。generic replay 读取新增了显式小端解码及截断/零长度检查，保存路径清空旧文件并显式写入 LE32 长度。共享网络层确保每条 UDP 消息一次发送，使用 65536 字节接收缓冲并检测截断；这些共享路径改动需要同时验证关闭功能的兼容性。
 
-LLVM 18 工具链、New PM 插桩及原内存运行时保持现有移植设计；本次协议层不引入替代 LLVM 工具链。[LLVM18_MIGRATION_AUDIT.md](../LLVM18_MIGRATION_AUDIT.md) 和 [LLVM18_TEST_REPORT.md](../LLVM18_TEST_REPORT.md) 是既有证据，不能替代本次修改后的回归。当前结果和未完成项见 [implementation-review.md](implementation-review.md) 及 [BACnet 集成验证](bacnet-integration-test.md)。
+LLVM 18 工具链、New PM 插桩及原内存运行时保持现有移植设计；本次协议层不引入替代 LLVM 工具链。[LLVM18_MIGRATION_AUDIT.md](../LLVM18_MIGRATION_AUDIT.md) 和 [LLVM18_TEST_REPORT.md](../LLVM18_TEST_REPORT.md) 是既有证据，不能替代本次修改后的回归。本轮只修改源码并静态复核，没有执行构建、测试或目标；当前修复及待验收项见[修复清单](repair-status-20261102.md)。[implementation-review.md](implementation-review.md) 及 [BACnet 集成验证](bacnet-integration-test.md) 保留为历史结果。
 
 
 ## 模板与按描述目录启动

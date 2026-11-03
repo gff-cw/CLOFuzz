@@ -20,6 +20,10 @@ typedef struct {char id[64];int response;unsigned weight;uint8_t *example;size_t
                 size_t correlation_count;} gr_message;
 typedef struct {unsigned from,to,message;int response;} gr_transition;
 typedef struct {uint8_t *wire;size_t size,original_offset;unsigned model;} gr_record;
+typedef struct {
+  unsigned state,pending,pending_request,pending_response,pending_next;
+  uint64_t cache[GR_CORRELATIONS];
+} gr_session_snapshot;
 struct gr_engine {
   nj_document *document;char protocol_id[64],transport[4],states[GR_STATES][64];
   gr_message messages[GR_MESSAGES];gr_transition transitions[GR_TRANSITIONS];
@@ -38,8 +42,20 @@ struct gr_engine {
   int mutating_mode;
   unsigned pending,pending_request,pending_response,pending_next;
   uint64_t cache[GR_CORRELATIONS];
+  gr_session_snapshot prepared_session;
+  unsigned send_prepared;
   FILE *log;
 };
+static void gr_save_session(const gr_engine *e,gr_session_snapshot *s){
+  s->state=e->state;s->pending=e->pending;s->pending_request=e->pending_request;
+  s->pending_response=e->pending_response;s->pending_next=e->pending_next;
+  memcpy(s->cache,e->cache,sizeof(s->cache));
+}
+static void gr_restore_session(gr_engine *e,const gr_session_snapshot *s){
+  e->state=s->state;e->pending=s->pending;e->pending_request=s->pending_request;
+  e->pending_response=s->pending_response;e->pending_next=s->pending_next;
+  memcpy(e->cache,s->cache,sizeof(s->cache));
+}
 static int gr_error(char *err,size_t cap,const char *fmt,...){
   if(err&&cap){va_list args;va_start(args,fmt);vsnprintf(err,cap,fmt,args);va_end(args);}return -1;
 }
@@ -384,7 +400,7 @@ bad:if(err&&cap&&!err[0])gr_error(err,cap,"invalid generic-wire package or refer
 }
 const char *gr_transport(const gr_engine *e){return e?e->transport:NULL;}
 void gr_set_log(gr_engine *e,FILE *log){if(e)e->log=log;}
-void gr_session_begin(gr_engine *e){if(e){e->state=e->initial;e->receive_size=0;e->pending=0;memset(e->cache,0,sizeof(e->cache));}}
+void gr_session_begin(gr_engine *e){if(e){e->state=e->initial;e->receive_size=0;e->pending=0;e->send_prepared=0;memset(e->cache,0,sizeof(e->cache));}}
 int gr_set_prefix(gr_engine *e,const uint8_t *records,size_t length,char *err,size_t cap){
   if(err&&cap)err[0]=0;
   if(!e)return gr_error(err,cap,"missing generic engine");e->prefix_state=e->initial;e->prefix_valid=0;
@@ -405,7 +421,11 @@ int gr_validate_sequence(const gr_engine *e,
                          char *err, size_t cap) {
   if (err && cap) err[0] = 0;
   if (!e) return gr_error(err, cap, "missing generic engine");
+  if (e->mutating_mode != PROTO_VALID)
+    return gr_error(err, cap, "generic-wire sequence validation supports valid mode only");
   if (!m2 || !m2_len) return gr_error(err, cap, "M2 candidate record sequence cannot be empty");
+  if ((!m1 && m1_len) || (!m3 && m3_len))
+    return gr_error(err, cap, "nonempty surrounding segment has no record buffer");
 
   const uint8_t *segs[3] = {m1, m2, m3};
   size_t lens[3] = {m1_len, m2_len, m3_len};
@@ -444,11 +464,6 @@ int gr_validate_sequence(const gr_engine *e,
       if (gr_validate_framing(e, buf + p, n, seg_names[s], err, cap) < 0)
         return -1;
 
-      if (s == 1 && (e->mutating_mode == PROTO_NEAR_VALID || e->mutating_mode == PROTO_INVALID)) {
-        p += n;
-        continue;
-      }
-
       unsigned model = 0;
       if (gr_match(e, buf + p, n, 0, &model, err, cap) < 0)
         return gr_error(err, cap, "%s message outside description grammar", seg_names[s]);
@@ -486,20 +501,21 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
      mode!=PROTO_VALID||
      (layer!=PROTO_HEAD&&layer!=PROTO_CONTENT&&layer!=PROTO_SEQUENCE))
     return gr_error(err,cap,"generic-wire structured calls require valid mode and HEAD/CONTENT/SEQUENCE");
+  if(e->send_prepared)return gr_error(err,cap,"cannot mutate while a send is prepared");
   e->attempts++;if(gr_unpack(e,data,length,rr,&count,err,cap)<0)goto done;before=count;
   int layer_idx = (layer == PROTO_HEAD) ? 0 : (layer == PROTO_CONTENT) ? 1 : 2;
 
-  /* P21: Operability check: verify sequence contains mutable fields for requested layer */
-  if (layer == PROTO_HEAD || layer == PROTO_CONTENT) {
-    size_t eligible_messages = 0;
-    for (size_t i = 0; i < count; i++) {
-      const gw_schema *sch = e->messages[rr[i].model].schema;
-      if (sch && gw_has_role(sch, layer)) {
-        eligible_messages++;
-        break;
-      }
+  /* Choose once from the eligible weighted set. Retrying over all messages can
+     still select an inoperable message even when an eligible one exists. */
+  unsigned eligible[GR_RECORDS]={0},total_weight=0;
+  for(size_t i=0;i<count;i++){
+    const gw_schema *sch=e->messages[rr[i].model].schema;
+    if(layer==PROTO_SEQUENCE || (sch && gw_has_role(sch,layer))){
+      eligible[i]=1;
+      total_weight+=e->messages[rr[i].model].weight;
     }
-    if (!eligible_messages) {
+  }
+  if(!total_weight){
       e->unavailable[layer_idx]++;
       if (e->log) {
         fprintf(e->log, "{\"event\":\"unavailable\",\"layer\":\"%s\",\"reason\":\"no_operable_fields\"}\n",
@@ -507,18 +523,13 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
       }
       gr_error(err, cap, "layer unavailable: no operable fields in sequence for requested layer");
       goto done;
-    }
   }
-
-  /* Bounded retry (up to 4 attempts) to draw an operable message if available */
-  for (int retry = 0; retry < 4; retry++) {
-    unsigned total=0;for(size_t i=0;i<count;i++)total+=e->messages[rr[i].model].weight;
-    unsigned pick=gr_draw(random,total);for(selected=0;selected+1<count;selected++){
-      unsigned w=e->messages[rr[selected].model].weight;if(pick<w)break;pick-=w;
-    }
-    if (layer == PROTO_SEQUENCE) break;
-    const gw_schema *sch = e->messages[rr[selected].model].schema;
-    if (sch && gw_has_role(sch, layer)) break;
+  unsigned pick=gr_draw(random,total_weight);
+  for(selected=0;selected<count;selected++){
+    if(!eligible[selected])continue;
+    unsigned w=e->messages[rr[selected].model].weight;
+    if(pick<w)break;
+    pick-=w;
   }
   if(layer==PROTO_SEQUENCE){
     unsigned op=gr_draw(random,4);
@@ -533,10 +544,16 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
     }else{ /* insert template or repeat */
       if(count>=e->max_messages||count>=GR_RECORDS){gr_error(err,cap,"max_messages exceeded");goto done;}
       unsigned model=rr[selected].model;const uint8_t *wire=rr[selected].wire;size_t n=rr[selected].size;
-      if(op==0){unsigned choices[GR_MESSAGES],eligible=0;for(unsigned i=0;i<e->count;i++)
-        if(!e->messages[i].response)choices[eligible++]=i;
-        if(!eligible){gr_error(err,cap,"no request template");goto done;}
-        model=choices[gr_draw(random,eligible)];wire=e->messages[model].example;n=e->messages[model].size;
+      if(op==0){unsigned template_weight=0;for(unsigned i=0;i<e->count;i++)
+        if(!e->messages[i].response)template_weight+=e->messages[i].weight;
+        if(!template_weight){gr_error(err,cap,"no request template");goto done;}
+        unsigned template_pick=gr_draw(random,template_weight);
+        for(model=0;model<e->count;model++){
+          if(e->messages[model].response)continue;
+          if(template_pick<e->messages[model].weight)break;
+          template_pick-=e->messages[model].weight;
+        }
+        wire=e->messages[model].example;n=e->messages[model].size;
       }
       if(!n||n>GR_WIRE){gr_error(err,cap,"zero-length template or record cannot be inserted");goto done;}
       uint8_t *copy=malloc(n);if(!copy){gr_error(err,cap,"out of memory");goto done;}
@@ -577,12 +594,12 @@ int gr_mutate(gr_engine *e,const uint8_t *data,size_t length,const uint8_t *cand
     e->unchanged[layer_idx]++;
   }
   e->success++;e->layer_count[layer_idx]++;status=0;
-  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"layer\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"changed\":%s,\"change_type\":\"%s\",\"derived_repaired\":true}\n",
+  if(e->log)fprintf(e->log,"{\"event\":\"mutation\",\"selection_policy\":\"eligible-weighted-v1\",\"layer\":\"%s\",\"messages_before\":%zu,\"messages_after\":%zu,\"changed\":%s,\"change_type\":\"%s\",\"derived_repaired\":true}\n",
     layer==PROTO_HEAD?"HEAD":layer==PROTO_CONTENT?"CONTENT":"SEQUENCE",before,count,
     changed ? "true" : "false", change_type);
 done:if(status<0)gr_log_rejection(e,layer,err&&cap?err:"mutation failed");gr_records_free(rr,count);return status;
 }
-int gr_before_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap){
+static int gr_apply_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap){
   unsigned model,next;int response;if(err&&cap)err[0]=0;
   if(!e||!wire||!length||length>GR_WIRE)
     return gr_error(err,cap,"invalid wire length in generic before_send");
@@ -606,6 +623,29 @@ int gr_before_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap
     e->pending_response=(unsigned)response;e->pending_next=next;
   }else e->state=next;
   return 0;
+}
+int gr_prepare_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap){
+  if(err&&cap)err[0]=0;
+  if(!e)return gr_error(err,cap,"missing generic engine");
+  if(e->send_prepared)return gr_error(err,cap,"a send is already prepared");
+  gr_session_snapshot committed;gr_save_session(e,&committed);
+  int result=gr_apply_send(e,wire,length,err,cap);
+  if(result==0)gr_save_session(e,&e->prepared_session);
+  gr_restore_session(e,&committed);
+  e->send_prepared=(result==0);
+  return result;
+}
+int gr_commit_send(gr_engine *e,char *err,size_t cap){
+  if(err&&cap)err[0]=0;
+  if(!e || !e->send_prepared)return gr_error(err,cap,"no prepared send to commit");
+  gr_restore_session(e,&e->prepared_session);
+  e->send_prepared=0;
+  return 0;
+}
+void gr_cancel_send(gr_engine *e){if(e)e->send_prepared=0;}
+int gr_before_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size_t cap){
+  if(gr_prepare_send(e,wire,length,err,cap)<0)return -1;
+  return gr_commit_send(e,err,cap);
 }
 void gr_set_execution_purpose(gr_engine *e, unsigned purpose){
   if(!e)return;
@@ -650,10 +690,18 @@ static void gr_response_frame(gr_engine *e,const uint8_t *wire,size_t length){
 }
 void gr_after_dgram(gr_engine *e,const uint8_t *wire,size_t length){
   if(!e||!wire||!length)return;
+  if(e->send_prepared){
+    if(e->log)fputs("{\"event\":\"response_ignored\",\"reason\":\"send_not_committed\"}\n",e->log);
+    return;
+  }
   if(length<=GR_WIRE)gr_response_frame(e,wire,length);
 }
 void gr_after_stream(gr_engine *e,const uint8_t *wire,size_t length){
   if(!e||!wire||!length)return;
+  if(e->send_prepared){
+    if(e->log)fputs("{\"event\":\"response_ignored\",\"reason\":\"send_not_committed\"}\n",e->log);
+    return;
+  }
   if(length>MAX_FILE-e->receive_size){e->receive_size=0;e->resp_framing_errors++;return;}
   memcpy(e->receive+e->receive_size,wire,length);e->receive_size+=length;size_t at=0;
   while(e->receive_size-at>=e->frame_offset+e->frame_width){
@@ -671,9 +719,13 @@ void gr_after_response(gr_engine *e,const uint8_t *wire,size_t length){
 }
 int gr_write_stats(gr_engine *e,const char *path){
   if(!e||!path)return -1;
-  char tmp_path[512];
-  snprintf(tmp_path,sizeof(tmp_path),"%s.tmp.%d",path,(int)getpid());
-  FILE *f=fopen(tmp_path,"w");if(!f)return -1;
+  size_t path_len=strlen(path);
+  if(path_len>SIZE_MAX-32)return -1;
+  size_t tmp_cap=path_len+32;
+  char *tmp_path=malloc(tmp_cap);if(!tmp_path)return -1;
+  int tmp_n=snprintf(tmp_path,tmp_cap,"%s.tmp.%d",path,(int)getpid());
+  if(tmp_n<0 || (size_t)tmp_n>=tmp_cap){free(tmp_path);return -1;}
+  FILE *f=fopen(tmp_path,"w");if(!f){free(tmp_path);return -1;}
   int ok=(fprintf(f,"{\"stats_version\":2,\"metrics_version\":1,\"attempts\":%" PRIu64 ",\"structured_success\":%" PRIu64 ",\"rejected\":%" PRIu64 ",\"HEAD\":%" PRIu64 ",\"CONTENT\":%" PRIu64 ",\"SEQUENCE\":%" PRIu64 ",\"changed\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unchanged\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"unavailable\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"responses\":%" PRIu64 ",\"completed_responses\":%" PRIu64 ",\"correlated_responses\":%" PRIu64 ","
             "\"response_diagnostics\":{\"incomplete_frames\":%" PRIu64 ",\"framing_errors\":%" PRIu64 ",\"grammar_mismatches\":%" PRIu64 ",\"unrelated_responses\":%" PRIu64 ",\"correlation_mismatches\":%" PRIu64 ",\"expected_complete\":%" PRIu64 "},"
             "\"responses_by_purpose\":{\"coverage\":%" PRIu64 ",\"confirmation\":%" PRIu64 ",\"calibration\":%" PRIu64 ",\"sync\":%" PRIu64 ",\"state_analysis\":%" PRIu64 ",\"hang_check\":%" PRIu64 ",\"unknown\":%" PRIu64 "},"
@@ -687,8 +739,12 @@ int gr_write_stats(gr_engine *e,const char *path){
     e->resp_unrelated,e->resp_correlation_mismatches,e->resp_expected_complete,
     e->resp_by_purpose[1],e->resp_by_purpose[2],e->resp_by_purpose[3],e->resp_by_purpose[4],e->resp_by_purpose[5],e->resp_by_purpose[6],e->resp_by_purpose[0]) > 0);
   if(ok) nj_write_string(f,e->states[e->state],strlen(e->states[e->state]));
-  if(ok) ok = (fputs(",\"engine\":\"generic-wire\"}\n",f) >= 0);
-  if(!ok || ferror(f) || fflush(f) != 0 || fclose(f) != 0) { unlink(tmp_path); return -1; }
-  if(rename(tmp_path, path) != 0) { unlink(tmp_path); return -1; }
+  if(ok) ok = (fputs(",\"engine\":\"generic-wire\",\"selection_policy\":\"eligible-weighted-v1\"}\n",f) >= 0);
+  int failed=!ok || ferror(f);
+  if(fflush(f)!=0)failed=1;
+  if(fclose(f)!=0)failed=1;
+  if(failed) { unlink(tmp_path); free(tmp_path); return -1; }
+  if(rename(tmp_path, path) != 0) { unlink(tmp_path); free(tmp_path); return -1; }
+  free(tmp_path);
   return 0;
 }

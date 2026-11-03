@@ -24,11 +24,16 @@ int gr_mutate(gr_engine *engine, const uint8_t *records, size_t length,
 /* P12: Uniform framing validation across mutation, sequence templates, and sending. */
 int gr_validate_framing(const gr_engine *engine, const uint8_t *wire, size_t length,
                         const char *desc, char *error, size_t cap);
-/* Structured calls accept PROTO_VALID. Hybrid/raw scheduling belongs to the
- * caller. Prefix and output together obey sequence limits. Live sessions
- * permit one outstanding request; rejection preserves bytes and bindings. */
+/* Compatibility convenience: prepare and immediately commit a known-successful
+ * submission. Live sessions permit one outstanding request. */
 int gr_before_send(gr_engine *engine, uint8_t *wire, size_t length,
                    char *error, size_t cap);
+/* Network callers prepare, submit the complete wire message, then commit;
+ * cancel every partial/error submission before observing any response. */
+int gr_prepare_send(gr_engine *engine, uint8_t *wire, size_t length,
+                    char *error, size_t cap);
+int gr_commit_send(gr_engine *engine, char *error, size_t cap);
+void gr_cancel_send(gr_engine *engine);
 void gr_after_response(gr_engine *engine, const uint8_t *wire, size_t length);
 /* P16: Transport interface separates discrete UDP datagram events from TCP stream segments. */
 void gr_after_dgram(gr_engine *engine, const uint8_t *wire, size_t length);

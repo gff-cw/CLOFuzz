@@ -52,6 +52,10 @@ int main(void) {
 
   struct timeval one_sec = { .tv_sec = 1, .tv_usec = 0 };
   assert(timeval_to_poll_ms(one_sec) == 1000);
+  struct timeval huge_tv = { .tv_sec = INT_MAX, .tv_usec = 999999 };
+  assert(timeval_to_poll_ms(huge_tv) == INT_MAX);
+  struct timeval negative_tv = { .tv_sec = -1, .tv_usec = 0 };
+  assert(timeval_to_poll_ms(negative_tv) == -1);
 
   /* --- 2. I/O status string representations --- */
   assert(strcmp(net_io_status_to_str(NET_IO_STATUS_OK), "ok") == 0);
@@ -59,6 +63,7 @@ int main(void) {
   assert(strcmp(net_io_status_to_str(NET_IO_STATUS_TIMEOUT), "timeout") == 0);
   assert(strcmp(net_io_status_to_str(NET_IO_STATUS_SYSCALL_ERR), "syscall_error") == 0);
   assert(strcmp(net_io_status_to_str(NET_IO_STATUS_BUDGET_EXCEEDED), "budget_exceeded") == 0);
+  assert(strcmp(net_io_status_to_str(NET_IO_STATUS_TRUNCATED), "truncated") == 0);
 
   /* --- 3. net_send with user timeout and send budget --- */
   int tcp_sv[2];
@@ -110,12 +115,19 @@ int main(void) {
   assert(rc == NET_RECV_ERROR);
   assert(net_get_last_io_status() == NET_IO_STATUS_SYSCALL_ERR);
 
-  /* --- 7. Budget exceeded status tracking --- */
+  /* --- 7. Inconsistent already-over-budget metadata is rejected --- */
+  assert(socketpair(AF_UNIX, SOCK_STREAM, 0, tcp_sv2) == 0);
   net_set_response_budget(16);
-  resp_len = 16;
-  rc = net_recv_with_cb(0, quick_tv, 0, &resp_buf, &resp_len, dummy_cb, NULL);
+  resp_buf = ck_alloc(18);
+  resp_len = 17;
+  rc = net_recv_with_cb(tcp_sv2[0], quick_tv, 0, &resp_buf, &resp_len, dummy_cb, NULL);
   assert(rc == NET_RECV_BUDGET_EXCEEDED);
   assert(net_get_last_io_status() == NET_IO_STATUS_BUDGET_EXCEEDED);
+  ck_free(resp_buf);
+  resp_buf = NULL;
+  resp_len = 0;
+  close(tcp_sv2[0]);
+  close(tcp_sv2[1]);
   net_set_response_budget(0); /* reset to default */
 
   /* --- 8. Setsockopt failure preservation on non-socket fd --- */
@@ -125,6 +137,7 @@ int main(void) {
   rc = net_recv_with_cb(pipe_fds[0], quick_tv, 5, &resp_buf, &resp_len, dummy_cb, NULL);
   /* Even though data could be read, setsockopt failed (ENOTSOCK), so status must remain syscall error */
   assert(net_get_last_io_status() == NET_IO_STATUS_SYSCALL_ERR);
+  assert(rc == NET_RECV_ERROR);
   close(pipe_fds[0]);
   close(pipe_fds[1]);
   if (resp_buf) ck_free(resp_buf);

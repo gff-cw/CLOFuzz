@@ -22,14 +22,15 @@ typedef struct {
   size_t lengths[16];
   uint8_t payloads[16][256];
   int is_dgram_flags[16];
+  int truncated_flags[16];
 } cb_trace_t;
 
 static void trace_cb(const uint8_t *buf, size_t len, int is_dgram, int truncated, void *user) {
   cb_trace_t *trace = (cb_trace_t *)user;
-  (void)truncated;
   if (trace->dgram_count < 16) {
     trace->lengths[trace->dgram_count] = len;
     trace->is_dgram_flags[trace->dgram_count] = is_dgram;
+    trace->truncated_flags[trace->dgram_count] = truncated;
     if (len <= sizeof(trace->payloads[0]))
       memcpy(trace->payloads[trace->dgram_count], buf, len);
     trace->dgram_count++;
@@ -103,6 +104,33 @@ int main(void) {
   ck_free(resp_buf);
   close(sock_a);
   close(sock_b);
+
+  /* A diagnostic datagram prefix is delivered exactly once and cannot be
+     reported as a complete receive. AF_UNIX allows a datagram above our fixed
+     scratch-buffer size without requiring an IP target or service. */
+  int truncated_pair[2];
+  CHECK(socketpair(AF_UNIX, SOCK_DGRAM, 0, truncated_pair) == 0);
+  size_t oversized_len = 65537;
+  uint8_t *oversized = malloc(oversized_len);
+  CHECK(oversized != NULL);
+  memset(oversized, 0x5a, oversized_len);
+  CHECK(send(truncated_pair[1], oversized, oversized_len, 0) == (ssize_t)oversized_len);
+  memset(&trace, 0, sizeof(trace));
+  resp_buf = NULL;
+  resp_len = 0;
+  rv = net_recv_with_cb(truncated_pair[0], tv, 50, &resp_buf, &resp_len, trace_cb, &trace);
+  CHECK(rv == NET_RECV_TRUNCATED);
+  CHECK(net_get_last_io_status() == NET_IO_STATUS_TRUNCATED);
+  CHECK(trace.dgram_count == 1);
+  CHECK(trace.is_dgram_flags[0] == 1);
+  CHECK(trace.truncated_flags[0] == 1);
+  CHECK(trace.lengths[0] == 65536);
+  CHECK(resp_len == 65536);
+  CHECK(resp_buf[resp_len] == '\0');
+  ck_free(resp_buf);
+  free(oversized);
+  close(truncated_pair[0]);
+  close(truncated_pair[1]);
 
   /* ------------------------------------------------------------------ */
   /* Part 2: Generic UDP runtime processes discrete datagram responses   */

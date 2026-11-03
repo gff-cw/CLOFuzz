@@ -1,5 +1,7 @@
 {
+  "bundle_digest": "b67af2be98e68d8946b02185a9da1ff11e331ffcbb1a7a0b68bf35e085327c0e",
   "codec": "opcua",
+  "format": "stateafl.protocol-ir",
   "format_version": 1,
   "framing": "protocol length inside replayable records",
   "ir_version": 1,

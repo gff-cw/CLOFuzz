@@ -7,6 +7,7 @@
 #include "klist.h"
 #include "khash.h"
 #include <arpa/inet.h>
+#include <limits.h>
 #include <poll.h>
 
 typedef struct {
@@ -97,6 +98,7 @@ typedef void (*net_recv_cb_t)(const uint8_t *buf, size_t len, int is_dgram, int 
 #define NET_RECV_ERROR           1
 #define NET_RECV_BUDGET_EXCEEDED 2
 #define NET_RECV_TIMED_OUT       3
+#define NET_RECV_TRUNCATED       4
 
 #define DEFAULT_MAX_RESPONSE_BUDGET (1 * 1024 * 1024)
 
@@ -110,7 +112,8 @@ typedef enum {
   NET_IO_STATUS_EOF,
   NET_IO_STATUS_TIMEOUT,
   NET_IO_STATUS_SYSCALL_ERR,
-  NET_IO_STATUS_BUDGET_EXCEEDED
+  NET_IO_STATUS_BUDGET_EXCEEDED,
+  NET_IO_STATUS_TRUNCATED
 } net_io_status_t;
 
 net_io_status_t net_get_last_io_status(void);
@@ -136,11 +139,26 @@ static inline uint64_t timeval_to_usecs(struct timeval tv) {
 }
 
 static inline int timeval_to_poll_ms(struct timeval tv) {
-  struct timeval norm = normalize_timeval(tv);
-  int ms = (int)(norm.tv_sec * 1000 + (norm.tv_usec + 999) / 1000);
-  return ms;
+  if (tv.tv_sec < 0 || tv.tv_usec < 0) return -1;
+  /* Avoid signed overflow and never pass an overflowed negative timeout to poll. */
+  uint64_t seconds = (uint64_t)tv.tv_sec;
+  uint64_t micros = (uint64_t)tv.tv_usec;
+  if (seconds > (uint64_t)INT_MAX / 1000ULL) return INT_MAX;
+  uint64_t ms = seconds * 1000ULL + micros / 1000ULL + (micros % 1000ULL != 0);
+  return ms > (uint64_t)INT_MAX ? INT_MAX : (int)ms;
 }
 
+/* Operations use one entry-time monotonic budget and do not change descriptor
+ * blocking flags. Zero timeout keeps bounded compatibility defaults (send 1s,
+ * receive 50ms); receive also includes the requested initial poll window and
+ * caps each later idle wait at the configured socket timeout.
+ * net_send returns the submitted byte count, including a partial prefix on a
+ * later failure, or -1 if a system error occurred before any byte was submitted.
+ * An ordinary receive idle timeout returns NET_RECV_OK with TIMEOUT status;
+ * NET_RECV_TIMED_OUT means the deadline left data pending. A truncated datagram
+ * is reported once to cb with truncated=1, then returns NET_RECV_TRUNCATED.
+ * Callbacks must not treat that diagnostic prefix as a complete wire message.
+ * A full response budget is valid until an actual additional byte is received. */
 int net_send(int sockfd, struct timeval timeout, char *mem, unsigned int len);
 int net_recv(int sockfd, struct timeval timeout, int poll_w, char **response_buf, unsigned int *len);
 int net_recv_with_cb(int sockfd, struct timeval timeout, int poll_w,

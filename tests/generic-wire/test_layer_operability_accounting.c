@@ -107,6 +107,40 @@ int main(void) {
 
   proto_free(pe_head);
 
+  /* An overwhelmingly weighted HEAD-only message cannot hide the one message
+   * that actually has a CONTENT field. A constant zero draw previously kept
+   * choosing the inoperable first record during bounded retry selection. */
+  const char *mixed_schema =
+    "{\"format\":\"stateafl.generic-wire\",\"version\":1,"
+    "\"protocol_id\":\"mixed_layers\",\"online\":true,\"transport\":\"udp\","
+    "\"framing\":{\"kind\":\"datagram\"},\"messages\":["
+    "{\"id\":\"head_only\",\"direction\":\"request\",\"weight\":1000,\"example_hex\":\"1101\","
+    "\"grammar\":{\"kind\":\"struct\",\"fields\":["
+    "{\"id\":\"tag\",\"kind\":\"uint\",\"width\":1,\"byte_order\":\"big\",\"role\":\"fixed\",\"expected\":17,\"min\":17,\"max\":17},"
+    "{\"id\":\"value\",\"kind\":\"uint\",\"width\":1,\"byte_order\":\"big\",\"role\":\"head\",\"min\":0,\"max\":255}]}},"
+    "{\"id\":\"content_only\",\"direction\":\"request\",\"weight\":1,\"example_hex\":\"2255\","
+    "\"grammar\":{\"kind\":\"struct\",\"fields\":["
+    "{\"id\":\"tag\",\"kind\":\"uint\",\"width\":1,\"byte_order\":\"big\",\"role\":\"fixed\",\"expected\":34,\"min\":34,\"max\":34},"
+    "{\"id\":\"value\",\"kind\":\"bytes\",\"length\":1,\"role\":\"content\",\"min\":1,\"max\":1}]}}],"
+    "\"states\":{\"initial\":\"ready\",\"transitions\":["
+    "{\"from\":\"ready\",\"message\":\"head_only\",\"to\":\"ready\"},"
+    "{\"from\":\"ready\",\"message\":\"content_only\",\"to\":\"ready\"}]},"
+    "\"limits\":{\"max_messages\":8,\"max_repeat\":4,\"max_bytes\":256}}";
+  proto_engine *pe_mixed = create_test_engine(mixed_schema, err, sizeof(err));
+  CHECK(pe_mixed != NULL);
+  const uint8_t mixed_head[] = {0x11, 0x01}, mixed_content[] = {0x22, 0x55};
+  rec_len = append_rec(rec, 0, mixed_head, sizeof(mixed_head));
+  rec_len = append_rec(rec, rec_len, mixed_content, sizeof(mixed_content));
+  const uint8_t mixed_candidate[] = {0x11, 0x01, 0x22, 0x99};
+  mock_draw_val = 0;
+  rc = proto_mutate(pe_mixed, rec, rec_len, mixed_candidate, sizeof(mixed_candidate),
+                    PROTO_VALID, PROTO_CONTENT, mock_draw, &out, &out_len, err, sizeof(err));
+  CHECK(rc == 0);
+  CHECK(out_len == rec_len);
+  CHECK(out[4] == 0x11 && out[5] == 0x01);
+  CHECK(out[10] == 0x22 && out[11] == 0x99);
+  proto_free(pe_mixed);
+
   /* 2. Test unchanged vs changed accounting on fictional_protocol.json */
   proto_engine *pe_fict = proto_load_generic("tests/generic-wire/fictional_protocol.json", err, sizeof(err));
   CHECK(pe_fict != NULL);
@@ -125,7 +159,9 @@ int main(void) {
   if (rc != 0) fprintf(stderr, "proto_mutate CONTENT error: %s\n", err);
   CHECK(rc == 0);
 
+  memcpy(stats_path, "/tmp/stateafl-operability-stats-XXXXXX", sizeof(stats_path));
   sfd = mkstemp(stats_path);
+  CHECK(sfd >= 0);
   close(sfd);
   proto_write_stats(pe_fict, stats_path);
   sf = fopen(stats_path, "r");

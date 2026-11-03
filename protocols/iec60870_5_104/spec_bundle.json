@@ -1,0 +1,9 @@
+{
+  "bundle_digest": "b3fec6bf823bed91a8dc13c789473c16a898fe67ae3c97dbc8434f6ae431a97a",
+  "bundle_version": 1,
+  "files": [
+    "protocol_ir.json",
+    "state_ir.json"
+  ],
+  "protocol_id": "iec60870_5_104"
+}

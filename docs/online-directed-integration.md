@@ -1,30 +1,18 @@
 # 在线定向变异器与 StateAFL 的集成
 
-交付分支为 `feature/protocol-aware-integration-20261025`，包含远程 `origin/main`
-的修改。多个 agents 分别审阅模型、C 解释器、运行时和反馈链，并按用户后续要求
-执行构建、sanitizer 回归及本地目标验证。下面分别记录实际通过的检查与尚未验证
-的工业目标能力；历史结果不替代当前源码的回归。
+当前工作分支为 `feature/description-driven-c-engine-20261027`。本轮针对 `b21ea2c` 静态审计修复源码，没有执行构建、测试或目标。逐项 C/P 状态见[本次修复清单](repair-status-20261102.md)。本文后半部分保存较早 `feature/protocol-aware-integration-20261025` 工作的历史执行记录；其通过结果与预算只适用于原产物，不能迁移为当前版本的验收。
 
-后续静态审查确认了[当前未解决的集成缺口](current-integration-gaps.md)，包括非零
-状态变异入口、消息/内存边界及完整序列一致性。下面的历史通过记录不证明这些
-问题已经解决，也不能作为完整融合的验收结论。另见[离线记录完整性修复](description-check-integrity.md)。
+当前接口段说明生产调用方式；接口存在、UNKNOWN 拒绝、推送成功都不证明非零状态入口或方法有效性已完成。另见[方法验证契约](method-validation-contract.md)。
 
 ## 真实响应与发送绑定
 
-`receive_network_responses` 包装 `net_recv`，将每次追加的响应字节精确一次交给
-`proto_after_response`。覆盖发第一条请求前的响应、常规收包、错误返回前已经收到
-的部分字节以及结束时的 drain。TCP 分帧和不完整帧缓存仍由协议运行时负责；
-返回码、原响应缓冲和 `response_bytes` 的使用遵循原网络流程。
+`receive_network_responses` 按 TCP stream chunk 与独立 UDP datagram 分派新增字节。TCP 帧缓存由运行时维护；截断 datagram 不作为完整响应提交。错误返回即使已有部分响应字节，也降低观察完整性。无数据 idle 与接收错误分别解释。
 
-`proto_before_send` 在有界私有副本上求解跨消息/响应/序号绑定。所有依赖和 wire
-校验成功后才复制回调用方并记录 pending/cache；失败时调用方报文字节和会话状态
-均不变化。依赖求值阶段仅读取缓存，实际缓存提交在最后的 `remember` 中完成。
-这避免继承的 M1/M3 在允许原样发送的错误路径上带入半修复报文。
+真实网络发送使用 `proto_prepare_send`、完整发送后的 `proto_commit_send`，以及部分发送/错误时的 `proto_cancel_send`。prepare 可生成绑定后的 wire，但 committed pending/cache/state 保持原值；只有提交完整报文才提交私有会话快照。兼容 `proto_before_send` 是 prepare+commit 的直接调用便利接口，不能用作网络成功凭证。
 
-`near_valid`/`invalid` 消息同样经过逐条绑定检查；刻意破坏的报文被检查器拒绝，
-由原发送路径忽略该拒绝并发送原始字节。原子性保证失败时不会留下半修复数据。
-同序列中仍然有效的 M2 请求以及继承的 M1/M3 继续建立真实会话上下文。故意无效
-请求不登记为正常 pending 请求，因此不将其响应关联率用于评判合法请求成功率。
+`near_valid`/`invalid` 只允许本次旧运行时 mutator 产出的精确 intentional violation 获得异常发送豁免；M1/M3 或其他绑定失败不因模式名自动放行。全序列检查使用该候选的私有有效投影维持 M2 模型及 M3 上下文，同时检查全部资源预算。generic-wire 不支持这两种结构化模式。当前两套 runtime 按单 pending 使用，不提供多事务数据库。
+
+原实际提交 wire、响应和状态序列由独立观察对象持有。保存原候选不读取末次确认的全局发送条数；确认默认按实际 wire 精确相等比较，不自动掩码会话字段。反馈冻结原 coverage 执行 ID，区别 state-analysis、confirmation、calibration 等内部用途。非零状态定向还要求受控目标遵循 ABI v3 显式消息完成边界契约，无有效提供者仍为 UNKNOWN。
 
 Python `runtime_profile_signature` 纳入消息权重，与 C `equivalent_models` 的
 等价约束一致；相同 wire 类别、字段和依赖但权重不同的别名在编译期明确拒绝。
@@ -58,8 +46,7 @@ min(8, 1 + floor(log2(new_tuples))) + (new_buckets > 0 ? 1 : 0)，单候选覆�
 分类数，两类互斥。总奖励上限24；真实计数在layer_feedback和全局调度快照中记录。
 每状态累计约1024次观察后，学习历史折半以保留近期结果；总计数饱和加法。
 
-覆盖采集挂在原has_new_bits路径，仅对完整发送后的当前执行开启，仅观察一次。
-测量在原位图被AFL消费之前；之后普通入队和位图保存仍走原代码。StateAFL状态分析
+覆盖采集挂在 has_new_bits 路径，仅对全部计划消息完整提交且响应观察完整的当前执行开启，只观察一次。不完整执行在消费队列保留用 virgin bitmap 前拒绝；原实际输入保存来自持有的观察对象。StateAFL状态分析
 和calibrate_case重放不会重复计数；timeout/crash专用virgin map、部分发送和拒绝
 候选不记作正常结构化覆盖反馈。新bucket参与覆盖奖励，但生产路径仍沿用
 has_new_bits后的保留流程；独立计数不代表独立的队列或内存状态探索通道。
@@ -77,8 +64,7 @@ flowchart LR
 ```
 
 反馈只在 `common_fuzz_stuff` 中归属候选，内部 StateAFL 重跑、校准或 hang 确认
-不会再次选择或记录尝试。首次执行完成全部结构化 M2 的发送后，才允许取得
-发现奖励；未完整发送、候选构造/预算拒绝、中断和跳过均记录零奖励。raw fallback
+不会再次选择或记录尝试。首次执行须完成全部计划消息和结构化 M2 的发送并具备完整响应观察，才允许取得发现奖励；未完整发送、候选构造/预算拒绝、中断和跳过均记录零奖励。raw fallback
 只结算被拒绝的结构化尝试，不把 raw 执行所得归给该层。初始语料校准、导入
 和直接重放不学习。网络发送完成不代表服务端语义上接受报文。
 
@@ -94,12 +80,16 @@ layer_feedback还写该候选的new_tuples/new_buckets，方便对账；protocol
 相应保存全局coverage_events与饱和累计数。discovery位16表示存在直接覆盖新增，
 裸位16不会产生覆盖奖励。
 
-新增 `test_schedule.c` 覆盖层掩码、探索、状态隔离、tuple/bucket奖励、LRU、计数溢出
+## 历史执行记录（不作为本轮通过证据）
+
+下列测试及目标记录来自较早版本和原日志。本轮没有重跑它们；旧回归仍有其他版本的六项失败记录，见基线审计。当前修复新增的回归源码和脚本变动尚未编译执行。
+
+历史新增 `test_schedule.c` 覆盖层掩码、探索、状态隔离、tuple/bucket奖励、LRU、计数溢出
 及固定随机序列；`test_feedback.c` 直接纳入 `afl-fuzz.c` 测真实 bitmap消费路径，验证
 新tuple/bucket分类、重复位图、crash/session map隔离和一次调度归因。15项CLI测试覆盖
-参数拒绝；完整协议脚本已加入scheduler和bitmap sanitizer检查。本次验证结果见下表。
+参数拒绝；完整协议脚本已加入scheduler和bitmap sanitizer检查。对应历史验证结果见下表。
 
-本次验证覆盖了先前AGENTS.md中的暂缓测试约定，实际运行结果如下：
+当时的执行记录如下；它们不撤销当前 AGENTS.md 的暂缓执行约束：
 
 | 验证 | 结果 | 范围 |
 | --- | --- | --- |
@@ -125,8 +115,8 @@ layer_feedback还写该候选的new_tuples/new_buckets，方便对账；protocol
 带-E的Modbus fixture画出0->1和1->1 IPSM边；本次短时调度快照只命中state ID 0，
 未验证多个内存状态各自学到不同策略。
 
-该Modbus对照只有单种子/单短跑，coverage相同。当前证据证明direct bitmap反馈在线
-消费和归属有效，没有证明adaptive相对uniform提高coverage。要声称提升，需在BACnet
+该Modbus对照只有单种子/单短跑，coverage相同。该轮证据支持当时版本的 direct bitmap 反馈在线
+消费和归属，没有证明adaptive相对uniform提高coverage。要声称提升，需在BACnet
 Stack及多个目标上使用固定语料、构建、时长和StateAFL参数做配对多种子实验，记录
 coverage曲线、唯一edge/tuple、StateAFL memory states及每层有效发送率。
 
@@ -160,7 +150,7 @@ state ID 0；`cycles_done=0`、`cur_path=0`表明短跑尚在首个`fuzz_one`，
 
 本文件记录的是 ICP-IR 与六种有界 codec 的历史集成。后续提交 `ba45263` 已加入
 独立的 generic-wire 在线 C 引擎，不能继续用本文旧记录证明它未实现，也不能用
-本文实验作为新引擎的工业验证。当前阻断与证据范围见[现状审查](current-integration-gaps.md)
+本文实验作为新引擎的工业验证。当前源码修复及证据边界见[现状审查](current-integration-gaps.md)
 和[通用引擎验证记录](generic-wire-validation-20261027.md)。
 `native_layout_inspect_buffer` 的通用布局入口仍提供只读检查，不能作为通用在线字段编辑器使用。不同 wire alias
 的状态迁移冲突、模型文件整体原子发布、分布式导入和恢复格式仍需独立审阅。

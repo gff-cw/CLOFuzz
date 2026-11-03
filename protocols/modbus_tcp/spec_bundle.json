@@ -1,0 +1,9 @@
+{
+  "bundle_digest": "37599f6d28b79b33f48de2120226188152b6947b778d61988825273c0ebd1a8f",
+  "bundle_version": 1,
+  "files": [
+    "protocol_ir.json",
+    "state_ir.json"
+  ],
+  "protocol_id": "modbus_tcp"
+}

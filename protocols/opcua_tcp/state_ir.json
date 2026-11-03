@@ -1,4 +1,6 @@
 {
+  "bundle_digest": "b67af2be98e68d8946b02185a9da1ff11e331ffcbb1a7a0b68bf35e085327c0e",
+  "format": "stateafl.state-ir",
   "format_version": 1,
   "initial": "tcp",
   "invalid_strategy": "one explicitly logged length or semantic transition violation; preserve other dependencies",

@@ -1,0 +1,9 @@
+{
+  "bundle_digest": "5131919334523378a2c54e8db22a308f6efeb3b655cb8166e38d70b3c71a3bc4",
+  "bundle_version": 1,
+  "files": [
+    "protocol_ir.json",
+    "state_ir.json"
+  ],
+  "protocol_id": "ethernet_ip_cip_tcp"
+}

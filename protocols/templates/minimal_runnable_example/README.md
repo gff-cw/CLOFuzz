@@ -1,6 +1,6 @@
 # 最小完整可运行协议描述示例 (Minimal Runnable Profile)
 
-本目录提供一份已经过完整静态校验、可直接由 `tools/proto_spec_compiler.py` 编译并由 StateAFL C 运行时加载的最小参考示例（对应治理计划 **G04** 项）。
+本目录提供面向已有 Modbus codec 的完整参考输入（G04），用于区别待填骨架和具备实际字段/消息/状态的描述。它不是 generic-wire 模板，也不实现任意新协议。本轮未运行该样例或编译器；源码修复与待验证状态见[修复清单](../../../docs/repair-status-20261102.md)。
 
 ---
 
@@ -14,7 +14,7 @@
 
 ### 1.2 预测状态 (Predicted State) vs 目标内存状态 (Target Memory State)
 * **预测状态**（`state_transition.yaml`）：属于协议模型层。依据已发送的请求及接收的响应在预定义状态机（如 `connected`）上流转，用于约束和生成合法的报文序列（M1/M2/M3）。
-* **目标内存状态**（StateAFL Tracer）：属于被测程序执行层。通过对目标进程内存区域（如 `state_shared.c` 快照）的哈希聚类动态推断状态。
+* **目标内存状态**（StateAFL Tracer）：属于被测程序执行层。通过对目标进程内存区域（如 tracer 保留快照）的哈希聚类动态推断状态。
 * **隔离契约**：协议模型的预测状态**绝不直接等同于**被测程序的内存状态。两者分别独立维护，互不污染。
 
 ### 1.3 线分帧 (Wire Framing) vs 录制前缀 (Replay Prefix)
@@ -31,7 +31,7 @@
 python3 tools/proto_spec_compiler.py \
   --protocol protocols/templates/minimal_runnable_example/protocol_spec.yaml \
   --state protocols/templates/minimal_runnable_example/state_transition.yaml \
-  --output /tmp/minimal_modbus_ir
+  --output-dir /tmp/minimal_modbus_ir
 ```
 
-该命令将成功生成绑定的 `protocol_ir.json`、`state_ir.json` 和 `spec_bundle.json`。
+编译器的输出契约为配对的 `protocol_ir.json`、`state_ir.json` 和 `spec_bundle.json`。非 BACnet 路径会构建 C helper；该命令不是本轮已执行的静态检查。示例能编译或加载也不能证明目标互通、非零状态 M2 入口或方法收益。

@@ -41,7 +41,18 @@ int main(int argc,char **argv){
   CHECK(n==input_n&&out[4+8]==0x12&&out[4+9]==0x34);
   CHECK(out[4+5]==6&&out[4+7]==3);
   CHECK(proto_before_send(e,wire,0,err,sizeof(err))<0);
-  memcpy(wire,request,sizeof(request));CHECK(proto_before_send(e,wire,sizeof(wire),err,sizeof(err))==0);
+  /* The real transaction API must not let an unsubmitted request create pending
+   * state, and cancellation must allow the same request to be prepared again. */
+  memcpy(wire,request,sizeof(request));
+  CHECK(proto_prepare_send(e,wire,sizeof(wire),err,sizeof(err))==0);
+  CHECK(proto_prepare_send(e,wire,sizeof(wire),err,sizeof(err))<0);
+  proto_after_response(e,response,sizeof(response));
+  CHECK(stat_has(e,"\"responses\":0"));
+  CHECK(stat_has(e,"\"completed_responses\":0"));
+  proto_cancel_send(e);
+  CHECK(proto_commit_send(e,err,sizeof(err))<0);
+  CHECK(proto_prepare_send(e,wire,sizeof(wire),err,sizeof(err))==0);
+  CHECK(proto_commit_send(e,err,sizeof(err))==0);
   CHECK(stat_has(e,"\"correlated_responses\":0"));
   CHECK(stat_has(e,"\"completed_responses\":0"));
   proto_after_response(e,response,3);CHECK(stat_has(e,"\"responses\":0"));

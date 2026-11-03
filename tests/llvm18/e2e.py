@@ -17,8 +17,23 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class State(ctypes.Structure):
-    _fields_ = [("seq_len", ctypes.c_uint), ("seq", ctypes.c_uint * 100),
-                ("iterations", ctypes.c_uint)]
+    _fields_ = [("magic", ctypes.c_uint32), ("version", ctypes.c_uint32),
+                ("capacity", ctypes.c_uint32), ("exec_id", ctypes.c_uint32),
+                ("status", ctypes.c_uint32), ("truncated", ctypes.c_uint32),
+                ("total_states", ctypes.c_uint32), ("seq_len", ctypes.c_uint32),
+                ("seq", ctypes.c_uint32 * 100), ("iterations", ctypes.c_uint32),
+                ("producer_exec_id", ctypes.c_uint32), ("producer_pid", ctypes.c_uint32),
+                ("producer_conflict", ctypes.c_uint32), ("boundary_status", ctypes.c_uint32),
+                ("boundary_count", ctypes.c_uint32),
+                ("boundary_state_index", ctypes.c_uint32 * 100),
+                ("state_iteration", ctypes.c_uint32 * 100)]
+
+
+STATE_SHARED_MAGIC = 0x53544154
+STATE_SHARED_VERSION = 3
+STATE_STATUS_IDLE = 0
+STATE_STATUS_COMPLETE = 2
+STATE_BOUNDARY_UNKNOWN = 0xffffffff
 
 
 def check_stream_framing(server, work, environment, disable_aslr):
@@ -49,7 +64,15 @@ def check_stream_framing(server, work, environment, disable_aslr):
         for mode, chunks in (("coalesced", [b"A\nB\nC\n"]),
                              ("fragmented", [bytes([value]) for value in b"A\nB\nC\n"])):
             ctypes.memset(address, 0, ctypes.sizeof(State))
-            state.seq_len, state.seq[0] = 1, 0
+            execution_id = len(results) + 1
+            state.magic = STATE_SHARED_MAGIC
+            state.version = STATE_SHARED_VERSION
+            state.capacity = 100
+            state.exec_id = execution_id
+            state.status = STATE_STATUS_IDLE
+            for index in range(state.capacity):
+                state.boundary_state_index[index] = STATE_BOUNDARY_UNKNOWN
+                state.state_iteration[index] = STATE_BOUNDARY_UNKNOWN
             with socket.socket() as probe:
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
@@ -87,10 +110,21 @@ def check_stream_framing(server, work, environment, disable_aslr):
                     if child.poll() is None:
                         child.kill()
                         child.wait()
+            assert state.magic == STATE_SHARED_MAGIC and state.version == STATE_SHARED_VERSION
+            assert state.status == STATE_STATUS_COMPLETE and not state.truncated
+            assert state.exec_id == execution_id and state.producer_exec_id == execution_id
+            assert state.producer_pid == child.pid and state.producer_conflict == 0
+            assert 0 < state.seq_len <= state.capacity == 100
+            assert state.total_states == state.seq_len
+            # Automatic socket snapshots are not application-boundary evidence.
+            assert state.boundary_status == 0 and state.boundary_count == 0
+            assert all(index == STATE_BOUNDARY_UNKNOWN for index in state.boundary_state_index)
             sequence = list(state.seq[:state.seq_len])
             result = {"mode": mode, "command": command, "reply_hex": reply.hex(),
                       "sequence": sequence, "iterations": state.iterations,
-                      "exit_code": status}
+                      "exit_code": status, "exec_id": execution_id,
+                      "producer_pid": state.producer_pid, "status": state.status,
+                      "boundary_status": state.boundary_status}
             results.append(result)
             (evidence / "result.json").write_text(json.dumps(results, indent=2) + "\n")
             assert status == 0, result

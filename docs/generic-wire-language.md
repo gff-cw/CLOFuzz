@@ -22,11 +22,11 @@ own fixed tables. It does not translate the old state IR or all dependency
 semantics. The passive native-layout format is a third, separate language.
 See the [template format comparison](../protocols/templates/README.md).
 
-The diagram below shows the implemented interfaces, not a claim that every
-StateAFL state can reach them. In the reviewed source, the first region always
-has a zero state count, while nonzero-state M2 selection rejects that count;
-that path exits before generic mutation. Message-to-memory-state boundary
-mapping also remains unresolved. See [current gaps](current-integration-gaps.md).
+The diagram shows interfaces, not proof that every StateAFL state reaches
+mutation. The current source adds a cooperative message-boundary provider;
+without valid provider evidence, regions remain UNKNOWN and cannot locate a
+nonzero-state M2. The source changes have not been built or executed in this
+repair round. See [repair status](repair-status-20261102.md).
 
 ```mermaid
 flowchart LR
@@ -92,7 +92,10 @@ TCP framing is a declared `length_field` with `offset`, `width` (1..4),
 `byte_order` and signed `add`: frame bytes = field value + add. Responses may
 arrive fragmented or coalesced. UDP uses `{"kind":"datagram"}`. The online
 runtime bounds each message at 65,507 bytes and a serialized replay at
-StateAFL's `MAX_FILE`. Limits also bound message count and repetitions.
+StateAFL's `MAX_FILE`. Limits also bound message count and repetitions. Source hard limits are 128
+message models, 256 fields per grammar, 64 states, 256 transitions, 16 correlation
+rules per message and 64 replay records. Package limits may lower sequence
+budgets; model count is not the number of messages allowed in one execution.
 The global TCP framing rule applies to request and response examples alike.
 The C loader checks that the length field fits inside each complete example
 and that its value plus `add` equals the example's byte length. This tightens
@@ -105,10 +108,12 @@ Request examples must also fit `limits.max_bytes` including their four-byte
 replay prefix. Both loaders reject a package whose request template already
 exceeds that budget. Response examples are not replay records and are not
 charged against this request-sequence limit.
-The host receive function currently concatenates UDP datagrams before calling
-the generic runtime, which expects one datagram per call. Multiple datagrams in
-one receive batch can therefore fail matching. The existing online fixture
-does not model responses and does not validate this boundary.
+The host routes each received UDP datagram separately through `gr_after_dgram`
+and TCP chunks through `gr_after_stream`. A truncated datagram is diagnostic
+input, is not submitted to the runtime as a complete response, and makes the
+response observation incomplete. A receive buffer exactly at its byte budget
+is not over budget until another byte is actually observed. These error and
+boundary changes require execution validation.
 
 ## Three mutation layers and feedback
 
@@ -134,13 +139,18 @@ values. These description states are distinct from StateAFL memory state IDs.
 The v1 live executor allows one outstanding response-bearing request per
 session; a second send is rejected until the expected response is received.
 It does not implement pipelining, retransmission recovery or server-issued
-session-value bindings. Sequence message, repetition and byte budgets include
-the captured M1 prefix; the integration separately enforces `MAX_FILE` for
-the full M1/M2/M3 replay.
-The retained M3 suffix is not included in the semantic graph or profile-budget
-check. Its pre-send failure does not abort execution as a structured M2 failure
-does. Consequently `valid` does not guarantee semantic validity of the full
-M1/M2/M3 session. This limitation is separate from the full replay byte cap.
+session-value bindings. `gr_prepare_send` validates a private session snapshot;
+only a fully submitted message permits `gr_commit_send`. Partial or failed
+submission requires `gr_cancel_send` before response observation. The compatible
+`gr_before_send` convenience API immediately commits and is suitable only when
+successful submission is already known, not as a network success signal.
+
+The host now checks M1, new M2 and retained M3 together through the full sequence
+validator, including the semantic graph, repeat counts, record counts and
+serialized byte budget. Live valid-mode binding failures abort the planned
+session. The full replay also obeys StateAFL's `MAX_FILE` bound. This is a
+source-level correction to the previous M3 omission, pending execution checks;
+it does not validate protocol semantics absent from the grammar.
 
 New generic statistics declare `stats_version:2`. `completed_responses` counts
 pending requests completed by their expected response. `correlated_responses`
@@ -159,19 +169,58 @@ counts. Unknown statistics versions remain uninterpreted.
 layers. It keys weights by the selected StateAFL memory state, explores every
 enabled layer, and rewards new queue entries, memory states, crashes, hangs,
 new coverage tuples and newly observed hit-count buckets. A rejected candidate
-gets an unsuccessful observation. Coverage credit requires delivery of the
-whole structured M2; calibration/replay executions do not choose another
-layer or produce duplicate candidate observations. Protocol response states
+gets an unsuccessful observation. Coverage credit requires complete submission
+of all planned messages and a complete response observation, in addition to
+delivery of the structured M2. The coverage execution ID is frozen before
+state-analysis, confirmation or calibration; these internal executions do not
+choose another layer or produce duplicate candidate observations. Protocol response states
 are not inserted into StateAFL's inferred memory-state graph.
 Memory-state discovery is performed only after the ordinary coverage novelty
 gate retains a candidate. The memory reward is therefore additional feedback
 after that gate, not an independent retention path for memory-only novelty.
-The recorded loopback run attributes every layer observation to state 0;
+Historical loopback evidence attributes every layer observation to state 0;
 an injected nonzero-ID harness does not validate natural nonzero-state M2
-selection. Adaptive scheduling is applied in havoc/splice; deterministic
-stages keep the ordinary AFL candidates.
+selection. New provider source does not retroactively validate those records.
+Adaptive scheduling is applied in havoc/splice; deterministic stages keep the
+ordinary AFL candidates. Within a layer the current selection policy is
+`eligible-weighted-v1`: select directly among eligible message records using
+their declared weights, and apply weights to inserted templates. Eligibility
+avoids selecting an inoperable message when another is operable; it does not
+guarantee that an edit changes bytes or passes final sequence checks.
+
+## Explicit memory-boundary and observation contract
+
+`trace_message_boundary(uint32_t ordinal)` is a cooperative target-side hook,
+not a grammar rule. For the current ABI v3 contract, a controlled target calls
+it once after each fully processed application message, in order starting at
+zero, in one process and one thread. A recv or send call is not by itself a
+message boundary. The tracer retains the actual iteration and publishes an
+ordinal-to-retained-snapshot map plus producer execution/PID metadata; the
+host rejects invalid, conflicting or stale observations. Missing or filtered
+snapshots remain UNKNOWN. Old shared layouts are incompatible and require
+rebuilding producer and consumer together. Cross-thread application boundaries
+are outside this provider contract.
+
+Each observation owns copies of the actual submitted wire bytes, response data
+and state sequence. Confirmation compares exact submitted wire by default;
+there is no implicit masking of negotiated tokens or session fields. Saving a
+coverage candidate uses that execution's retained bytes even after another
+execution changes global counters. Zero-submission attempts are diagnostic
+records, not zero-length replay messages. A partly submitted input may be
+captured for diagnosis but does not become a complete queue candidate.
+
+With real tracer evidence, the host no longer requires response bytes merely
+to inspect an execution. A genuinely one-way controlled target can therefore
+supply a memory observation through explicit boundaries. No dump or invalid
+provider still means unavailable; response-code observation still needs
+responses. Natural nonzero-state seed selection and M2 entry remain explicit
+execution acceptance requirements, not conclusions of this document.
 
 ## Running and verification
+
+The commands below are usage references. No command in this section was run
+as part of the current static-only repair. New regression source and corrected
+entry points do not establish a passing build or method benefit.
 
 Build `afl-fuzz`, prepare a replay corpus, and run against an instrumented
 target with `--generic-spec FILE --mutation-mode valid --mutation-layers
@@ -199,10 +248,12 @@ python3 tests/generic-wire/run_live.py \
 
 This Python process only builds/starts the C target and fuzzer, then reads
 saved evidence. The C target independently validates every received packet.
-The report requires visible edits from every layer, no raw execution, real
-coverage feedback and, with `--state-aware`, real memory-state feedback. It
-does not measure an improvement over baseline AFL or establish industrial
-protocol conformance. Comparative coverage claims require repeated equal
+The report must distinguish original coverage executions from internal
+replays using complete versioned identity metadata, and must link visible
+edits to the actual complete candidate. Layer presence alone is not edit
+proof. With `--state-aware`, memory-state feedback still does not by itself
+prove natural nonzero-state M2 entry. The report does not measure improvement
+over baseline AFL or establish industrial protocol conformance. Comparative coverage claims require repeated equal
 budget experiments on the intended industrial targets.
 
 ## Expressibility and rejection rules (G02)
@@ -215,7 +266,7 @@ strictly restrict executable structures to the following lossless intermediate
 primitives:
 
 1. **Topology**: Strictly ordered flat sequence of fields (`kind: "struct"`).
-2. **Scalars**: 1/2/3/4/8 byte unsigned integers (`kind: "uint"`) with fixed
+2. **Scalars**: 1 through 8 byte unsigned integers (`kind: "uint"`) with fixed
    endianness (`big` or `little`).
 3. **Byte slices**:
    - Fixed constant byte sequences (`role: "fixed"` or constant length).
@@ -245,7 +296,7 @@ taxonomy of unexpressible constructs is enforced:
 | `UNSUPPORTED_REF_ORDER` | Length `ref` pointing to non-existent or later field | C `gw_compile` | `length ref must name earlier uint` |
 | `UNSUPPORTED_TRANSPORT` | Transports other than `tcp` or `udp` (e.g. `sctp`, `serial`) | C `gr_load` | `invalid generic-wire package header` |
 | `UNSUPPORTED_FRAMING` | Framing kinds other than `length_field` (TCP) or `datagram` (UDP) | C `gr_load` | `invalid generic-wire package header` |
-| `UNSUPPORTED_ONLINE_SCOPE` | Multi-service profiles with unexpressible semantics setting `online: true` | C `gr_load` / tools | `description is offline-only` |
+| `UNSUPPORTED_ONLINE_SCOPE` | Package declares `online: false` | C `gr_load` | `description is offline-only` |
 
 ### Frozen fixture scope contract
 
@@ -253,5 +304,7 @@ Any byte field marked `fixed_*` in the six migrated protocol profiles represents
 only a frozen example capture from a specific sample run. It **does not** constitute
 structural decoding, semantic validation, or full-standard compliance for that
 protocol. Switching `online: false` to `online: true` by simply toggling the boolean
-flag or renaming a profile without implementing the missing primitives and passing
-independent end-to-end verification is strictly prohibited.
+flag or renaming a profile does not implement missing primitives or establish
+correctness. The C loader checks the declared flag; it cannot infer all absent
+protocol-standard semantics from a package name. Independent verification is
+required before expanding the supported scope.

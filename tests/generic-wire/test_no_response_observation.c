@@ -1,86 +1,63 @@
-#define _DEFAULT_SOURCE
-#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "types.h"
 #include "execution_observation.h"
 
+static execution_observation_t *no_response(u32 id, int available) {
+  execution_observation_t *obs = calloc(1, sizeof(*obs));
+  assert(obs);
+  u8 submitted[32];
+  memset(submitted, 'Q', sizeof(submitted));
+  execution_wire_record_t record = {submitted, sizeof(submitted), sizeof(submitted)};
+  assert(copy_execution_wire(obs, &record, 1, 1) == 0);
+  obs->exec_id = id;
+  obs->messages_sent = obs->complete_messages = 1;
+  obs->total_bytes_sent = sizeof(submitted);
+  obs->is_transmission_complete = obs->is_response_complete = 1;
+  obs->provider = STATE_OBS_PROVIDER_TRACER;
+  obs->status = available ? STATE_TRACER_STATUS_COMPLETE : STATE_TRACER_STATUS_UNAVAILABLE;
+  obs->has_state_observation = available;
+  if (available) {
+    obs->state_count = 2;
+    obs->state_sequence = calloc(2, sizeof(*obs->state_sequence));
+    assert(obs->state_sequence);
+    obs->state_sequence[1] = 42;
+    obs->has_verified_boundaries = 1;
+    obs->boundary_count = 1;
+    obs->boundary_state_index[0] = 1;
+  }
+  return obs;
+}
+
 int main(void) {
-  printf("[*] Testing P27 distinction between model no-response and tracer observation capability...\n");
+  /* No response is not proof of a missing state observation. The explicit
+   * provider may publish a trace for a one-way application message. */
+  char reason[256] = "";
+  execution_observation_t *absent = no_response(101, 0);
+  execution_observation_t *rep_absent = no_response(102, 0);
+  assert(absent->response_buf == NULL && absent->response_buf_size == 0);
+  assert(compare_execution_observations(absent, rep_absent, reason, sizeof(reason)) == 0);
+  assert(strstr(reason, "state observation unavailable"));
 
-  /* 1. Construct an observation for an execution where target produced NO network responses */
-  execution_observation_t *no_resp_obs = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
-  assert(no_resp_obs != NULL);
-  no_resp_obs->exec_id = 101;
-  no_resp_obs->exec_purpose = EXEC_PURPOSE_ORIGINAL;
-  no_resp_obs->messages_sent = 1;
-  no_resp_obs->complete_messages = 1;
-  no_resp_obs->total_bytes_sent = 32;
-  no_resp_obs->is_transmission_complete = 1;
-  no_resp_obs->response_buf = NULL;
-  no_resp_obs->response_buf_size = 0;
-  no_resp_obs->response_bytes = NULL;
-  no_resp_obs->response_bytes_count = 0;
+  execution_observation_t *observed = no_response(103, 1);
+  execution_observation_t *rep_observed = no_response(104, 1);
+  assert(observed->response_buf == NULL && observed->response_buf_size == 0);
+  assert(compare_execution_observations(observed, rep_observed, reason, sizeof(reason)) == 1);
 
-  /* Under P27, absence of response means backend tracer had no dumps;
-     status is explicitly UNAVAILABLE, not state 0 or complete */
-  no_resp_obs->has_state_observation = 0;
-  no_resp_obs->status = STATE_TRACER_STATUS_UNAVAILABLE;
-  no_resp_obs->state_count = 0;
-  no_resp_obs->state_sequence = NULL;
+  /* Match metadata before testing state presence, so an earlier boundary
+   * mismatch does not accidentally make this case pass. */
+  rep_absent->has_verified_boundaries = 1;
+  rep_absent->boundary_count = 1;
+  rep_absent->boundary_state_index[0] = 1;
+  assert(compare_execution_observations(observed, rep_absent, reason, sizeof(reason)) == 0);
+  assert(strstr(reason, "state observation presence mismatch"));
 
-  assert(no_resp_obs->has_state_observation == 0);
-  assert(no_resp_obs->status == STATE_TRACER_STATUS_UNAVAILABLE);
-  assert(no_resp_obs->state_count == 0);
-  assert(no_resp_obs->state_sequence == NULL);
-
-  /* 2. Replay run also produces no responses */
-  execution_observation_t *rep_no_resp = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
-  assert(rep_no_resp != NULL);
-  rep_no_resp->exec_id = 102;
-  rep_no_resp->exec_purpose = EXEC_PURPOSE_CONFIRMATION;
-  rep_no_resp->messages_sent = 1;
-  rep_no_resp->complete_messages = 1;
-  rep_no_resp->total_bytes_sent = 32;
-  rep_no_resp->is_transmission_complete = 1;
-  rep_no_resp->has_state_observation = 0;
-  rep_no_resp->status = STATE_TRACER_STATUS_UNAVAILABLE;
-  rep_no_resp->state_count = 0;
-  rep_no_resp->state_sequence = NULL;
-
-  /* 3. Confirmation comparison must REJECT confirmation because state observation is unavailable */
-  char reason[256] = {0};
-  int match = compare_execution_observations(no_resp_obs, rep_no_resp, reason, sizeof(reason));
-  assert(match == 0);
-  assert(strstr(reason, "state observation unavailable") != NULL);
-
-  /* 4. Cross comparison: valid observation vs unavailable observation must reject */
-  execution_observation_t *valid_obs = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
-  assert(valid_obs != NULL);
-  valid_obs->exec_id = 103;
-  valid_obs->messages_sent = 1;
-  valid_obs->complete_messages = 1;
-  valid_obs->total_bytes_sent = 32;
-  valid_obs->is_transmission_complete = 1;
-  valid_obs->has_state_observation = 1;
-  valid_obs->status = STATE_TRACER_STATUS_COMPLETE;
-  valid_obs->state_count = 1;
-  valid_obs->state_sequence = (unsigned int *)malloc(sizeof(unsigned int));
-  valid_obs->state_sequence[0] = 0;
-
-  reason[0] = '\0';
-  match = compare_execution_observations(valid_obs, rep_no_resp, reason, sizeof(reason));
-  assert(match == 0);
-  assert(strstr(reason, "state observation presence mismatch") != NULL);
-
-  free_execution_observation(no_resp_obs);
-  free_execution_observation(rep_no_resp);
-  free_execution_observation(valid_obs);
-
-  printf("[+] P27 no-response observation test passed successfully!\n");
+  free_execution_observation(absent);
+  free_execution_observation(rep_absent);
+  free_execution_observation(observed);
+  free_execution_observation(rep_observed);
+  puts("PASS: no-response executions require independent state evidence");
   return 0;
 }

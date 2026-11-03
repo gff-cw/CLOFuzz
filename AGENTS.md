@@ -2,9 +2,9 @@
 
 These instructions record the user's version-control preferences for this checkout.
 
-- Continue on the existing branch `feature/protocol-aware-integration-20261025`.
+- Continue on the existing branch `feature/description-driven-c-engine-20261027`.
   Do not create or switch branches unless the user changes this instruction.
-- Its upstream is `origin/feature/protocol-aware-integration-20261025`.
+- Its upstream is `origin/feature/description-driven-c-engine-20261027`.
   Keep feature work and its documentation in this repository.
 - After each independently reviewable feature change, commit the relevant files
   and push to this same remote branch. Do not leave completed feature work only

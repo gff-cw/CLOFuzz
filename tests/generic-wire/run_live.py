@@ -81,7 +81,7 @@ def artifact_inventory(work, candidates):
     names = {'build.log', 'command.json', 'fuzz.log', 'wire.jsonl', 'fixture-server',
              'in/pulse.replay', 'out/experiment_baseline.json', 'out/fuzzer_stats',
              'out/protocol_stats.json', 'out/protocol_schedule.json',
-             'out/protocol_mutations.jsonl'}
+             'out/protocol_mutations.jsonl', 'out/run_manifest.json'}
     for stem in candidates:
         names.update(f'out/protocol-candidates/{stem}{suffix}'
                      for suffix in ('.json', '.replay'))
@@ -150,6 +150,161 @@ def records(path):
     return result
 
 
+LAYER_IDS = {'HEAD': 1, 'CONTENT': 2, 'SEQUENCE': 4}
+PURPOSES = {'coverage', 'confirmation', 'calibration', 'sync', 'state_analysis',
+            'hang_check', 'unknown'}
+
+
+def identity_key(item):
+    """A recorded execution identity; labels alone never establish a join."""
+    if not isinstance(item, dict) or not isinstance(item.get('run_id'), str) or not item['run_id']:
+        raise ValueError('missing run identity')
+    for name, minimum in (('segment_id', 0), ('candidate_id', 1), ('exec_id', 1)):
+        if type(item.get(name)) is not int or item[name] < minimum:
+            raise ValueError(f'invalid {name}')
+    return tuple(item[name] for name in ('run_id', 'segment_id', 'candidate_id', 'exec_id'))
+
+
+def candidate_evidence(directory, example, feedback):
+    """Qualify existing v3 captures only; never run a target or manufacture IDs.
+
+    Capture budgets can omit later executions. Unjoined feedback is reported and
+    excluded from evidence; it cannot be promoted to a successful sampled edit.
+    """
+    eligible, errors, excluded, seen = {}, [], [], set()
+    all_stems = []
+    for metadata in sorted(directory.glob('*.json')):
+        all_stems.append(metadata.stem)
+        try:
+            sidecar = json.loads(metadata.read_text())
+            if (not isinstance(sidecar, dict) or type(sidecar.get('format_version')) is not int or
+                    sidecar['format_version'] != 3):
+                raise ValueError('capture format_version must be 3')
+            purpose = sidecar.get('purpose')
+            if purpose not in PURPOSES:
+                raise ValueError('missing or unknown explicit execution purpose')
+            if purpose != 'coverage':
+                excluded.append({'capture': metadata.stem, 'reason': 'not coverage'})
+                continue
+            key = identity_key(sidecar)
+            if key in seen:
+                eligible.pop(key, None)
+                raise ValueError('duplicate coverage execution identity')
+            seen.add(key)
+            if type(sidecar.get('structured')) is not bool:
+                raise ValueError('structured must be an explicit boolean')
+            if not sidecar['structured']:
+                excluded.append({'capture': metadata.stem, 'reason': 'raw execution'})
+                continue
+            for name in ('planned_messages', 'attempted_messages', 'sent_messages',
+                         'submitted_records', 'total_bytes_sent', 'partial_bytes_tail',
+                         'parent_seed_id', 'target_state'):
+                if type(sidecar.get(name)) is not int or sidecar[name] < 0:
+                    raise ValueError(f'missing or invalid {name}')
+            for name in ('is_transmission_complete', 'is_response_complete',
+                         'response_budget_exceeded'):
+                if type(sidecar.get(name)) is not bool:
+                    raise ValueError(f'missing or invalid {name}')
+            if (not sidecar['is_transmission_complete'] or
+                    not sidecar['is_response_complete'] or sidecar['response_budget_exceeded']):
+                excluded.append({'capture': metadata.stem, 'reason': 'incomplete execution'})
+                continue
+            count = sidecar['planned_messages']
+            if (count == 0 or sidecar['attempted_messages'] != count or
+                    sidecar['sent_messages'] != count or sidecar['submitted_records'] != count or
+                    sidecar['partial_bytes_tail'] != 0):
+                raise ValueError('complete flag disagrees with submitted/planned counts')
+            packets = records(metadata.with_suffix('.replay'))
+            if len(packets) != count or sum(map(len, packets)) != sidecar['total_bytes_sent']:
+                raise ValueError('replay records disagree with capture metadata')
+            if sidecar.get('layer') not in LAYER_IDS:
+                raise ValueError('structured capture has no actual mutation layer')
+            if sidecar.get('forkserver') != 'coverage':
+                raise ValueError('coverage purpose requires coverage forkserver')
+            eligible[key] = (metadata.stem, sidecar, packets)
+        except (OSError, ValueError, TypeError) as error:
+            errors.append({'capture': metadata.stem, 'reason': str(error)})
+
+    joined, feedback_keys = {}, set()
+    unjoined = 0
+    for item in feedback:
+        if not isinstance(item, dict):
+            errors.append({'feedback': item, 'reason': 'feedback record must be an object'})
+            continue
+        if item.get('event') != 'layer_feedback':
+            continue
+        try:
+            for name in ('discoveries', 'new_tuples', 'new_buckets'):
+                if type(item.get(name)) is not int or item[name] < 0:
+                    raise ValueError(f'invalid feedback {name}')
+            if (type(item.get('layer_id')) is not int or item['layer_id'] not in LAYER_IDS.values() or
+                    type(item.get('memory_state_id')) is not int or item['memory_state_id'] < 0):
+                raise ValueError('invalid feedback layer/state')
+            if item.get('exec_id') == 0:
+                if item['discoveries'] or item['new_tuples'] or item['new_buckets']:
+                    raise ValueError('unexecuted candidate received discovery credit')
+                unjoined += 1
+                continue
+            key = identity_key(item)
+            if key in feedback_keys:
+                joined.pop(key, None)
+                raise ValueError('duplicate layer_feedback execution identity')
+            feedback_keys.add(key)
+            if key not in eligible:
+                unjoined += 1
+                continue
+            sidecar = eligible[key][1]
+            if (item.get('layer_id') != LAYER_IDS[sidecar['layer']] or
+                    item.get('memory_state_id') != sidecar['target_state']):
+                raise ValueError('feedback layer/state does not match captured execution')
+            joined[key] = item
+        except (ValueError, TypeError) as error:
+            errors.append({'feedback': item, 'reason': str(error)})
+
+    edits = {layer: [] for layer in LAYER_IDS}
+    nonzero = []
+    for key, (stem, sidecar, packets) in eligible.items():
+        if key not in joined:
+            continue
+        if sidecar['target_state'] > 0:
+            nonzero.append(stem)
+        # Only the initial queue seed has the known one-record baseline. Later
+        # parent seeds require their own immutable baseline before claiming edits.
+        if sidecar['parent_seed_id'] != 0:
+            continue
+        layer = sidecar['layer']
+        if layer == 'HEAD':
+            changed = (len(packets) == 1 and packets[0][4:6] != example[4:6] and
+                       packets[0][6:] == example[6:])
+        elif layer == 'CONTENT':
+            changed = (len(packets) == 1 and packets[0][4:6] == example[4:6] and
+                       packets[0][6:] != example[6:])
+        else:
+            changed = len(packets) != 1
+        if changed:
+            edits[layer].append(stem)
+    missing = [value[0] for key, value in eligible.items() if key not in joined]
+    return {
+        'candidates': [value[0] for value in eligible.values()],
+        'all_capture_stems': all_stems,
+        'errors': errors,
+        'excluded_captures': excluded,
+        'matched_feedback_count': len(joined),
+        'unjoined_feedback_count': unjoined,
+        'samples_without_matching_feedback': missing,
+        'edit_samples': edits,
+        'nonzero_target_samples': nonzero,
+        'coverage_discovery_samples': [eligible[key][0] for key, item in joined.items()
+                                       if item['discoveries'] & 16 and
+                                       item['new_tuples'] + item['new_buckets'] > 0],
+        'memory_discovery_samples': [eligible[key][0] for key, item in joined.items()
+                                     if item['discoveries'] & 2],
+        'scope': ('Exact v3 captured bytes joined to a unique coverage execution and '
+                  'its feedback. Nonzero target samples establish observed directed entry; '
+                  'they do not establish comparative effectiveness or complete build identity.'),
+    }
+
+
 def run(args):
     work = args.output.resolve()
     work.mkdir(parents=True, exist_ok=False)
@@ -213,33 +368,25 @@ def run(args):
     schedule = json.loads((output / 'protocol_schedule.json').read_text())
     feedback = [json.loads(line) for line in (output / 'protocol_mutations.jsonl').read_text().splitlines()]
     traffic = [json.loads(line) for line in trace.read_text().splitlines()]
-    candidates = []
-    head = content = sequence = False
-    for metadata in sorted((output / 'protocol-candidates').glob('*.json')):
-        sidecar = json.loads(metadata.read_text())
-        if not sidecar.get('structured'):
-            continue
-        # P24: Filter by execution purpose; replays and calibrations are not independent candidate mutations
-        purpose = sidecar.get('purpose', 'coverage')
-        if purpose not in ('coverage', 'original'):
-            continue
-        packets = records(metadata.with_suffix('.replay'))
-        candidates.append(metadata.stem)
-        head |= any(packet[4:6] != example[4:6] for packet in packets)
-        content |= any(packet[6:] != example[6:] for packet in packets)
-        sequence |= len(packets) != 1
+    evidence = candidate_evidence(output / 'protocol-candidates', example, feedback)
+    candidates = evidence['candidates']
     baseline = json.loads((output / 'experiment_baseline.json').read_text())
     final = read_stats(output / 'fuzzer_stats')
     checks = {
         'generic_engine': stats.get('engine') == 'generic-wire',
-        'all_three_layers_executed': all(stats[layer] > 0 for layer in ('HEAD', 'CONTENT', 'SEQUENCE')),
-        'saved_candidates_show_all_three_edits': head and content and sequence,
-        'all_received_packets_valid': bool(traffic) and all(item['valid'] for item in traffic),
+        'candidate_metadata_valid': not evidence['errors'],
+        'saved_candidates_show_all_three_edits': all(evidence['edit_samples'].values()),
+        'all_received_packets_valid': bool(traffic) and all(
+            isinstance(item, dict) and item.get('valid') is True for item in traffic),
         'no_raw_mutation': int(final['protocol_raw']) == 0,
-        'coverage_feedback_received': schedule['coverage_events'] > 0 and
-                                      schedule['new_tuples'] + schedule['new_buckets'] > 0,
-        'feedback_attribution_matches': schedule['observations'] == sum(item['event'] == 'layer_feedback' for item in feedback),
-        'memory_feedback_received': not args.state_aware or schedule['memory_events'] > 0,
+        'coverage_feedback_received': bool(evidence['coverage_discovery_samples']),
+        'captured_feedback_identity_valid': bool(candidates) and
+                                            not evidence['samples_without_matching_feedback'],
+        'feedback_attribution_matches': schedule['observations'] == sum(
+            isinstance(item, dict) and item.get('event') == 'layer_feedback' for item in feedback),
+        'memory_feedback_received': not args.state_aware or bool(evidence['memory_discovery_samples']),
+        'natural_nonzero_target_m2_executed': not args.state_aware or
+                                             bool(evidence['nonzero_target_samples']),
         'candidate_identity_boundary_maintained': all(
             json.loads(meta.read_text()).get('execution_identity_verified') is False
             for meta in (output / 'protocol-candidates').glob('*.json')
@@ -267,7 +414,7 @@ def run(args):
                                            set(unverified_files(build_inputs_before))),
         'build_input_changes': changed_files(
             build_inputs_before, {name: binaries_before[name] for name in LOCAL_BINARIES}),
-        'artifacts': artifact_inventory(work, candidates),
+        'artifacts': artifact_inventory(work, evidence['all_capture_stems']),
         'packaging': ('Files marked present_beside_report existed in the output '
                       'directory when this report was assembled. They are not embedded '
                       'in this JSON or automatically copied by it; copying report.json '
@@ -288,17 +435,22 @@ def run(args):
         'responses': 'Frames matching a declared response grammar, including unsolicited responses.',
         'memory_events': ('New memory states observed during coverage-qualified analysis; '
                           'this does not show that nonzero states were selected for mutation.'),
+        'nonzero_target_samples': ('Captured complete structured coverage executions with target_state > 0 '
+                                   'and uniquely matching layer feedback; no injected IDs are used. '
+                                   'These demonstrate directed entry only within the declared provider scope.'),
     }
     metric_definitions.update(response_metric_definitions(stats))
     report = dict(checks=checks, passed=all(checks.values()), state_aware=args.state_aware,
                   seed=args.seed, seconds=args.seconds, received_packets=len(traffic),
-                  structured_samples=len(candidates), baseline=baseline, protocol=stats,
+                  structured_samples=len(candidates), candidate_evidence=evidence, baseline=baseline, protocol=stats,
                   schedule=schedule, build=build, command=command,
                   source_sha256={name: source_after[name].get('sha256') for name in LEGACY_SOURCES},
                   provenance=provenance, metric_definitions=metric_definitions,
                   statistics_schema_version=stats.get('stats_version', 1),
                   feedback_memory_state_ids=sorted({item['memory_state_id'] for item in feedback
-                                                    if item['event'] == 'layer_feedback'}),
+                                                    if isinstance(item, dict) and
+                                                    item.get('event') == 'layer_feedback' and
+                                                    type(item.get('memory_state_id')) is int}),
                   limitation='Loopback fictional protocol integration acceptance; no industrial conformance or comparative coverage claim.')
     (work / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))

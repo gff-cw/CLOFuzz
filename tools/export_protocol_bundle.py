@@ -23,7 +23,7 @@ def build_bundle(destination):
         state=load(directory/'state_transition.yaml')
         with tempfile.TemporaryDirectory(prefix='protocol-export-check-') as temporary:
             result=compile_spec(protocol,state,temporary)
-            for filename in ('protocol_ir.json','state_ir.json','validation.json'):
+            for filename in ('protocol_ir.json','state_ir.json','spec_bundle.json','validation.json'):
                 if (Path(temporary)/filename).read_bytes()!=(directory/filename).read_bytes():
                     raise SpecError(f'{name}: stale {filename}; regenerate before export')
         packages.append(dict(protocol_id=protocol['protocol_id'],name=protocol['name'],
@@ -48,6 +48,7 @@ def build_bundle(destination):
                  'docs/generic-wire-language.md','docs/generic-wire-profile-scope.md',
                  'docs/current-integration-gaps.md','docs/generic-wire-validation-20261027.md',
                  'docs/method-validation-contract.md',
+                 'docs/repair-status-20261102.md','docs/format-capability-matrix.md',
                  'tests/protocol/test_model_completeness.py','tools/proto_spec_compiler.py',
                  'tools/init_protocol_spec.py','tools/run_protocol_campaign.py','tools/requirements-protocol.txt'):
         files[name]=(ROOT/name).read_bytes()

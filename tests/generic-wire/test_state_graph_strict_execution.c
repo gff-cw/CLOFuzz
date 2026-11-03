@@ -135,11 +135,20 @@ int main(void) {
 
   proto_session_begin(e);
 
+  /* Exercise production prepare/cancel, rather than a copied predicate.
+     Cancellation must leave ready committed, so request B remains legal. */
+  assert(proto_prepare_send(e, wire_req_a, sizeof(wire_req_a), err, sizeof(err)) == 0);
+  proto_cancel_send(e);
+  assert(proto_commit_send(e, err, sizeof(err)) < 0);
+  assert(proto_before_send(e, wire_req_b, sizeof(wire_req_b), err, sizeof(err)) == 0);
+  proto_session_begin(e);
+
   /* Step 1: In 'ready' state:
      - msg_req_a is valid: advances to 'awaiting_resp_a'.
   */
   err[0] = '\0';
-  assert(proto_before_send(e, wire_req_a, sizeof(wire_req_a), err, sizeof(err)) == 0);
+  assert(proto_prepare_send(e, wire_req_a, sizeof(wire_req_a), err, sizeof(err)) == 0);
+  assert(proto_commit_send(e, err, sizeof(err)) == 0);
   printf("[+] Successfully executed legal send transition: ready -> awaiting_resp_a\n");
 
   /* Step 2: Now in 'awaiting_resp_a' state:

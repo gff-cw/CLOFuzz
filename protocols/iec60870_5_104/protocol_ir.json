@@ -1,5 +1,7 @@
 {
+  "bundle_digest": "b3fec6bf823bed91a8dc13c789473c16a898fe67ae3c97dbc8434f6ae431a97a",
   "codec": "iec104",
+  "format": "stateafl.protocol-ir",
   "format_version": 1,
   "framing": "protocol length inside replayable records",
   "ir_version": 1,

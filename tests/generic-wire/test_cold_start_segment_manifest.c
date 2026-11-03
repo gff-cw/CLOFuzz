@@ -74,12 +74,21 @@ int main(void) {
   CHECK(strstr(err, "mutation_mode") != NULL || strstr(err, "mutation mode mismatch") != NULL);
   CHECK(m_bad == NULL);
 
-  /* 3c. Verify colon-separated spec context hashing */
+  /* 3c. A colon is a literal filename character, never a path-list delimiter. */
   uint64_t combined_hash = manifest_hash_file(spec_path);
   char dual_spec[1024];
   snprintf(dual_spec, sizeof(dual_spec), "%s:%s", spec_path, alt_spec);
   uint64_t dual_hash = manifest_hash_file(dual_spec);
-  CHECK(dual_hash != 0 && dual_hash != combined_hash);
+  CHECK(combined_hash != 0 && dual_hash == 0); /* This single path does not exist. */
+  char colon_spec[512];
+  snprintf(colon_spec, sizeof(colon_spec), "%s/spec:literal.json", tmp_dir);
+  FILE *colon_file = fopen(colon_spec, "w");
+  CHECK(colon_file != NULL);
+  fputs("{\"literal\":true}", colon_file);
+  CHECK(fclose(colon_file) == 0);
+  uint64_t colon_hash = 0;
+  CHECK(manifest_hash_file_checked(colon_spec, &colon_hash, err, sizeof(err)) == 0);
+  CHECK(colon_hash != 0);
 
   /* 4. Candidate directory collision avoidance */
   char cand_dir[512];
@@ -186,6 +195,7 @@ int main(void) {
 
   /* Cleanup test files */
   unlink(spec_path);
+  unlink(colon_spec);
   unlink(alt_spec);
   unlink(cand0);
   unlink(cand5);

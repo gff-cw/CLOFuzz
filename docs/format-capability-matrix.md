@@ -1,107 +1,37 @@
-# 三种协议描述格式能力矩阵与识别边界
+# 三种描述格式的能力与模板边界
 
-本文档建立 StateAFL 中三种协议描述格式的正式能力对比矩阵、识别边界与字段分类契约（对应治理计划中的 **G01** 项）。
+本项目有三种格式。它们共享部分用途词汇，不共享全部语法或执行语义。下表依据当前 C loader、编译器和模板源码，不表示本轮已运行验证。
 
----
-
-## 1. 架构定位与格式标识
-
-StateAFL 系统内存在三种不同的描述格式，服务于不同的执行路径与验证目标。**严禁将三种格式混淆为同一种语言**。
-
-```mermaid
-flowchart TD
-    subgraph Format1["格式 1: ICP-IR v1 (专用 Codec 路径)"]
-        Y1[protocol_spec.yaml] --> C1[proto_spec_compiler.py]
-        Y2[state_transition.yaml] --> C1
-        C1 --> IR1["protocol_ir.json & state_ir.json<br/>format: stateafl.protocol-ir / state-ir"]
-        IR1 --> R1["protocol_runtime.c + 专用 C Codec<br/>(BACnet, Modbus, IEC104, MMS, CIP, OPC-UA)"]
-    end
-
-    subgraph Format2["格式 2: Passive Native-Layout (被动只读检查)"]
-        NL["native_layout.json<br/>format: stateafl.offline-layout"] --> R2["native inspection harness<br/>(本地只读布局解析，无执行器)"]
-    end
-
-    subgraph Format3["格式 3: Generic-Wire v1 (通用 C 语法引擎)"]
-        GW["generic_wire.json<br/>format: stateafl.generic-wire"] --> R3["generic_runtime.c + generic_wire.c<br/>(独立解释器，无需专用 Codec)"]
-    end
-```
-
-| 格式分类 | 顶层 `format` 声明 | 版本标识 | 主要目标 | 执行入口 |
-| --- | --- | --- | --- | --- |
-| **格式 1: ICP-IR v1** | `stateafl.protocol-ir` / `stateafl.state-ir` | `ir_version: 1` | 驱动具备预编译专用 C Codec 的已有工业协议。统一配置结构，编码能力依赖 Codec。 | `--protocol-spec` + `--state-spec` |
-| **格式 2: Passive Native-Layout** | `stateafl.offline-layout` | `version: 1` | 本地内存快照与离线报文的只读结构断言与字段检查，不启动网络目标。 | 离线测试工具 / 单元测试 |
-| **格式 3: Generic-Wire v1** | `stateafl.generic-wire` | `version: 1` | 纯 C 实现的自包含通用报文解释器、变异器和状态执行器，无需专用 Codec。 | `--generic-spec` |
-
----
-
-## 2. 十个维度的能力对比矩阵
-
-| 评估维度 | 格式 1: ICP-IR v1 (专用 Codec) | 格式 2: Passive Native-Layout | 格式 3: Generic-Wire v1 (通用解释器) |
+| 维度 | 旧 ICP-IR v1 / 专用 codec | 被动 native-layout | generic-wire v1 |
 | --- | --- | --- | --- |
-| **1. 语法形式 (Syntax)** | JSON（由 YAML 离线编译产出）；必须成对提供 protocol_ir 与 state_ir。 | 独立 JSON；描述单个根结构 (`packet` / `struct`)。 | 独立自包含 JSON；同时包含 transport, framing, messages, states, limits。 |
-| **2. 解析能力 (Parsing)** | 依赖协议专用 C Codec（支持 BER/ASN.1, TPKT, CIP 封装, OPC UA 二进制等复杂结构）。 | 支持固定偏移、bits 位域、固定/引用 repeat 容器，用于只读验证。 | 纯通用顺序 struct：uint 标量 (8/16/24/32/64-bit) 及动态/固定 bytes 切片。 |
-| **3. 编码能力 (Encoding)** | 依赖专用 C Codec 重新组装报文，自动修复校验和及长度。 | **无**（被动只读，不支持编码）。 | 纯 C 原生线格式组装；自动派生字段重算与固定字段保护。 |
-| **4. 变异层级 (Mutation)** | 支持 HEAD（报头字段替换）、CONTENT（协议负载变异）、SEQUENCE（状态序列编辑）。 | **无**（只读检查，不支持任何在线变异）。 | 支持 HEAD（语法树叶字段变异）、CONTENT（未约束负载字节变异）、SEQUENCE（序列增删改）。 |
-| **5. 依赖与派生 (Dependencies)** | 支持 copy, bind, length, correlation, sequence 声明式依赖。 | 支持字段间长度与计数的引用声明（只读校验）。 | 支持 `size_of($message)`、字段字节长度、算术偏移 `add`，前向/后向字段派生。 |
-| **6. 状态模型 (State Model)** | 预测状态机迁移图；M1 前缀驱动；**预测状态与目标内存状态严格解耦**。 | **无状态机**（单次报文/快照评估）。 | 确定性状态迁移图；请求/响应触发状态边；预测状态与内存状态严格隔离。 |
-| **7. 传输分帧 (Framing)** | 由各 Codec 内部或 replay 记录处理；TCP 流式合并或 UDP 独立数据报。 | **无传输概念**。 | 显式声明 `framing`：TCP 支持 length_field（offset/width/endian/add），UDP 严格保证 datagram 边界。 |
-| **8. 响应关联 (Correlation)** | 运行时维护 pending 队列，按 transaction/invoke/request ID 动态关联。 | **无关联概念**。 | 显式 `response_matches`：按声明的整数相等条件关联请求与响应。 |
-| **9. 资源限制 (Limits)** | 32 消息、32 字段、16 状态、64 迁移、1 MB 最大单报文。 | 1 MB 文件上限，递归深度上限。 | 32 消息、64 字段、16 状态、64 迁移、1 MB 最大线报文。 |
-| **10. 在线资格 (Online Eligibility)** | 仅限已编译专用 C Codec 的 6 种工业协议；配置错误立即拒绝。 | **严格 Offline-only**；严禁传入 AFL-Fuzz。 | 严格检查 `online: true`；目前仅 Modbus FC03 单寄存器具备在线资格，其余 5 种 profile 显式 `online: false`。 |
+| 格式 | YAML 经 `proto_spec_compiler.py` 生成配对 `stateafl.protocol-ir`、`stateafl.state-ir`，`ir_version:1` | `stateafl.offline-layout`，`version:1` | 自包含 `stateafl.generic-wire`，`version:1` JSON |
+| 入口 | `--protocol-spec` 与 `--state-spec` | 本地只读检查工具 | `--generic-spec` |
+| 解析/编码 | 六种已有 codec 实现的限定服务和叶字段；新增编码仍需 codec | 固定偏移、位域及有界容器的只读断言；不编码 | 顺序平铺 struct，uint 与 bytes；无专用协议名称分派 |
+| 变异 | HEAD/CONTENT/SEQUENCE，依赖实际 codec 叶替换和修复能力 | 无在线变异 | HEAD/CONTENT/SEQUENCE；CONTENT 仅投影声明字段并遵守 grammar 范围，不是任意未约束负载 |
+| 派生/绑定 | 白名单依赖，包括长度、复制、序号、实际响应绑定/关联；依赖 scope/when 为注释 | 长度/计数引用用于检查 | `size_of` 消息或字段字节长度，加 signed add；bytes 长度可引用前置 uint；无一般服务器会话值绑定 |
+| 状态 | 旧 IR 独立模型状态及显式响应边；不等同目标内存状态 | 无在线状态机 | 确定性请求边及可选预期响应；不等同目标内存状态 |
+| 响应关联 | 有界 cache/outstanding，当前按单 pending 使用；不是并发事务数据库 | 无 | 响应消息的 `correlate` 数组，以 `request`、`source`、`field` 表示整数相等规则；单 pending |
+| TCP/UDP | codec 分帧与独立 UDP 回调，磁盘 replay 外封装另计 | 无网络执行 | TCP `length_field` 或 UDP `datagram`；接收数据报截断是观察不完整 |
+| 源码硬上限 | 128 消息模型、每消息64字段、64状态、256迁移、64条 replay 记录、单 wire 65,507字节；序列最大 `MAX_FILE`（1 MiB），声明可更小 | 输入和容器有独立预算，不能套用在线预算 | 128 消息模型、每 grammar 256字段、64状态、256迁移、16关联规则/消息、64条 replay 记录、单 wire 65,507字节；序列最大 `MAX_FILE`（1 MiB），声明可更小 |
+| 资格/范围 | 六份旧 profile 的有界 codec 路径；不表示完整工业协议 | offline-only | 引擎支持原语可表达的自定义描述；随仓六份迁移 profile 仅 Modbus FC03 单寄存器子集为 online，其余五份 offline-only |
 
----
+资源数值分别见 [protocol_runtime.c](../protocol_runtime.c)、[generic_runtime.c](../generic_runtime.c)、[generic_wire.c](../generic_wire.c)，不可将消息模型数、单次序列记录数或字段数混写。通用 grammar 的 uint 宽度为1至8字节；TCP framing 长度字段宽度为1至4字节。资源边界不增加语言表达能力。
 
-## 3. YAML 模板字段分类契约
+## 旧 YAML 字段的实际分类
 
-在现有 YAML 模板（`protocols/templates/protocol_spec.template.yaml` 与 `state_transition.template.yaml`）中，字段根据其在运行时的真实语义被划分为四类。**不允许将“能写入文件”解释为“运行时执行”**。
+- **参与执行或加载校验**：ID、方向、字段 role/mutability、类型/宽度/字节序、locator、min/max、supported dependencies、模型迁移边。`values` 是 HEAD 候选值，不是解析枚举值域；CONTENT 标量使用 AFL 投影，不解释任意策略脚本。
+- **用于一致性或能力断言**：protocol_id、版本、runtime_encode、support.runtime、成对 bundle 声明。共同 digest 表示包配对声明，运行时不据此认证实际执行映像；它不是数字签名。
+- **说明性或静态元数据**：description、path、default、structure_model/structure、状态 meaning/guard/actions、invalid_strategy、依赖 scope/when。这些字段可被编译器保留或检查，不能声称它们全被拒绝，也不能声称运行时执行表达式。guard 不消歧，等价边规范化之后 `(from,message)` 仍须唯一。
+- **runtime=true 不支持的通用结构**：字段 when 拒绝；通用 repeat 拒绝，只有精确匹配 codec 管理的 Modbus FC0F/10 data/count 描述例外。静态描述与在线描述边界不同。未知代码钩子不能作为语言扩展方式。
 
-### A 类：运行时执行字段 (Execution Fields)
-这些字段由编译器转换为 IR，并在 C 运行时实际影响解析、编码、变异或状态迁移：
-* `id`：报文/字段/状态唯一标识。
-* `role`：字段所属层级（`head` 或 `content`），决定变异分层。
-* `mutability`：字段可变性（`fixed` 保护不被破坏，`fuzzable` 允许变异，`runtime_bound` 动态重写）。
-* `type` / `width` / `endian`：整数或字节切片的物理布局。
-* `min` / `max`：整数变异时的合法范围边界。
-* `values`：枚举变异候选值池（**注：不作为解析时的封闭值域过滤**）。
-* `strategies`：变异算子选择（如 `enum`, `boundary`, `bitflip`）。
-* `dependencies`：明确支持的操作（如 `length`, `copy`, `bind`, `correlation`）。
-* `from` / `to` / `message` / `response`：状态迁移边三元组。
+以上分类专指旧 YAML/IR。generic-wire 使用严格 JSON 键白名单，unknown 属性以及 `guard`、`actions`、条件字段、array/choice 等不在当前语法内的结构会被拒绝。离线布局支持 repeat/位域不表示两种在线路径具备相同能力。
 
-### B 类：校验元数据字段 (Validation Metadata)
-这些字段在离线静态检查、审计及 IR 编译器校验阶段使用，运行时引擎不直接执行：
-* `protocol_id`：协议名称标识，用于跨文件一致性与 Bundle 校验。
-* `version` / `ir_version`：描述文件版本号。
-* `scope`：文档化声明的服务支持范围与排除项。
-* `evidence` / `source`：对应官方规范标准章节或公开实现链接。
-* `bundle_digest` / `sha256`：文件完整性签名与双文件一致性散列。
+## 加载和模板隔离
 
-### C 类：说明与注释字段 (Informational / Comments)
-仅供工程师阅读或生成文档，编译器与运行时均完全忽略：
-* `description`：报文、状态或字段的人类可读语义解释。
-* `doc` / `references`：外部文档链接。
-* 状态的 `meaning`：状态的物理业务含义描述。
+旧 `proto_load` 要求 IR 版本正确；若有 format，须与 protocol/state IR 对应，generic-wire/offline-layout 不能代替。`gr_load` 要求正确 format/version 和全部必需键，拒绝 `online:false`。`online:true` 只是描述声明，不能由一个布尔值推导协议实现完整；loader 不会识别任意 profile 的全部缺失标准语义。
 
-### D 类：明确拒绝/未实现字段 (Explicitly Unsupported / Rejected Fields)
-如果用户在描述中尝试使用以下字段，静态检查器必须直接**显式报错并拒绝执行**，禁止静默忽略或伪实现：
-* `guard`：条件表达式消歧（C 运行时每个 `(from, message)` 边必须唯一，不执行 guard 表达式）。
-* `actions`：任意脚本或副作用动作（动态绑定必须通过明确的 `dependencies` 规则完成）。
-* `when`：条件字段判断（C 运行时不支持动态条件布局）。
-* `dynamic_array` / `repeat`（除 Modbus FC0F/10 专用实现外）：未定义上界的变长数组。
-* `ber_indefinite`：ASN.1 不定长编码。
-* `script_hook` / `code_eval`：任何形式的代码嵌入或求值。
+[模板目录](../protocols/templates/README.md)的 YAML 是旧 codec 配置骨架，JSON 是被动布局/观察模板；新 generic-wire 的完整参考输入见[语言文档](generic-wire-language.md)。没有一般 YAML→generic-wire 无损翻译器，六 profile 迁移器有固定消息、状态和关联表。
 
----
+所有在线描述都与 StateAFL 的内存边界提供者分开。共享 ABI v3 的 `trace_message_boundary()` 只供受控单进程、单线程目标在应用消息处理完成后按序调用；没有有效提供者时 region 为 UNKNOWN，不能拿协议模型状态替代。实际 wire 的默认确认策略为精确相等，不静默掩码会话字段。
 
-## 4. 跨格式加载隔离与拒绝规则
-
-为防止用户将错误的配置文件传递给不匹配的运行时引擎，C 加载器执行以下强制校验：
-
-1. **`proto_load` 边界保护**：
-   * 严格要求 IR 文件包含 `ir_version: 1`。
-   * 若 IR 文件声明了 `format` 属性，必须为 `stateafl.protocol-ir` 或 `stateafl.state-ir`。
-   * 若检测到 `format: stateafl.generic-wire` 或 `format: stateafl.offline-layout`，立即输出 `incompatible specification format: ... (expected ICP-IR v1)` 并终止。
-
-2. **`gr_load` 边界保护**：
-   * 严格要求描述文件根对象包含 `format: "stateafl.generic-wire"` 及 `version: 1`。
-   * 若检测到 `format: stateafl.offline-layout`、`stateafl.protocol-ir` 或缺少合法头，立即输出 `incompatible specification format` 错误并终止。
-   * 严格检查 `online: true`；若为 `false`，输出 `description is offline-only` 并拒绝启动在线模糊测试。
+源码修复与尚未执行的验证见[修复清单](repair-status-20261102.md)。

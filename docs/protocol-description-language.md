@@ -1,3 +1,5 @@
+> 当前修复状态：本文描述旧 YAML/codec 路径；generic-wire 和 offline-layout 是不同格式。本轮只做源码修改与静态复核，未运行编译器、构建或测试，见[修复清单](repair-status-20261102.md)。
+
 # ICP-IR v1 协议描述语言
 
 ICP-IR 是本次工程新增的声明式描述及中间表示。它把消息结构和协议语义状态分为两个输入，供 StateAFL 的可选协议变异路径使用。它不是 SPFuzz 原解析器的复刻，也不执行 Boofuzz/Python 脚本。六个参考 profile 均有有界 C runtime codec：BACnet/IP 使用 UDP；Modbus、IEC104、MMS、EtherNet/IP/CIP 和 OPC UA 使用 TCP。支持范围以各 profile 的服务与排除项为准。
@@ -128,7 +130,7 @@ transitions:
 | `tagged_length` | 仅 MMS 的 `ber:presentation` 变长目标、当前 `$message` 源，由 codec 修复 BER 祖先长度 |
 | `conditional_presence` | 仅静态描述及引用检查，runtime 拒绝 |
 
-`multiply` 仅用于 length/count；`unit` 仅用于 length/count/sequence；`add` 仅用于 length/count/offset。其他操作不能借这些属性声明未执行的变换。`scope`、依赖 `when` 是元数据；没有按字符串执行条件或建立独立的 transaction 数据库。实际缓存为每个 engine 一份，键是消息和字段，保存最近的标量及 pending 请求，每次网络执行/连接开始全部清除。变异期间在独立模拟会话中修复并缓存请求，结束后恢复真实网络会话缓存；发包前仅处理会话绑定类依赖。真实响应须先通过帧、服务、字段范围和声明的请求关联检查，才能供后续绑定使用。M1 状态模拟和 example 中的说明值不能替代实际分配的 session/channel/token。
+`multiply` 仅用于 length/count；`unit` 仅用于 length/count/sequence；`add` 仅用于 length/count/offset。其他操作不能借这些属性声明未执行的变换。`scope`、依赖 `when` 是元数据；没有按字符串执行条件或建立独立的 transaction 数据库。实际缓存为每个 engine 一份，键是消息和字段，保存最近的标量及 pending 请求，每次网络执行/连接开始全部清除。当前 live 路径只允许单 pending，禁止下一笔 confirmed/响应请求覆盖未完成请求，不提供一般并发事务作用域。网络发送采用 prepare、完整发送后 commit、错误/部分发送 cancel；prepare 不提交 live 状态。变异期间在独立模拟会话中修复并缓存请求，结束后恢复真实网络会话缓存；发包前仅处理会话绑定类依赖。真实响应须先通过帧、服务、字段范围和声明的请求关联检查，才能供后续绑定使用。M1 状态模拟和 example 中的说明值不能替代实际分配的 session/channel/token。
 
 TCP 响应可以分片或合并到一次读取；runtime 按 codec 的协议长度缓存和拆帧，完整响应才进入关联与缓存。它不提供被 profile 排除的协议级多 chunk/分段服务。
 
@@ -136,7 +138,7 @@ TCP 响应可以分片或合并到一次读取；runtime 按 codec 的协议长�
 
 ## 三级变异与模式
 
-层集合只接受 `head`、`head,content`、`head,content,sequence`。默认 `--protocol-schedule uniform` 从启用层等概率选择一层；`adaptive` 在 havoc/splice 中按原 StateAFL 选中的内存状态，结合直接 bitmap novelty、新队列项、新内存状态和独特故障选择层。确定性阶段在 adaptive 下继续使用原 AFL 候选。两种策略选层后均在当前 M2 请求记录中按 `weight` 选消息。调度权重、探索下限、反馈归属和验证结果见[在线集成记录](online-directed-integration.md)；这是本项目的调度实现，不声称复原论文未公开的公式。
+层集合只接受 `head`、`head,content`、`head,content,sequence`。默认 `--protocol-schedule uniform` 从启用层等概率选择一层；`adaptive` 在 havoc/splice 中按原 StateAFL 选中的内存状态，结合直接 bitmap novelty、新队列项、新内存状态和独特故障选择层。确定性阶段在 adaptive 下继续使用原 AFL 候选。两种策略选层后均直接在当前 M2 有资格操作的请求记录中按 `weight` 选消息，策略标识 `eligible-weighted-v1`；插入模板同样应用消息权重。有资格不保证本次会改变字节或最终序列一定合法。调度权重、探索下限、反馈归属和验证结果见[在线集成记录](online-directed-integration.md)；这是本项目的调度实现，不声称复原论文未公开的公式。
 
 | 层 | 实际行为 |
 | --- | --- |

@@ -10,13 +10,11 @@
 
 完整的三格式十维度能力对比矩阵与边界定义参见 [三种协议描述格式能力矩阵与识别边界](../../docs/format-capability-matrix.md)。
 
-### 模板字段分类契约 (G01)
+### 模板字段与执行语义
 
-模板中的所有字段严格划分为四类，**不允许将“能写入文件”解释为“运行时执行”**：
-1. **A 类：运行时执行字段 (Execution)**：`id`, `role`, `mutability`, `type`, `width`, `endian`, `fixed`, `min`, `max`, `values`, `strategies`, `dependencies`, 状态图边 (`from`, `to`, `message`, `response`)。直接由 C 运行时参与变异、字段重算与状态流转。
-2. **B 类：校验元数据字段 (Validation Metadata)**：`protocol_id`, `version`, `scope`, `evidence`, `source`, `bundle_digest`, `sha256`。供编译器和离线检查脚本审计完整性与一致性。
-3. **C 类：说明与注释字段 (Informational / Comments)**：`description`, `doc`, `references`, `meaning`。仅供文档说明，运行时与编译器均不解析。
-4. **D 类：明确拒绝/未实现字段 (Explicitly Unsupported / Rejected)**：`guard`（运行时边必须唯一，不执行 guard 表达式消歧）、`actions`（任意动作不执行，动态值必须通过依赖规则声明）、`when`（不执行条件字段布局）、`dynamic_array`/未定义上界的 `repeat`、`script_hook` 等。若出现且未由专用 Codec 支持，加载器与编译器直接显式拒绝。
+模板字段不能只按名称判断是否执行。旧 YAML 中 `role/mutability`、locator、字段范围、支持的依赖和迁移边参与加载或执行；`values` 是 HEAD 候选值，不是封闭解析枚举。状态 `guard/actions`、依赖 `scope/when`、`default`、`structure` 等为说明或静态元数据，不运行表达式，也不会统一因出现而拒绝。runtime=true 的字段 `when` 及一般 `repeat` 则拒绝，只有精确匹配 codec 管理的 Modbus FC0F/10 data/count 描述例外。generic-wire 的严格 JSON 键规则与这套 YAML 不同。详细分类和真实容量见[格式矩阵](../../docs/format-capability-matrix.md)。
+
+描述中的协议模型状态不是 StateAFL 内存状态。受控目标如需逐消息内存边界，须按共享 ABI v3 契约在完整应用消息处理后显式调用 `trace_message_boundary()`；当前限定单进程、单线程。模板不会自动推导该边界，没有提供者仍为 UNKNOWN。当前两套在线 runtime 按单 pending 使用，不提供一般并发事务队列。
 
 [native_layout.template.json](native_layout.template.json) 和 [native_observations.template.json](native_observations.template.json) 用于 [C 原生本地检查](../../docs/native-inspection.md)。前者是虚构结构示例，后者需填写实际摘要及作用域；均不启动目标。离线布局支持某种结构，不代表在线引擎具备相应解析、编码或变异能力。
 

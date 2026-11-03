@@ -44,6 +44,13 @@ static inline const char *exec_purpose_to_str(u8 purpose) {
 #define STATE_OBS_PROVIDER_TRACER 1
 #define STATE_OBS_PROVIDER_CODES  2
 
+/* Submitted bytes are owned by an execution, never by the reusable seed. */
+typedef struct {
+  u8 *data;
+  u32 size;
+  u32 planned_size;
+} execution_wire_record_t;
+
 typedef struct {
   u32 exec_id;                  /* Execution identifier */
   u8  exec_purpose;             /* EXEC_PURPOSE_* */
@@ -51,7 +58,11 @@ typedef struct {
   u32 complete_messages;        /* Number of messages fully submitted */
   u32 total_bytes_sent;         /* Total wire bytes actually submitted */
   u32 partial_bytes_tail;       /* Submitted bytes of incomplete final message */
-  u8  is_transmission_complete; /* 1 if all attempted messages were fully sent */
+  u8  is_transmission_complete; /* Entire planned input, not merely attempted records. */
+  u32 planned_messages;
+  u32 wire_count;
+  execution_wire_record_t *wire;
+  u8 has_wire_observation;
 
   /* Network response observation */
   char *response_buf;           /* Copy of network responses */
@@ -69,7 +80,96 @@ typedef struct {
   u32  state_count;             /* Number of states in sequence */
   unsigned int *state_sequence; /* State sequence array */
   u32  unique_state_count;      /* Count of unique states in sequence */
+  /* A provider-supplied, explicit message ordinal -> stored snapshot map. */
+  u32 boundary_count;
+  u32 boundary_state_index[MAX_NUM_STATES];
+  u8 has_verified_boundaries;
 } execution_observation_t;
+
+static inline void free_execution_wire(execution_wire_record_t *wire, u32 count) {
+  if (!wire) return;
+  for (u32 i = 0; i < count; i++) free(wire[i].data);
+  free(wire);
+}
+
+static inline int copy_execution_wire(execution_observation_t *obs,
+                                     const execution_wire_record_t *wire,
+                                     u32 count, u32 planned) {
+  if (!obs || obs->wire || (count && !wire) || count > planned) return -1;
+  obs->planned_messages = planned;
+  if (!count) return 0;
+  obs->wire = calloc(count, sizeof(*obs->wire));
+  if (!obs->wire) return -1;
+  for (u32 i = 0; i < count; i++) {
+    obs->wire[i].size = wire[i].size;
+    obs->wire[i].planned_size = wire[i].planned_size;
+    if (wire[i].size > wire[i].planned_size || (wire[i].size && !wire[i].data)) goto fail;
+    if (wire[i].size) {
+      obs->wire[i].data = malloc(wire[i].size);
+      if (!obs->wire[i].data) goto fail;
+      memcpy(obs->wire[i].data, wire[i].data, wire[i].size);
+    }
+  }
+  obs->wire_count = count;
+  obs->has_wire_observation = 1;
+  return 0;
+fail:
+  free_execution_wire(obs->wire, count);
+  obs->wire = NULL;
+  return -1;
+}
+
+/* Exact submitted-byte identity is the default. No implicit masking of tokens. */
+static inline int execution_wire_equal(const execution_observation_t *a,
+                                      const execution_observation_t *b) {
+  if (!a || !b || !a->has_wire_observation || !b->has_wire_observation ||
+      !a->wire || !b->wire || !a->wire_count ||
+      a->wire_count > a->planned_messages || b->wire_count > b->planned_messages ||
+      a->planned_messages != b->planned_messages || a->wire_count != b->wire_count)
+    return 0;
+  for (u32 i = 0; i < a->wire_count; i++) {
+    if (a->wire[i].size > a->wire[i].planned_size ||
+        b->wire[i].size > b->wire[i].planned_size ||
+        (a->wire[i].size && (!a->wire[i].data || !b->wire[i].data)) ||
+        a->wire[i].size != b->wire[i].size ||
+        a->wire[i].planned_size != b->wire[i].planned_size ||
+        (a->wire[i].size && memcmp(a->wire[i].data, b->wire[i].data, a->wire[i].size)))
+      return 0;
+  }
+  return 1;
+}
+
+/* Zero-submission attempts are diagnostic events, never zero-length messages. */
+static inline u32 execution_submitted_records(const execution_observation_t *obs) {
+  u32 count = 0;
+  if (obs && obs->wire) for (u32 i = 0; i < obs->wire_count; i++)
+    if (obs->wire[i].size) count++;
+  return count;
+}
+
+static inline int write_execution_wire(FILE *stream, const execution_observation_t *obs,
+                                       int replay, size_t *written) {
+  size_t total = 0;
+  if (!stream || !obs || !obs->has_wire_observation || !obs->wire ||
+      !obs->wire_count || obs->wire_count > obs->planned_messages) return -1;
+  for (u32 i = 0; i < obs->wire_count; i++) {
+    u32 n = obs->wire[i].size;
+    if (!n) continue;
+    size_t overhead = replay ? 4 : 0;
+    if (!obs->wire[i].data || n > obs->wire[i].planned_size ||
+        total > SIZE_MAX - overhead || n > SIZE_MAX - overhead - total) return -1;
+    if (replay) {
+      u8 prefix[4];
+      for (unsigned j = 0; j < 4; j++) prefix[j] = (u8)(n >> (8 * j));
+      if (fwrite(prefix, 1, 4, stream) != 4) return -1;
+      total += 4;
+    }
+    if (fwrite(obs->wire[i].data, 1, n, stream) != n) return -1;
+    total += n;
+  }
+  if (written) *written = total;
+  return ferror(stream) ? -1 : 0;
+}
 
 /* Free all memory associated with an execution_observation_t */
 static inline void free_execution_observation(execution_observation_t *obs) {
@@ -86,6 +186,7 @@ static inline void free_execution_observation(execution_observation_t *obs) {
     free(obs->state_sequence);
     obs->state_sequence = NULL;
   }
+  free_execution_wire(obs->wire, obs->wire_count);
   free(obs);
 }
 
@@ -96,6 +197,25 @@ static inline int compare_execution_observations(const execution_observation_t *
                                                  char *reason, size_t reason_sz) {
   if (!orig || !rep) {
     if (reason && reason_sz > 0) snprintf(reason, reason_sz, "NULL observation");
+    return 0;
+  }
+
+  if (!orig->is_transmission_complete || !rep->is_transmission_complete ||
+      !orig->is_response_complete || !rep->is_response_complete) {
+    if (reason && reason_sz) snprintf(reason, reason_sz, "incomplete execution");
+    return 0;
+  }
+  if (!execution_wire_equal(orig, rep)) {
+    if (reason && reason_sz) snprintf(reason, reason_sz, "submitted input identity differs or is unavailable");
+    return 0;
+  }
+  if (orig->boundary_count > MAX_NUM_STATES || rep->boundary_count > MAX_NUM_STATES ||
+      orig->has_verified_boundaries != rep->has_verified_boundaries ||
+      orig->boundary_count != rep->boundary_count ||
+      (orig->has_verified_boundaries &&
+       memcmp(orig->boundary_state_index, rep->boundary_state_index,
+              orig->boundary_count * sizeof(orig->boundary_state_index[0])))) {
+    if (reason && reason_sz) snprintf(reason, reason_sz, "message boundary evidence differs");
     return 0;
   }
 
@@ -166,6 +286,13 @@ static inline int compare_execution_observations(const execution_observation_t *
       rep->status == STATE_TRACER_STATUS_UNAVAILABLE) {
     if (reason && reason_sz > 0)
       snprintf(reason, reason_sz, "state observation unavailable; cannot confirm memory state");
+    return 0;
+  }
+
+  if (orig->provider == STATE_OBS_PROVIDER_NONE || orig->provider != rep->provider ||
+      orig->status != STATE_TRACER_STATUS_COMPLETE || rep->status != STATE_TRACER_STATUS_COMPLETE ||
+      !orig->state_count || !rep->state_count || !orig->state_sequence || !rep->state_sequence) {
+    if (reason && reason_sz) snprintf(reason, reason_sz, "invalid state observation provider, status or sequence");
     return 0;
   }
 

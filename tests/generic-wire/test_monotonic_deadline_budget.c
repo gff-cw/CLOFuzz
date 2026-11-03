@@ -49,6 +49,7 @@ int main(void) {
     res = net_send(pipe_fds[1], tv, test_data, sizeof(test_data));
     /* setsockopt failed with ENOTSOCK; error must NOT be masked */
     assert(net_get_last_io_status() == NET_IO_STATUS_SYSCALL_ERR);
+    assert(res == -1);
     close(pipe_fds[0]);
     close(pipe_fds[1]);
     printf("[+] 1: net_send setsockopt failure properly sets NET_IO_STATUS_SYSCALL_ERR without masking\n");
@@ -112,6 +113,7 @@ int main(void) {
     rc = net_recv_with_cb(pipe_fds[0], tv, 10, &resp_buf, &resp_len, dummy_recv_cb, NULL);
     /* setsockopt failed with ENOTSOCK */
     assert(net_get_last_io_status() == NET_IO_STATUS_SYSCALL_ERR);
+    assert(rc == NET_RECV_ERROR);
     close(pipe_fds[0]);
     close(pipe_fds[1]);
     printf("[+] 3: net_recv_with_cb setsockopt failure properly sets NET_IO_STATUS_SYSCALL_ERR\n");

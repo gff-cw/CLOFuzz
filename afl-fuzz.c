@@ -141,6 +141,7 @@ static u8 protocol_collect_coverage;
 static u32 protocol_new_tuples, protocol_new_buckets;
 static u8 fixed_random_seed, experiment_active;
 static u32 experiment_seed, protocol_candidate_limit, protocol_candidates_saved;
+static u32 protocol_segment_candidates_saved;
 static u8 *protocol_candidate_dir;
 
 /* P24: Candidate and execution context tracking for experiment candidate records */
@@ -149,6 +150,9 @@ static u8  current_exec_purpose = EXEC_PURPOSE_ORIGINAL;
 static u32 current_target_state_id = 0;
 static u32 current_seed_id = 0;
 static int current_feedback_layer = 0;
+/* Frozen before any state analysis, confirmation, or calibration replay. */
+static u32 current_feedback_exec_id;
+static u8 current_feedback_executed;
 /* P26: Cold-start segment and manifest tracking */
 static run_manifest *manifest_ctx = NULL;
 static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
@@ -471,9 +475,12 @@ u32 selected_state_index = 0;
 u32 state_cycles = 0;
 u32 messages_sent = 0;
 u32 complete_messages = 0;
+static u32 planned_messages;
+static execution_wire_record_t *last_execution_wire;
+static u32 last_execution_wire_count;
 u32 total_bytes_sent = 0;
 u32 partial_bytes_tail = 0;
-u8  is_transmission_complete = 1;
+u8  is_transmission_complete = 0;
 u8  is_response_complete = 1;
 u8  response_budget_exceeded = 0;
 EXP_ST u8 session_virgin_bits[MAP_SIZE];     /* Regions yet untouched while the SUT is still running */
@@ -714,7 +721,23 @@ void update_region_annotations(struct queue_entry* q, const execution_observatio
     }
     q->regions[i].state_count = 0;
 
-    /* P02 Boundary Evidence Verification:
+    if (obs->provider == STATE_OBS_PROVIDER_TRACER) {
+      if (!obs->has_verified_boundaries || !obs->has_state_observation ||
+          !obs->state_sequence || obs->is_truncated || !obs->is_transmission_complete ||
+          !obs->is_response_complete || obs->boundary_count > MAX_NUM_STATES ||
+          i >= obs->complete_messages || i >= obs->boundary_count) continue;
+      u32 index = obs->boundary_state_index[i];
+      if (!index || index == STATE_BOUNDARY_UNKNOWN || index >= obs->state_count) continue;
+      u32 count = index + 1;
+      q->regions[i].state_sequence = ck_alloc(count * sizeof(unsigned int));
+      memcpy(q->regions[i].state_sequence, obs->state_sequence, count * sizeof(unsigned int));
+      q->regions[i].state_count = count;
+      continue;
+    }
+
+    if (obs->provider != STATE_OBS_PROVIDER_CODES) continue;
+
+    /* Response-code providers retain their response-prefix boundary contract.
        1. Region message must have been actually transmitted: i < obs->messages_sent
        2. Response boundary data must be recorded for this message index:
           obs->response_bytes != NULL and i < obs->response_bytes_count
@@ -733,20 +756,7 @@ void update_region_annotations(struct queue_entry* q, const execution_observatio
       if (obs->response_bytes[i] <= obs->response_bytes[i - 1]) continue;
     }
 
-    if (obs->provider == STATE_OBS_PROVIDER_TRACER) {
-      /* B01: In StateAFL tracer mode, state-tracer.h currently provides no per-message
-         boundary markers or attribution metadata; target socket buffering and TCP packet
-         merging/splitting mean snapshot index cannot be assumed to equal message index i+1.
-         Unless an observation provider explicitly provides per-message boundary attribution
-         metadata, do NOT assume seq[i+1]. Leave regional intermediate states as UNKNOWN
-         (state_sequence = NULL, state_count = 0) to prevent misattribution of non-zero states.
-         The full candidate sequence (orig_obs->state_sequence) is kept intact for the
-         overall test case path and IPSM state machine reachability. */
-      q->regions[i].state_sequence = NULL;
-      q->regions[i].state_count = 0;
-      continue;
-
-    } else {
+    {
       /* In AFLNet ASCII response code mode, extract codes up to response_bytes[i] */
       unsigned int parsed_count = 0;
       unsigned int *state_sequence = NULL;
@@ -1014,6 +1024,11 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
   return result;
 }
 
+static u8 submitted_execution_complete(void) {
+  return complete_messages && is_transmission_complete && is_response_complete &&
+         !response_budget_exceeded;
+}
+
 /* Capture an execution observation snapshot from current state and response buffers.
    P05: Isolates observations to prevent confirmation replays from mutating original results. */
 static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
@@ -1029,6 +1044,11 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
   obs->is_transmission_complete = is_transmission_complete;
   obs->is_response_complete = is_response_complete;
   obs->response_budget_exceeded = response_budget_exceeded;
+  if (copy_execution_wire(obs, last_execution_wire, last_execution_wire_count,
+                          planned_messages) < 0) {
+    free_execution_observation(obs);
+    return NULL;
+  }
 
   /* Network response buffer snapshot */
   if (response_buf && response_buf_size > 0) {
@@ -1036,7 +1056,7 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
     if (obs->response_buf) {
       memcpy(obs->response_buf, response_buf, response_buf_size);
       obs->response_buf_size = response_buf_size;
-    }
+    } else { free_execution_observation(obs); return NULL; }
   }
 
   /* Network response bytes per message snapshot */
@@ -1045,7 +1065,7 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
     if (obs->response_bytes) {
       memcpy(obs->response_bytes, response_bytes, messages_sent * sizeof(u32));
       obs->response_bytes_count = messages_sent;
-    }
+    } else { free_execution_observation(obs); return NULL; }
   }
 
   /* State observation provider */
@@ -1054,24 +1074,53 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
                       : STATE_OBS_PROVIDER_CODES;
 
   if (state_shared_ptr && state_shared_ptr->exec_id == state_exec_id) {
-    obs->status = state_shared_ptr->status;
+    obs->status = __atomic_load_n(&state_shared_ptr->status, __ATOMIC_ACQUIRE);
   } else {
     obs->status = STATE_TRACER_STATUS_UNAVAILABLE;
   }
 
-  if (response_buf && response_buf_size > 0 && extract_response_codes) {
+  if (extract_response_codes &&
+      (obs->provider == STATE_OBS_PROVIDER_TRACER || (response_buf && response_buf_size > 0))) {
     unsigned int state_count = 0;
     unsigned int *state_seq = (*extract_response_codes)((unsigned char *)response_buf,
                                                         response_buf_size,
                                                         &state_count);
     obs->state_count = state_count;
-    obs->state_sequence = state_seq;
+    if (state_count && state_seq) {
+      obs->state_sequence = malloc((size_t)state_count * sizeof(*state_seq));
+      if (!obs->state_sequence) {
+        ck_free(state_seq);
+        free_execution_observation(obs);
+        return NULL;
+      }
+      memcpy(obs->state_sequence, state_seq, (size_t)state_count * sizeof(*state_seq));
+    }
+    ck_free(state_seq);
     obs->is_truncated = state_tracer_truncated;
-    obs->has_state_observation = (state_count > 0 && state_seq != NULL);
+    obs->has_state_observation = (state_count > 0 && obs->state_sequence != NULL);
     obs->status = obs->is_truncated ? STATE_TRACER_STATUS_TRUNCATED
                                     : (obs->has_state_observation ? STATE_TRACER_STATUS_COMPLETE : obs->status);
     if (obs->has_state_observation) {
-      obs->unique_state_count = get_unique_state_count(state_seq, state_count);
+      obs->unique_state_count = get_unique_state_count(obs->state_sequence, state_count);
+      if (obs->provider == STATE_OBS_PROVIDER_TRACER &&
+          state_shared_ptr->boundary_status == STATE_BOUNDARIES_EXPLICIT &&
+          state_shared_ptr->boundary_count > 0 &&
+          state_shared_ptr->boundary_count <= obs->complete_messages &&
+          state_shared_ptr->boundary_count <= MAX_NUM_STATES) {
+        obs->boundary_count = state_shared_ptr->boundary_count;
+        u32 previous_index = 0;
+        obs->has_verified_boundaries = 1;
+        for (u32 b = 0; b < obs->boundary_count; b++) {
+          obs->boundary_state_index[b] = state_shared_ptr->boundary_state_index[b];
+          u32 index = obs->boundary_state_index[b];
+          if (index == STATE_BOUNDARY_UNKNOWN) continue;
+          if (index <= previous_index || index >= obs->state_count) {
+            obs->has_verified_boundaries = 0;
+            break;
+          }
+          previous_index = index;
+        }
+      }
     }
   }
 
@@ -1084,8 +1133,8 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
   }
 
   if (!obs->has_state_observation) {
-    /* P27: When no response buffer is received, backend tracer has no response-triggered dumps.
-       Must report UNAVAILABLE, not fabricated state 0 or idle */
+    /* No accepted provider publication means UNAVAILABLE. Explicit cooperative
+       markers may provide snapshots even for a target that sends no response. */
     obs->has_state_observation = 0;
     obs->state_count = 0;
     obs->state_sequence = NULL;
@@ -1093,6 +1142,20 @@ static execution_observation_t* capture_execution_observation(u8 exec_purpose) {
   }
 
   return obs;
+}
+
+static u32 save_observation_input(const execution_observation_t *obs, const char *path,
+                                  int replay) {
+  FILE *file = fopen(path, "wb");
+  if (!file) PFATAL("Unable to create execution input '%s'", path);
+  size_t written = 0;
+  int result = write_execution_wire(file, obs, replay, &written);
+  if (fclose(file) != 0) result = -1;
+  if (result < 0 || written > MAX_FILE) {
+    unlink(path);
+    FATAL("Cannot serialize bounded submitted input '%s'", path);
+  }
+  return (u32)written;
 }
 
 /* P22: Register reachability between state and seed without duplicates (idempotent) */
@@ -1118,11 +1181,11 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
   int discard, i;
   state_info_t *state;
 
-  if (!response_buf_size || !response_bytes) return;
+  if (extract_response_codes != extract_response_state_tracer &&
+      (!response_buf_size || !response_bytes)) return;
 
   /* P05: Capture original execution observation immutably before any confirmation replays */
-  execution_observation_t *orig_obs = capture_execution_observation(
-      dry_run ? EXEC_PURPOSE_CALIBRATION : EXEC_PURPOSE_ORIGINAL);
+  execution_observation_t *orig_obs = capture_execution_observation(current_exec_purpose);
 
   if (!orig_obs || !orig_obs->has_state_observation) {
     if (orig_obs) free_execution_observation(orig_obs);
@@ -1182,7 +1245,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
       current_exec_purpose = prev_purpose;
       proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
-      if (!response_buf_size || !response_bytes) {
+      if (extract_response_codes != extract_response_state_tracer &&
+          (!response_buf_size || !response_bytes)) {
         continue;
       }
 
@@ -1225,36 +1289,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
       return;
     }
 
-    /* Clean up mutable response buffers from repetition runs */
-    if (response_buf) {
-      ck_free(response_buf);
-      response_buf = NULL;
-      response_buf_size = 0;
-    }
-
-    if (response_bytes) {
-      ck_free(response_bytes);
-      response_bytes = NULL;
-    }
-
-    /* Restore global response and transmission state from immutable original observation */
-    if (orig_obs->response_buf && orig_obs->response_buf_size > 0) {
-      response_buf = (char *)ck_alloc(orig_obs->response_buf_size);
-      memcpy(response_buf, orig_obs->response_buf, orig_obs->response_buf_size);
-      response_buf_size = orig_obs->response_buf_size;
-    }
-    if (orig_obs->response_bytes && orig_obs->response_bytes_count > 0) {
-      response_bytes = (u32 *)ck_alloc(orig_obs->response_bytes_count * sizeof(u32));
-      memcpy(response_bytes, orig_obs->response_bytes, orig_obs->response_bytes_count * sizeof(u32));
-    }
-    messages_sent = orig_obs->messages_sent;
-    complete_messages = orig_obs->complete_messages;
-    total_bytes_sent = orig_obs->total_bytes_sent;
-    partial_bytes_tail = orig_obs->partial_bytes_tail;
-    is_transmission_complete = orig_obs->is_transmission_complete;
-    is_response_complete = orig_obs->is_response_complete;
-    response_budget_exceeded = orig_obs->response_budget_exceeded;
-    state_tracer_truncated = orig_obs->is_truncated;
+    /* Consumers below use orig_obs. Do not splice its counters into the global
+       buffers belonging to the last replay, on either success or failure. */
   }
 
   /* P06/B04: Unified acceptance predicate */
@@ -1291,7 +1327,7 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     //Save the current kl_messages to a file which can be used to replay the newly discovered paths on the ipsm
     u8 *temp_str = state_sequence_to_string(orig_obs->state_sequence, orig_obs->state_count);
     u8 *fname = alloc_printf("%s/replayable-new-ipsm-paths/id:%s:%s", out_dir, temp_str, dry_run ? basename(q->fname) : "new");
-    save_kl_messages_to_file(kl_messages, fname, 1, orig_obs->complete_messages);
+    save_observation_input(orig_obs, (char *)fname, 1);
 
 
 #ifdef GRAPHVIZ_EDGE_LABELS
@@ -1807,7 +1843,7 @@ int wait_for_state_sequence(u32 timeout_ms) {
 
   while (get_cur_time() - start_time < timeout_ms) {
     if (state_shared_ptr->exec_id == state_exec_id) {
-      uint32_t st = state_shared_ptr->status;
+      uint32_t st = __atomic_load_n(&state_shared_ptr->status, __ATOMIC_ACQUIRE);
       if (st == STATE_TRACER_STATUS_COMPLETE ||
           st == STATE_TRACER_STATUS_TRUNCATED ||
           st == STATE_TRACER_STATUS_FAILED ||
@@ -1827,8 +1863,11 @@ static void on_network_response_received(const uint8_t *buf, size_t len, int is_
   (void)user;
   if (!protocol_engine || !buf || !len) return;
   if (is_dgram) {
-    if (truncated && protocol_log)
-      fprintf(protocol_log, "{\"event\":\"dgram_truncated\",\"len\":%zu}\n", len);
+    if (truncated) {
+      is_response_complete = 0;
+      if (protocol_log) fprintf(protocol_log, "{\"event\":\"dgram_truncated\",\"len\":%zu}\n", len);
+      return;
+    }
     proto_after_dgram(protocol_engine, buf, len);
   } else {
     proto_after_stream(protocol_engine, buf, len);
@@ -1856,21 +1895,22 @@ static int receive_network_responses(int sockfd, struct timeval timeout,
   return rc;
 }
 
-typedef struct {
-  u8 *data;
-  u32 size;
-} executed_message_t;
+typedef execution_wire_record_t executed_message_t;
 
 static void save_executed_messages_to_file(executed_message_t *msgs, u32 count, const char *fname) {
   if (!msgs || !count || !fname) return;
   u32 len = 0;
   for (u32 i = 0; i < count; i++) {
+    if (!msgs[i].size) continue;
+    if (msgs[i].size > MAX_FILE - len || 4 > MAX_FILE - len - msgs[i].size)
+      FATAL("Submitted replay exceeds MAX_FILE");
     len += 4 + msgs[i].size;
   }
   u8 *mem = (u8 *) ck_alloc(len);
   u32 offset = 0;
   for (u32 i = 0; i < count; i++) {
     u32 sz = msgs[i].size;
+    if (!sz) continue;
     for (unsigned j = 0; j < 4; j++) mem[offset + j] = (u8)(sz >> (8 * j));
     offset += 4;
     if (sz && msgs[i].data) {
@@ -1901,6 +1941,36 @@ static u8 protocol_message_in_current_m2(kliter_t(lms) *message) {
   return 0;
 }
 
+/* Reset the publication before releasing a target child. Startup output must
+   never capture an earlier epoch that the network sender later replaces. */
+static void reset_state_execution(void) {
+  if (state_exec_id == UINT32_MAX) FATAL("Execution identity exhausted");
+  state_exec_id++;
+  if (state_shared_ptr) {
+    state_shared_ptr->magic = STATE_SHARED_MAGIC;
+    state_shared_ptr->version = STATE_SHARED_VERSION;
+    state_shared_ptr->capacity = MAX_NUM_STATES;
+    state_shared_ptr->exec_id = state_exec_id;
+    state_shared_ptr->truncated = 0;
+    state_shared_ptr->total_states = 0;
+    state_shared_ptr->seq_len = 0;
+    state_shared_ptr->seq[0] = 0;
+    state_shared_ptr->iterations = 0;
+    state_shared_ptr->producer_exec_id = 0;
+    state_shared_ptr->producer_pid = 0;
+    state_shared_ptr->producer_conflict = 0;
+    state_shared_ptr->boundary_count = 0;
+    state_shared_ptr->boundary_status = STATE_BOUNDARIES_NONE;
+    for (u32 b = 0; b < MAX_NUM_STATES; b++) {
+      state_shared_ptr->boundary_state_index[b] = STATE_BOUNDARY_UNKNOWN;
+      state_shared_ptr->state_iteration[b] = STATE_BOUNDARY_UNKNOWN;
+    }
+    __atomic_store_n(&state_shared_ptr->status,
+        (target_path_afl && current_fsrv != stateafl_fsrv)
+            ? STATE_TRACER_STATUS_UNAVAILABLE : STATE_TRACER_STATUS_IDLE, __ATOMIC_RELEASE);
+  }
+}
+
 /* Send (mutated) messages in order to the server under test */
 int send_over_network()
 {
@@ -1913,12 +1983,16 @@ int send_over_network()
   u32 exec_msgs_cap = 0;
   u32 logical_digest = 0;
   u32 executed_digest = 0;
+  free_execution_wire(last_execution_wire, last_execution_wire_count);
+  last_execution_wire = NULL;
+  last_execution_wire_count = 0;
+  planned_messages = kl_messages ? (u32)kl_messages->size : 0;
   protocol_structured_sent = 0;
   messages_sent = 0;
   complete_messages = 0;
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
-  is_transmission_complete = 1;
+  is_transmission_complete = 0;
   is_response_complete = 1;
   response_budget_exceeded = 0;
 
@@ -1940,24 +2014,6 @@ int send_over_network()
     ck_free(response_bytes);
     response_bytes = NULL;
   }
-
-
-  // Wait for termination - reset indicator and state shared tracking
-  if (state_shared_ptr) {
-    state_shared_ptr->magic = STATE_SHARED_MAGIC;
-    state_shared_ptr->version = STATE_SHARED_VERSION;
-    state_shared_ptr->capacity = MAX_NUM_STATES;
-    state_shared_ptr->exec_id = ++state_exec_id;
-    state_shared_ptr->status = (target_path_afl && current_fsrv != stateafl_fsrv)
-                                   ? STATE_TRACER_STATUS_UNAVAILABLE
-                                   : STATE_TRACER_STATUS_IDLE;
-    state_shared_ptr->truncated = 0;
-    state_shared_ptr->total_states = 0;
-    state_shared_ptr->seq_len = 0;
-    state_shared_ptr->seq[0] = 0;
-    state_shared_ptr->iterations = 0;
-  }
-
 
 
   // Add more wait time for executions under state analysis
@@ -2025,7 +2081,7 @@ int send_over_network()
   complete_messages = 0;
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
-  is_transmission_complete = 1;
+  is_transmission_complete = 0;
   is_response_complete = 1;
   response_budget_exceeded = 0;
   if (receive_network_responses(sockfd, timeout, poll_wait_msecs_total)) goto HANDLE_RESPONSES;
@@ -2035,7 +2091,7 @@ int send_over_network()
   complete_messages = 0;
   total_bytes_sent = 0;
   partial_bytes_tail = 0;
-  is_transmission_complete = 1;
+  is_transmission_complete = 0;
   is_response_complete = 1;
   response_budget_exceeded = 0;
 
@@ -2046,34 +2102,48 @@ int send_over_network()
 
     logical_digest = hash32(kl_val(it)->mdata, kl_val(it)->msize, logical_digest);
 
-    u8 *send_buf = (u8 *) ck_alloc(kl_val(it)->msize);
+    u8 *send_buf = malloc(kl_val(it)->msize);
+    if (!send_buf) FATAL("Out of memory preparing execution wire");
     memcpy(send_buf, kl_val(it)->mdata, kl_val(it)->msize);
+    u8 send_prepared = 0;
 
     if (protocol_engine && protocol_structured_run) {
       char error[256];
-      if (proto_before_send(protocol_engine, send_buf,
+      if (proto_prepare_send(protocol_engine, send_buf,
                             kl_val(it)->msize, error, sizeof(error)) < 0) {
-        /* P11: Cover structured session contract over M1/M3 as well.
-           In PROTO_VALID or PROTO_HYBRID, structured runs must reject candidate if before_send fails. */
-        if ((protocol_structured_run || kl_val(it)->protocol_structured) &&
-            (protocol_mode == PROTO_VALID || protocol_mode == PROTO_HYBRID)) {
+        /* Only the proven current M2 violation may bypass preparation. A
+           near/invalid mode is not permission to bypass M1/M3/session errors. */
+        u8 intentional = (protocol_mode == PROTO_NEAR_VALID || protocol_mode == PROTO_INVALID) &&
+            protocol_message_in_current_m2(it) &&
+            proto_is_intentional_violation(protocol_engine, send_buf, kl_val(it)->msize);
+        if (!intentional) {
           protocol_rejections++;
-          if (protocol_log)
-            fprintf(protocol_log,"{\"event\":\"session_rejected\",\"reason\":\"%s\"}\n",error);
-          ck_free(send_buf);
+          if (protocol_log) {
+            fputs("{\"event\":\"session_rejected\",\"reason\":", protocol_log);
+            manifest_write_escaped_json_string(protocol_log, error);
+            fputs("}\n", protocol_log);
+          }
+          free(send_buf);
           is_transmission_complete = 0;
           goto HANDLE_RESPONSES;
         }
-      }
+      } else send_prepared = 1;
     }
     n = net_send(sockfd, timeout, send_buf, kl_val(it)->msize);
+    if (n > (int)kl_val(it)->msize) {
+      n = -1;
+      is_response_complete = 0;
+    }
 
     if (messages_sent >= exec_msgs_cap) {
       exec_msgs_cap = exec_msgs_cap ? exec_msgs_cap * 2 : 16;
-      exec_msgs = (executed_message_t *) ck_realloc(exec_msgs, exec_msgs_cap * sizeof(executed_message_t));
+      executed_message_t *grown = realloc(exec_msgs, (size_t)exec_msgs_cap * sizeof(*exec_msgs));
+      if (!grown) FATAL("Out of memory retaining execution wire");
+      exec_msgs = grown;
     }
     exec_msgs[messages_sent].data = send_buf;
     exec_msgs[messages_sent].size = (n > 0) ? (u32)n : 0;
+    exec_msgs[messages_sent].planned_size = kl_val(it)->msize;
     if (n > 0) {
       executed_digest = hash32(send_buf, n, executed_digest);
     }
@@ -2084,6 +2154,7 @@ int send_over_network()
 
     //Jump out if something wrong leading to incomplete message sent
     if (n != kl_val(it)->msize) {
+      if (send_prepared) proto_cancel_send(protocol_engine);
       if (n > 0) {
         total_bytes_sent += n;
         partial_bytes_tail = n;
@@ -2093,6 +2164,15 @@ int send_over_network()
     }
     complete_messages++;
     total_bytes_sent += n;
+    if (send_prepared) {
+      char commit_error[256];
+      if (proto_commit_send(protocol_engine, commit_error, sizeof(commit_error)) < 0) {
+        proto_cancel_send(protocol_engine);
+        is_response_complete = 0;
+        if (protocol_log) fprintf(protocol_log, "{\"event\":\"send_commit_failed\"}\n");
+        goto HANDLE_RESPONSES;
+      }
+    }
     if (kl_val(it)->protocol_structured && protocol_message_in_current_m2(it))
       protocol_structured_sent++;
 
@@ -2113,6 +2193,9 @@ int send_over_network()
   }
 
 HANDLE_RESPONSES:
+
+  is_transmission_complete = planned_messages > 0 &&
+      complete_messages == planned_messages && partial_bytes_tail == 0;
 
   if (!response_budget_exceeded) {
     receive_network_responses(sockfd, timeout, poll_wait_msecs_total);
@@ -2139,8 +2222,8 @@ HANDLE_RESPONSES:
 
   /* Explicit, bounded experiment tracing: save the exact complete datagrams
      after session bindings, including raw controls, only after calibration. */
-  if (experiment_active && protocol_candidate_dir && complete_messages &&
-      protocol_candidates_saved < protocol_candidate_limit) {
+  if (experiment_active && protocol_candidate_dir && total_bytes_sent &&
+      protocol_segment_candidates_saved < protocol_candidate_limit) {
     u8 *sample = alloc_printf("%s/%06u.replay", protocol_candidate_dir, protocol_candidates_saved);
     save_executed_messages_to_file(exec_msgs, messages_sent, (char *)sample);
     ck_free(sample);
@@ -2160,10 +2243,10 @@ HANDLE_RESPONSES:
     const char *cand_run_id = (manifest_ctx && manifest_ctx->run_id[0]) ? manifest_ctx->run_id : "run-0";
     u32 cand_segment_id = manifest_ctx ? manifest_ctx->current_segment_id : 0;
 
+    fputs("{\"format_version\":3,\"run_id\":", record);
+    manifest_write_escaped_json_string(record, cand_run_id);
     fprintf(record,
-            "{\"format_version\":2,"
-            "\"run_id\":\"%s\","
-            "\"segment_id\":%u,"
+            ",\"segment_id\":%u,"
             "\"candidate_id\":%u,"
             "\"exec_id\":%u,"
             "\"execution_counter\":%llu,"
@@ -2176,6 +2259,8 @@ HANDLE_RESPONSES:
             "\"stage\":\"%s\","
             "\"sent_messages\":%u,"
             "\"attempted_messages\":%u,"
+            "\"planned_messages\":%u,"
+            "\"submitted_records\":%u,"
             "\"total_bytes_sent\":%u,"
             "\"partial_bytes_tail\":%u,"
             "\"is_transmission_complete\":%s,"
@@ -2184,7 +2269,6 @@ HANDLE_RESPONSES:
             "\"logical_digest\":\"0x%08x\","
             "\"executed_digest\":\"0x%08x\","
             "\"execution_identity_verified\":false}\n",
-            cand_run_id,
             cand_segment_id,
             current_candidate_id,
             state_exec_id,
@@ -2198,6 +2282,8 @@ HANDLE_RESPONSES:
             stage_name ? (char *)stage_name : "none",
             complete_messages,
             messages_sent,
+            planned_messages,
+            complete_messages + (partial_bytes_tail > 0 ? 1 : 0),
             total_bytes_sent,
             partial_bytes_tail,
             is_transmission_complete ? "true" : "false",
@@ -2209,17 +2295,14 @@ HANDLE_RESPONSES:
     if (fclose(record)) PFATAL("Cannot close experiment candidate metadata");
     ck_free(metadata);
     protocol_candidates_saved++;
+    protocol_segment_candidates_saved++;
     if (manifest_ctx && manifest_ctx->num_segments > 0)
       manifest_ctx->segments[manifest_ctx->num_segments - 1].candidates_saved++;
   }
 
-  if (exec_msgs) {
-    for (u32 i = 0; i < messages_sent; i++) {
-      if (exec_msgs[i].data) ck_free(exec_msgs[i].data);
-    }
-    ck_free(exec_msgs);
-    exec_msgs = NULL;
-  }
+  last_execution_wire = exec_msgs;
+  last_execution_wire_count = messages_sent;
+  exec_msgs = NULL;
 
   if (likely_buggy && false_negative_reduction) return 0;
 
@@ -3461,11 +3544,11 @@ void init_ipsm(char** argv) {
     current_exec_purpose = EXEC_PURPOSE_CALIBRATION;
     proto_set_execution_purpose(protocol_engine, current_exec_purpose);
     run_target(argv, exec_tmout * 2, stateafl_fsrv);
-    current_exec_purpose = prev_purpose;
-    proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
     /* Update state-aware variables (e.g., state machine, regions and their annotations */
     if (state_aware_mode) update_state_aware_variables(q, 1, argv);
+    current_exec_purpose = prev_purpose;
+    proto_set_execution_purpose(protocol_engine, current_exec_purpose);
 
     /* AFLNet delete the kl_messages */
     delete_kl_messages(kl_messages);
@@ -3596,6 +3679,14 @@ unsigned int* extract_response_state_tracer(unsigned char* buf, unsigned int buf
     return NULL;
   }
 
+  /* Acquire the producer's terminal publication before reading its payload. */
+  uint32_t status = __atomic_load_n(&state_shared_ptr->status, __ATOMIC_ACQUIRE);
+  if (status != STATE_TRACER_STATUS_COMPLETE && status != STATE_TRACER_STATUS_TRUNCATED) {
+    *state_count_ref = 0;
+    state_tracer_truncated = 0;
+    return NULL;
+  }
+
   /* Independent check of magic and version */
   if (state_shared_ptr->magic != STATE_SHARED_MAGIC ||
       state_shared_ptr->version != STATE_SHARED_VERSION) {
@@ -3607,7 +3698,9 @@ unsigned int* extract_response_state_tracer(unsigned char* buf, unsigned int buf
   }
 
   /* P04: Verify execution identity to prevent stale execution data */
-  if (state_shared_ptr->exec_id != state_exec_id) {
+  if (state_shared_ptr->exec_id != state_exec_id ||
+      state_shared_ptr->producer_exec_id != state_exec_id ||
+      !state_shared_ptr->producer_pid || state_shared_ptr->producer_conflict) {
     WARNF("state_shared exec_id mismatch (%u != %u); rejecting stale execution data",
           state_shared_ptr->exec_id, state_exec_id);
     *state_count_ref = 0;
@@ -3615,28 +3708,23 @@ unsigned int* extract_response_state_tracer(unsigned char* buf, unsigned int buf
     return NULL;
   }
 
-  /* P04: Verify publication terminal status */
-  uint32_t status = state_shared_ptr->status;
-  if (status != STATE_TRACER_STATUS_COMPLETE && status != STATE_TRACER_STATUS_TRUNCATED) {
-    WARNF("state_shared status %u is not terminal/complete; rejecting incomplete execution",
-          status);
+  u32 cap = state_shared_ptr->capacity;
+  if (cap != MAX_NUM_STATES) {
     *state_count_ref = 0;
-    state_tracer_truncated = 0;
+    state_tracer_truncated = 1;
     return NULL;
   }
 
-  u32 cap = state_shared_ptr->capacity;
-  if (cap == 0 || cap > MAX_NUM_STATES) cap = MAX_NUM_STATES;
-
   u32 count = state_shared_ptr->seq_len;
+  u8 clamped = count > cap;
   if (count > cap) {
     WARNF("state_shared seq_len %u exceeds capacity %u; clamping to capacity", count, cap);
     count = cap;
   }
 
   /* Truncation flag: check explicit truncated field as well as total_states > cap */
-  if (state_shared_ptr->truncated || state_shared_ptr->total_states > cap ||
-      state_shared_ptr->status == STATE_TRACER_STATUS_TRUNCATED) {
+  if (clamped || state_shared_ptr->truncated || state_shared_ptr->total_states > cap ||
+      status == STATE_TRACER_STATUS_TRUNCATED) {
     state_tracer_truncated = 1;
   } else {
     state_tracer_truncated = 0;
@@ -4668,6 +4756,7 @@ static u8 run_target(char** argv, u32 timeout, struct forkserver *fsrv) {
   child_timed_out = 0;
 
   current_fsrv = fsrv;  /* for handling signals and timeouts */
+  reset_state_execution();
 
   /* After this memset, trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
@@ -4979,7 +5068,9 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
 
     if (q->exec_cksum != cksum) {
 
-      u8 hnb = has_new_bits(virgin_bits);
+      u8 hnb = 0;
+      if (!use_net || submitted_execution_complete())
+        hnb = has_new_bits(virgin_bits);
       if (hnb > new_bits) new_bits = hnb;
 
       if (q->exec_cksum) {
@@ -5635,13 +5726,26 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
   if (fault == crash_mode) {
 
-    /* Keep only if there are new bits in the map, add to queue for
-       future fuzzing, etc. */
+    /* Admission precedes the destructive virgin-map operation. Incomplete
+       executions may be diagnosed, but cannot consume retained-input novelty. */
+    if (!submitted_execution_complete()) {
+      protocol_collect_coverage = 0;
+      return keeping;
+    }
+    execution_observation_t *coverage_obs = capture_execution_observation(current_exec_purpose);
+    if (!coverage_obs || !coverage_obs->has_wire_observation ||
+        coverage_obs->wire_count != coverage_obs->planned_messages) {
+      free_execution_observation(coverage_obs);
+      protocol_collect_coverage = 0;
+      return keeping;
+    }
+    u32 coverage_cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
 
     hnb = has_new_bits(virgin_bits);
     protocol_collect_coverage = 0;
     if (!hnb) {
       if (crash_mode) total_crashes++;
+      free_execution_observation(coverage_obs);
       return 0;
     }
 
@@ -5656,13 +5760,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
 
 #endif /* ^!SIMPLE_FILES */
 
-    if (complete_messages == 0 || !is_transmission_complete) {
-      /* P19/B08: Incomplete messages or partial send; reject truncated prefix from queue */
-      ck_free(fn);
-      return keeping;
-    }
-
-    u32 full_len = save_kl_messages_to_file(kl_messages, fn, 0, complete_messages);
+    u32 full_len = save_observation_input(coverage_obs, (char *)fn, 0);
 
     /* We use the actual length of all messages (full_len), not the len of the mutated message subsequence (len)*/
     add_to_queue(fn, full_len, 0);
@@ -5674,14 +5772,19 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       proto_set_execution_purpose(protocol_engine, current_exec_purpose);
       run_target(argv, exec_tmout * 2, stateafl_fsrv);
       update_fuzzs();
+      execution_observation_t *state_obs = capture_execution_observation(current_exec_purpose);
+      if (state_obs && execution_wire_equal(coverage_obs, state_obs))
+        update_state_aware_variables(queue_top, 0, argv);
+      else if (protocol_log)
+        fprintf(protocol_log, "{\"event\":\"state_observation_rejected\",\"reason\":\"submitted_input_differs\"}\n");
+      free_execution_observation(state_obs);
       current_exec_purpose = prev_purpose;
       proto_set_execution_purpose(protocol_engine, current_exec_purpose);
-      update_state_aware_variables(queue_top, 0, argv);
     }
 
     /* save the seed to file for replaying using completely transmitted messages */
     u8 *fn_replay = alloc_printf("%s/replayable-queue/%s", out_dir, basename(queue_top->fname));
-    save_kl_messages_to_file(kl_messages, fn_replay, 1, complete_messages);
+    save_observation_input(coverage_obs, (char *)fn_replay, 1);
     ck_free(fn_replay);
 
     if (hnb == 2) {
@@ -5689,12 +5792,20 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       queued_with_cov++;
     }
 
-    queue_top->exec_cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
+    queue_top->exec_cksum = coverage_cksum;
 
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
 
-    res = calibrate_case(argv, queue_top, mem, len, queue_cycle - 1, 0);
+    u8 *coverage_input = ck_alloc(full_len);
+    size_t input_offset = 0;
+    for (u32 w = 0; w < coverage_obs->wire_count; w++) {
+      memcpy(coverage_input + input_offset, coverage_obs->wire[w].data, coverage_obs->wire[w].size);
+      input_offset += coverage_obs->wire[w].size;
+    }
+    res = calibrate_case(argv, queue_top, coverage_input, full_len, queue_cycle - 1, 0);
+    ck_free(coverage_input);
+    free_execution_observation(coverage_obs);
 
     if (res == FAULT_ERROR)
       FATAL("Unable to execute target application");
@@ -6025,7 +6136,9 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
       FILE *schedule_file = fopen((char *)schedule_tmp, "w");
       if (schedule_file) {
         proto_schedule_write(&protocol_scheduler, schedule_file);
-        if (fflush(schedule_file) != 0 || fclose(schedule_file) != 0) {
+        int schedule_error = fflush(schedule_file) != 0;
+        if (fclose(schedule_file) != 0) schedule_error = 1;
+        if (schedule_error) {
           unlink((char *)schedule_tmp);
         } else {
           if (rename((char *)schedule_tmp, (char *)schedule_path) != 0) {
@@ -6054,7 +6167,10 @@ static void write_stats_file(double bitmap_cvg, double stability, double eps) {
   }
 
   if (manifest_ctx) {
-    manifest_save_atomic(manifest_ctx, (char *)out_dir, NULL, 0);
+    char manifest_error[256];
+    if (manifest_save_atomic(manifest_ctx, (char *)out_dir,
+                              manifest_error, sizeof(manifest_error)) < 0)
+      WARNF("Cannot update experiment manifest: %s", manifest_error);
   }
 
   fclose(f);
@@ -7112,6 +7228,14 @@ static void show_init_stats(void) {
       ck_free(path);
     }
   }
+  if (manifest_ctx) {
+    char manifest_error[256];
+    if (manifest_set_effective_timeouts(manifest_ctx, exec_tmout, hang_tmout,
+                                        manifest_error, sizeof(manifest_error)) < 0 ||
+        manifest_save_atomic(manifest_ctx, (char *)out_dir,
+                              manifest_error, sizeof(manifest_error)) < 0)
+      FATAL("Cannot publish effective experiment budgets: %s", manifest_error);
+  }
   experiment_active = 1;
   OKF("All set and ready to roll!");
   fflush(stdout);
@@ -7134,14 +7258,18 @@ static void protocol_capture(kliter_t(lms) *first, kliter_t(lms) *last) {
   protocol_prefix_len = 0;
   for (kliter_t(lms) *it = kl_begin(kl_messages); it != first; it = kl_next(it)) {
     message_t *message = kl_val(it);
-    if (message->msize > MAX_FILE - protocol_prefix_len - 4) FATAL("Protocol M1 exceeds MAX_FILE");
+    if (!message->msize || protocol_prefix_len > MAX_FILE - 4 ||
+        message->msize > MAX_FILE - 4 - protocol_prefix_len) FATAL("Protocol M1 exceeds MAX_FILE");
     for (unsigned j=0;j<4;j++) protocol_prefix[protocol_prefix_len+j]=(u32)message->msize>>(8*j);
     memcpy(protocol_prefix+protocol_prefix_len+4,message->mdata,message->msize);
     protocol_prefix_len += 4 + message->msize;
   }
   char error[256];
-  if (proto_set_prefix(protocol_engine,protocol_prefix,protocol_prefix_len,error,sizeof(error))<0 && protocol_log)
-    fprintf(protocol_log,"{\"event\":\"prefix_rejected\",\"reason\":\"%s\"}\n",error);
+  if (proto_set_prefix(protocol_engine,protocol_prefix,protocol_prefix_len,error,sizeof(error))<0 && protocol_log) {
+    fputs("{\"event\":\"prefix_rejected\",\"reason\":", protocol_log);
+    manifest_write_escaped_json_string(protocol_log, error);
+    fputs("}\n", protocol_log);
+  }
 
   protocol_base_len = 0;
   for (kliter_t(lms) *it = first; it != last; it = kl_next(it)) {
@@ -7215,15 +7343,20 @@ static region_t *protocol_prepare(u8 **wire, u32 *wire_len, u32 *count,
       fputs("{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"full_sequence_MAX_FILE\"}\n", protocol_log);
     return NULL;
   }
-  if (mode == PROTO_VALID &&
-      proto_validate_sequence(protocol_engine, protocol_prefix, protocol_prefix_len,
+  if (proto_validate_sequence(protocol_engine, protocol_prefix, protocol_prefix_len,
                               records, length, protocol_suffix, protocol_suffix_len,
                               error, sizeof(error)) < 0) {
     protocol_rejections++;
-    if (protocol_log)
-      fprintf(protocol_log, "{\"event\":\"integration_rejected\",\"reason\":\"%s\"}\n", error);
-    if (protocol_fallback && protocol_log)
-      fprintf(protocol_log, "{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":\"%s\"}\n", error);
+    if (protocol_log) {
+      fputs("{\"event\":\"integration_rejected\",\"reason\":", protocol_log);
+      manifest_write_escaped_json_string(protocol_log, error);
+      fputs("}\n", protocol_log);
+      if (protocol_fallback) {
+        fputs("{\"event\":\"fallback\",\"actual_mode\":\"raw\",\"reason\":", protocol_log);
+        manifest_write_escaped_json_string(protocol_log, error);
+        fputs("}\n", protocol_log);
+      }
+    }
     return NULL;
   }
   protocol_host_accepted++;
@@ -7256,11 +7389,14 @@ static void protocol_observe_candidate(u32 state, int layer, unsigned events,
   if (protocol_log) {
     const char *run_id = (manifest_ctx && manifest_ctx->run_id[0]) ? manifest_ctx->run_id : "run-0";
     u32 segment_id = manifest_ctx ? manifest_ctx->current_segment_id : 0;
-    fprintf(protocol_log, "{\"event\":\"layer_feedback\",\"run_id\":\"%s\",\"segment_id\":%u,"
+    fputs("{\"event\":\"layer_feedback\",\"run_id\":", protocol_log);
+    manifest_write_escaped_json_string(protocol_log, run_id);
+    fprintf(protocol_log, ",\"segment_id\":%u,"
             "\"candidate_id\":%u,\"exec_id\":%u,\"memory_state_id\":%u,"
             "\"layer_id\":%d,\"discoveries\":%u,\"new_tuples\":%u,"
             "\"new_buckets\":%u}\n",
-            run_id, segment_id, current_candidate_id, state_exec_id,
+            segment_id, current_candidate_id,
+            current_feedback_executed ? current_feedback_exec_id : 0,
             state, layer, events, tuples, buckets);
   }
 }
@@ -7275,12 +7411,15 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   protocol_structured_run = 0;
 
   /* P24: Track logical candidate identity, purpose, and target context */
+  if (current_candidate_id == UINT32_MAX) FATAL("Candidate identity exhausted");
   current_candidate_id++;
   current_exec_purpose = EXEC_PURPOSE_ORIGINAL;
   proto_set_execution_purpose(protocol_engine, current_exec_purpose);
   current_target_state_id = target_state_id;
   current_seed_id = queue_cur ? queue_cur->index : 0;
   current_feedback_layer = 0;
+  current_feedback_exec_id = 0;
+  current_feedback_executed = 0;
 
   /* P20: Unified stage eligibility for both uniform and adaptive scheduling */
   u8 stage_eligible = (stage_short && (!strcmp((char *)stage_short, "havoc") ||
@@ -7415,6 +7554,8 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   protocol_structured_sent = 0;
   if (protocol_structured_run) protocol_structured_runs++;
   fault = run_target(argv, exec_tmout, afl_fsrv);
+  current_feedback_exec_id = state_exec_id;
+  current_feedback_executed = 1;
   u8 feedback_delivered = protocol_count && (protocol_structured_sent == protocol_count) && is_transmission_complete;
   if (feedback_delivered) protocol_complete_transmissions++;
 
@@ -7469,7 +7610,8 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   /* This handles FAULT_ERROR for us: */
 
   protocol_new_tuples = protocol_new_buckets = 0;
-  protocol_collect_coverage = feedback_layer && feedback_delivered && !response_budget_exceeded && fault == crash_mode;
+  protocol_collect_coverage = feedback_layer && feedback_delivered &&
+      is_response_complete && !response_budget_exceeded && fault == crash_mode;
   if (protocol_collect_coverage) protocol_valid_observations++;
   queued_discovered += save_if_interesting(argv, out_buf, len, fault);
   protocol_collect_coverage = 0;
@@ -7926,6 +8068,32 @@ int regions_remove_bytes(region_t* regions, unsigned int region_count, unsigned 
     return modified_regions;
 }
 
+/* Select M2 using only provider-verified region annotations. This helper is
+   shared by the real scheduling path and its target-free contract regression. */
+static int select_state_m2(const struct queue_entry *q, u32 state_id,
+                            u32 *start, u32 *count) {
+  if (!q || !q->regions || !q->region_count || !start || !count) return -1;
+  *start = *count = 0;
+  if (state_id) {
+    u32 reached = q->region_count;
+    for (u32 i = 0; i < q->region_count; i++) {
+      const region_t *region = &q->regions[i];
+      if (!region->state_count || !region->state_sequence) return -1;
+      if (region->state_sequence[region->state_count - 1] == state_id) {
+        reached = i;
+        break;
+      }
+    }
+    if (reached >= q->region_count - 1) return -1;
+    *start = reached + 1;
+  }
+  for (u32 i = *start; i < q->region_count; i++) {
+    if (q->regions[i].state_count != q->regions[*start].state_count) break;
+    (*count)++;
+  }
+  return *count ? 0 : -1;
+}
+
 /* Take the current entry from the queue, fuzz it for a while. This
    function is a tad too long... returns 0 if fuzzed successfully, 1 if
    skipped or bailed out. */
@@ -8007,56 +8175,8 @@ AFLNET_REGIONS_SELECTION:;
     u32 total_region = queue_cur->region_count;
     if (total_region == 0) PFATAL("0 region found for %s", queue_cur->fname);
 
-    if (target_state_id == 0) {
-      /* P01 Case 1: Initial state context (State 0).
-         No prefix subsequence needed (M1 is empty).
-         M2 starts at region 0. */
-      M2_start_region_ID = 0;
-      M2_region_count = 0;
-
-      for (i = 0; i < queue_cur->region_count; i++) {
-        if (queue_cur->regions[i].state_count != queue_cur->regions[0].state_count) break;
-        M2_region_count++;
-      }
-      if (M2_region_count == 0) M2_region_count = 1;
-
-    } else {
-      /* P01 Case 2: Non-zero target state.
-         Find region k whose execution leads to target_state_id. */
-      s32 target_reaching_region = -1;
-
-      for (i = 0; i < queue_cur->region_count; i++) {
-        u32 regionalStateCount = queue_cur->regions[i].state_count;
-        if (regionalStateCount > 0 && queue_cur->regions[i].state_sequence != NULL) {
-          u32 reachableStateID = queue_cur->regions[i].state_sequence[regionalStateCount - 1];
-          if (reachableStateID == target_state_id) {
-            target_reaching_region = (s32)i;
-            break;
-          }
-        } else {
-          /* P01/P02: Unknown boundary / unannotated region encountered.
-             Cannot reliably know what state follows; do not guess across unknown boundaries. */
-          return 1;
-        }
-      }
-
-      /* Target state was not reached anywhere in this seed */
-      if (target_reaching_region < 0) return 1;
-
-      /* M1 ends at target_reaching_region; M2 starts at target_reaching_region + 1 */
-      M2_start_region_ID = (u32)(target_reaching_region + 1);
-
-      /* If target state is reached after the terminal message, no subsequent message exists to mutate */
-      if (M2_start_region_ID >= queue_cur->region_count) return 1;
-
-      /* Identify M2_region_count starting from M2_start_region_ID */
-      M2_region_count = 0;
-      for (i = M2_start_region_ID; i < queue_cur->region_count; i++) {
-        if (queue_cur->regions[i].state_count != queue_cur->regions[M2_start_region_ID].state_count) break;
-        M2_region_count++;
-      }
-      if (M2_region_count == 0) M2_region_count = 1;
-    }
+    if (select_state_m2(queue_cur, target_state_id,
+                         &M2_start_region_ID, &M2_region_count) < 0) return 1;
   } else {
     /* Select M2 randomly */
     u32 total_region = queue_cur->region_count;
@@ -11679,23 +11799,72 @@ int main(int argc, char** argv) {
 
   /* P26: Validate cold-start segment lineage and manifest attribution */
   if (protocol_engine) {
-    char spec_context[512];
-    if (generic_spec_path) {
-      snprintf(spec_context, sizeof(spec_context), "%s", generic_spec_path);
-    } else if (protocol_spec_path && protocol_state_path) {
-      snprintf(spec_context, sizeof(spec_context), "%s:%s", protocol_spec_path, protocol_state_path);
-    } else {
-      snprintf(spec_context, sizeof(spec_context), "%s", protocol_spec_path ? protocol_spec_path : "");
-    }
-    const char *proto_name = generic_spec_path ? "generic-wire" : "protocol-ir";
+    manifest_config config;
+    manifest_config_init(&config);
+#define CONFIG_TEXT(field, value) do { \
+      const char *config_text = (const char *)(value); \
+      if (!config_text) config_text = ""; \
+      if (strlen(config_text) >= sizeof(config.field)) FATAL("Manifest setting too long: " #field); \
+      memcpy(config.field, config_text, strlen(config_text) + 1); \
+    } while (0)
+    CONFIG_TEXT(protocol, generic_spec_path ? "generic-wire" : "protocol-ir");
+    CONFIG_TEXT(spec_path, generic_spec_path ? generic_spec_path : protocol_spec_path);
+    CONFIG_TEXT(state_spec_path, generic_spec_path ? NULL : protocol_state_path);
+    CONFIG_TEXT(schedule, protocol_adaptive ? "adaptive" : "uniform");
+    CONFIG_TEXT(stage_policy, "havoc-splice-v1");
+    CONFIG_TEXT(transport, net_protocol == PRO_UDP ? "udp" : "tcp");
+    int endpoint_size = snprintf(config.endpoint, sizeof(config.endpoint), "%s:%u",
+                                 net_ip ? (char *)net_ip : "", net_port);
+    if (endpoint_size < 0 || (size_t)endpoint_size >= sizeof(config.endpoint)) FATAL("Manifest endpoint too long");
+    CONFIG_TEXT(vanilla_target, target_path_afl);
+    CONFIG_TEXT(vanilla_workdir, wd_vanilla);
+    CONFIG_TEXT(cleanup_script, cleanup_script);
+    if (!getcwd(config.working_directory, sizeof(config.working_directory))) PFATAL("Manifest working directory");
     const char *mode_str = protocol_mode == PROTO_VALID ? "valid" :
                            protocol_mode == PROTO_NEAR_VALID ? "near_valid" :
                            protocol_mode == PROTO_INVALID ? "invalid" :
                            protocol_mode == PROTO_RAW ? "raw" : "hybrid";
+    CONFIG_TEXT(mutation_mode, mode_str);
+#undef CONFIG_TEXT
+    config.configuration_complete = 1;
+    config.random_seed = experiment_seed;
+    config.fixed_seed = fixed_random_seed;
+    config.layers = protocol_layers;
+    config.ratio = protocol_ratio;
+    config.fallback = protocol_fallback;
+    config.state_aware = state_aware_mode;
+    config.skip_deterministic = skip_deterministic;
+    config.local_port = local_port;
+    config.terminate_child = terminate_child;
+    config.false_negative_reduction = false_negative_reduction;
+    config.use_network = net_ip != NULL;
+    config.region_level_mutation = region_level_mutation;
+    config.dumb_mode = dumb_mode;
+    config.no_forkserver = no_forkserver;
+    config.qemu_mode = qemu_mode;
+    config.crash_mode = crash_mode != 0;
+    config.skip_arithmetic = no_arith;
+    config.fast_calibration = fast_cal != 0;
+    config.state_selection = state_selection_algo;
+    config.seed_selection = seed_selection_algo;
+    config.exec_timeout_auto = !timeout_given;
+    config.exec_timeout_policy = timeout_given;
+    config.requested_exec_timeout_ms = timeout_given ? exec_tmout : 0;
+    config.hang_timeout_auto = getenv("AFL_HANG_TMOUT") == NULL;
+    config.requested_hang_timeout_ms = config.hang_timeout_auto ? 0 : hang_tmout;
+    config.candidate_capture_limit = protocol_candidate_limit;
+    config.socket_timeout_us = socket_timeout_usecs;
+    config.poll_wait_ms = poll_wait_msecs;
+    config.state_poll_wait_ms = poll_wait_msecs_stateafl;
+    config.send_delay_us = send_delay_us;
+    config.server_wait_us = server_wait_usecs;
+    config.max_request_bytes = MAX_FILE;
+    config.max_response_bytes = net_get_response_budget();
+    config.memory_limit_mb = mem_limit;
     char merr[256];
-    if (manifest_init_or_resume((char *)out_dir, proto_name, spec_context, mode_str,
-                                fixed_random_seed ? experiment_seed : 0,
-                                &manifest_ctx, merr, sizeof(merr)) < 0) {
+    if (manifest_config_set_target_argv(&config, argc - optind, argv + optind, merr, sizeof(merr)) < 0 ||
+        manifest_init_or_resume_config((char *)out_dir, &config,
+                                      &manifest_ctx, merr, sizeof(merr)) < 0) {
       FATAL("Run manifest validation: %s", merr);
     }
   }
@@ -11969,12 +12138,18 @@ stop_fuzzing:
 
   if (protocol_log) fclose(protocol_log);
   if (manifest_ctx) {
-    manifest_save_atomic(manifest_ctx, (char *)out_dir, NULL, 0);
+    char manifest_error[256];
+    if (manifest_save_atomic(manifest_ctx, (char *)out_dir,
+                              manifest_error, sizeof(manifest_error)) < 0)
+      WARNF("Cannot finalize experiment manifest: %s", manifest_error);
     manifest_free(manifest_ctx);
     manifest_ctx = NULL;
   }
   proto_free(protocol_engine);
   ck_free(protocol_candidate_dir);
+  free_execution_wire(last_execution_wire, last_execution_wire_count);
+  last_execution_wire = NULL;
+  last_execution_wire_count = 0;
 
   alloc_report();
 

@@ -62,14 +62,34 @@ int main(void) {
   assert(memcmp(resp_buf, chunk1, 60) == 0);
   assert(resp_buf[60] == '\0');
 
-  /* Attempting receive when already at or beyond budget is immediately rejected */
-  resp_len = 128;
-  rc = net_recv_with_cb(tcp_sv[0], tv, 50, &resp_buf, &resp_len, dummy_cb, NULL);
-  assert(rc == NET_RECV_BUDGET_EXCEEDED);
-
   close(tcp_sv[0]);
   close(tcp_sv[1]);
   if (resp_buf) ck_free(resp_buf);
+  resp_buf = NULL;
+  resp_len = 0;
+
+  /* Exactly filling the budget is valid. A later idle drain must not invent
+     an overflow; only an actual additional byte can exceed this budget. */
+  assert(socketpair(AF_UNIX, SOCK_STREAM, 0, tcp_sv) == 0);
+  char exact[128];
+  memset(exact, 'E', sizeof(exact));
+  assert(write(tcp_sv[1], exact, sizeof(exact)) == sizeof(exact));
+  rc = net_recv_with_cb(tcp_sv[0], tv, 50, &resp_buf, &resp_len, dummy_cb, NULL);
+  assert(rc == NET_RECV_OK);
+  assert(resp_len == sizeof(exact));
+  assert(memcmp(resp_buf, exact, sizeof(exact)) == 0);
+  rc = net_recv_with_cb(tcp_sv[0], tv, 1, &resp_buf, &resp_len, dummy_cb, NULL);
+  assert(rc == NET_RECV_OK);
+  assert(resp_len == sizeof(exact));
+  assert(net_get_last_io_status() == NET_IO_STATUS_TIMEOUT);
+  assert(write(tcp_sv[1], "!", 1) == 1);
+  rc = net_recv_with_cb(tcp_sv[0], tv, 50, &resp_buf, &resp_len, dummy_cb, NULL);
+  assert(rc == NET_RECV_BUDGET_EXCEEDED);
+  assert(resp_len == sizeof(exact));
+  assert(memcmp(resp_buf, exact, sizeof(exact)) == 0);
+  close(tcp_sv[0]);
+  close(tcp_sv[1]);
+  ck_free(resp_buf);
   resp_buf = NULL;
   resp_len = 0;
 
@@ -134,10 +154,21 @@ int main(void) {
   obs1->state_sequence = (unsigned int *)calloc(2, sizeof(unsigned int));
   obs1->state_sequence[0] = 0;
   obs1->state_sequence[1] = 1;
+  u8 request_a[25] = {0}, request_b[25] = {1};
+  execution_wire_record_t wire[] = {
+    {request_a, sizeof(request_a), sizeof(request_a)},
+    {request_b, sizeof(request_b), sizeof(request_b)}
+  };
+  assert(copy_execution_wire(obs1, wire, 2, 2) == 0);
 
   execution_observation_t *obs2 = (execution_observation_t *)calloc(1, sizeof(execution_observation_t));
   assert(obs2 != NULL);
   memcpy(obs2, obs1, sizeof(execution_observation_t));
+  obs2->wire = NULL;
+  obs2->wire_count = 0;
+  obs2->has_wire_observation = 0;
+  assert(copy_execution_wire(obs2, wire, 2, 2) == 0);
+  assert(obs2->wire[0].data != obs1->wire[0].data);
   obs2->state_sequence = (unsigned int *)calloc(2, sizeof(unsigned int));
   obs2->state_sequence[0] = 0;
   obs2->state_sequence[1] = 1;
@@ -150,7 +181,7 @@ int main(void) {
   obs2->is_response_complete = 0;
   obs2->is_truncated = 1;
   assert(compare_execution_observations(obs1, obs2, reason, sizeof(reason)) == 0);
-  assert(strstr(reason, "response") != NULL);
+  assert(strstr(reason, "incomplete execution") != NULL);
 
   /* Acceptance predicate rejection */
   u8 is_accepted = (!obs2->is_truncated && obs2->is_response_complete &&
@@ -161,6 +192,6 @@ int main(void) {
   free_execution_observation(obs1);
   free_execution_observation(obs2);
 
-  printf("PASS: test_tcp_response_buffer_bounds passed (28 assertions)\n");
+  printf("PASS: test_tcp_response_buffer_bounds passed\n");
   return 0;
 }

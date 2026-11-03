@@ -1,0 +1,9 @@
+{
+  "bundle_digest": "8f28ac6cee6972893cbd48dd47dfbb9be27861b272c253a556fd584d4614a90b",
+  "bundle_version": 1,
+  "files": [
+    "protocol_ir.json",
+    "state_ir.json"
+  ],
+  "protocol_id": "iec61850_mms_tcp"
+}

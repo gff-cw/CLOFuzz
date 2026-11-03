@@ -21,7 +21,11 @@
 #define RATE_LIMIT 5
 
 #define STATE_SHARED_MAGIC   0x53544154U /* "STAT" */
-#define STATE_SHARED_VERSION 2U
+#define STATE_SHARED_VERSION 3U
+#define STATE_BOUNDARY_UNKNOWN UINT32_MAX
+#define STATE_BOUNDARIES_NONE 0U
+#define STATE_BOUNDARIES_EXPLICIT 1U
+#define STATE_BOUNDARIES_INVALID 2U
 
 enum {
   STATE_TRACER_STATUS_IDLE        = 0,
@@ -43,6 +47,13 @@ struct state_shared {
     uint32_t seq_len;
     uint32_t seq[MAX_NUM_STATES];
     uint32_t iterations;
+    uint32_t producer_exec_id;
+    uint32_t producer_pid;
+    uint32_t producer_conflict;
+    uint32_t boundary_status;
+    uint32_t boundary_count;
+    uint32_t boundary_state_index[MAX_NUM_STATES];
+    uint32_t state_iteration[MAX_NUM_STATES];
 };
 
 enum { TRACER_IDLE, TRACER_ANALYZING, TRACER_DONE };
@@ -84,6 +95,10 @@ void trace_calloc(void *, size_t, size_t);
 void trace_realloc(void *, size_t, void *);
 void trace_receive(void *, size_t);
 void trace_send(void *, size_t);
+/* Cooperative, single-process/single-thread observation provider: call once AFTER processing
+ * each complete application message, in connection order starting at ordinal 0.
+ * A recv/send call is deliberately not treated as a message boundary. */
+void trace_message_boundary(uint32_t ordinal);
 void trace_recvmsg(void *);
 void trace_sendmsg(void *);
 void trace_read(int, void *, size_t);
