@@ -1,0 +1,318 @@
+{
+  "format": "stateafl.model-corpus",
+  "version": 1,
+  "protocol_id": "modbus_tcp",
+  "proof_scope": "Declared legacy codec model reachability from initial, with one expected-response projection per request; no actual target session was observed or proven.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "validation_source": "stored validation.json snapshot; source/IR consistency checked; compiler and target not re-executed",
+  "runtime_examples_validated": true,
+  "model_sha256": {
+    "protocol": "3898a708bc5f82b4ebe70e56d838f7e5e7ab122951ed5af138a7680616c222df",
+    "state": "421d4a2b3c189cb40938cb1fbc27d0e133385f6663dd16d1a135104944c81ff2"
+  },
+  "initial_state": "connected",
+  "canonical_aliases": {
+    "write_coils_partial": "write_coils",
+    "write_coils_partial_response": "write_coils_response"
+  },
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576,
+    "MAX_FILE": 1048576,
+    "MAX_WIRE": 65507
+  },
+  "resource_scope": "Request records only; max_bytes includes every 4-byte LE32 replay header; repeat counts use canonical request identity.",
+  "static_annotations_not_executed": [
+    "guard",
+    "actions",
+    "dependency.scope",
+    "dependency.when"
+  ],
+  "external_prerequisites": [
+    "serial RTU",
+    "file-record and diagnostic function families"
+  ],
+  "search": {
+    "algorithm": "breadth-first with resource dominance",
+    "max_nodes": 16384,
+    "expanded_nodes": 1,
+    "scheduled_nodes": 1,
+    "budget_exhausted": false
+  },
+  "seeds": 9,
+  "fixtures": 9,
+  "requests": {
+    "read_coils": {
+      "fixture": "fixtures/requests/read_coils.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/read_coils.replay",
+      "request_ids": [
+        "read_coils"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "read_coils",
+          "canonical_request": "read_coils",
+          "request_state": "connected",
+          "expected_response": "read_coils_response",
+          "canonical_response": "read_coils_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 16,
+      "canonical_repeats": {
+        "read_coils": 1
+      }
+    },
+    "read_discrete": {
+      "fixture": "fixtures/requests/read_discrete.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/read_discrete.replay",
+      "request_ids": [
+        "read_discrete"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "read_discrete",
+          "canonical_request": "read_discrete",
+          "request_state": "connected",
+          "expected_response": "read_discrete_response",
+          "canonical_response": "read_discrete_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 16,
+      "canonical_repeats": {
+        "read_discrete": 1
+      }
+    },
+    "read_holding": {
+      "fixture": "fixtures/requests/read_holding.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/read_holding.replay",
+      "request_ids": [
+        "read_holding"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "read_holding",
+          "canonical_request": "read_holding",
+          "request_state": "connected",
+          "expected_response": "read_response",
+          "canonical_response": "read_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 16,
+      "canonical_repeats": {
+        "read_holding": 1
+      }
+    },
+    "read_input": {
+      "fixture": "fixtures/requests/read_input.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/read_input.replay",
+      "request_ids": [
+        "read_input"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "read_input",
+          "canonical_request": "read_input",
+          "request_state": "connected",
+          "expected_response": "read_input_response",
+          "canonical_response": "read_input_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 16,
+      "canonical_repeats": {
+        "read_input": 1
+      }
+    },
+    "write_coil": {
+      "fixture": "fixtures/requests/write_coil.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/write_coil.replay",
+      "request_ids": [
+        "write_coil"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "write_coil",
+          "canonical_request": "write_coil",
+          "request_state": "connected",
+          "expected_response": "write_coil_response",
+          "canonical_response": "write_coil_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 16,
+      "canonical_repeats": {
+        "write_coil": 1
+      }
+    },
+    "write_register": {
+      "fixture": "fixtures/requests/write_register.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/write_register.replay",
+      "request_ids": [
+        "write_register"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "write_register",
+          "canonical_request": "write_register",
+          "request_state": "connected",
+          "expected_response": "write_register_response",
+          "canonical_response": "write_register_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 16,
+      "canonical_repeats": {
+        "write_register": 1
+      }
+    },
+    "write_coils": {
+      "fixture": "fixtures/requests/write_coils.replay",
+      "fixture_status": "complete",
+      "notes": "Cross-field semantic constraint: byte_count equals ceil(quantity/8) and unused high bits zero.",
+      "status": "model_reachable",
+      "seed": "seeds/write_coils.replay",
+      "request_ids": [
+        "write_coils"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "write_coils",
+          "canonical_request": "write_coils",
+          "request_state": "connected",
+          "expected_response": "write_coils_response",
+          "canonical_response": "write_coils_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 18,
+      "canonical_repeats": {
+        "write_coils": 1
+      }
+    },
+    "write_registers": {
+      "fixture": "fixtures/requests/write_registers.replay",
+      "fixture_status": "complete",
+      "notes": "Cross-field semantic constraint: byte_count equals quantity*2.",
+      "status": "model_reachable",
+      "seed": "seeds/write_registers.replay",
+      "request_ids": [
+        "write_registers"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "write_registers",
+          "canonical_request": "write_registers",
+          "request_state": "connected",
+          "expected_response": "write_registers_response",
+          "canonical_response": "write_registers_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 19,
+      "canonical_repeats": {
+        "write_registers": 1
+      }
+    },
+    "write_coils_partial": {
+      "fixture": "fixtures/requests/write_coils_partial.replay",
+      "fixture_status": "complete",
+      "notes": "Cross-field semantic constraint: byte_count equals ceil(quantity/8) and unused high bits zero.",
+      "status": "model_reachable",
+      "seed": "seeds/write_coils_partial.replay",
+      "request_ids": [
+        "write_coils_partial"
+      ],
+      "model_states": [
+        "connected",
+        "connected"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "write_coils_partial",
+          "canonical_request": "write_coils",
+          "request_state": "connected",
+          "expected_response": "write_coils_response",
+          "canonical_response": "write_coils_response",
+          "to_state": "connected"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 19,
+      "canonical_repeats": {
+        "write_coils": 1
+      }
+    }
+  }
+}

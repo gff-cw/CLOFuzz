@@ -42,6 +42,12 @@ python3 tools/init_protocol_spec.py \
 
 工具按模板的顶层结构，复制现有 BACnet profile 的字段、定位器、消息和状态定义，同时生成初始旧版 IR、来源和种子。它不会根据骨架推导新协议；更换 `protocol_id` 也不会增加编码能力。输出目录必须尚不存在；不会覆盖现有描述。生成的字段独立展开，不使用 YAML 引用别名，修改一个消息不会意外修改另一个消息。
 
+生成器将原始单包报文保存到 `fixtures/requests/<消息ID>.replay`。`seeds/<消息ID>.replay` 则通过有界图搜索，从 `initial` 开始补上该请求可达所需的请求前缀；每步严格按旧 runtime 的 request edge 与一次 expected-response edge 投影状态，不把响应字节写入种子。例如 MMS Read 前有 COTP CR 与 associate，OPC UA message 前有 HEL 与 OPN。canonical aliases 共用 repeat 预算，LE32 前缀计入 `max_bytes`，同时限制 `max_messages/max_repeat/MAX_FILE`。不可达、片段、缺少可解析响应模型或搜索预算耗尽时，只保留 fixture，并在 `seed_manifest.json` 写明原因。
+
+manifest 记录每个种子的请求 ID 序列、模型状态、响应投影和字节数。它证明声明模型内的可达性，不能证明实际目标接受该会话；`guard/actions`、外部 ForwardOpen、响应中分配的 session/channel/token 值均没有在离线规划中验证。响应示例只提供解析能力依据，实际运行仍须由真实目标响应满足相关与绑定条件；没有伪造现场响应。编辑 YAML 后需重新规划种子；单独重编译 IR 不会自动更新已有种子。
+
+重编译修改后的 YAML 后，执行 `python3 tools/protocol_seed_planner.py --spec-dir ./my-specs/bacnet_ip` 更新生成的 corpus。这个纯文件转换入口核对 YAML、保存的 IR 对及 bundle identity，使用已有 `validation.json` 快照，不调用编译器、native helper 或目标；不会重新证明 codec 验证结论。它替换包中受管理的 `seeds/*.replay` 与 `fixtures/requests/*.replay`，自定义语料请另放目录。
+
 `--base` 可选六种已有协议配置：bacnet_ip、modbus_tcp、iec60870_5_104、iec61850_mms_tcp、ethernet_ip_cip_tcp、opcua_tcp。它不会自动从标准网页推导协议；真实字段由各协议配置提供。六种参考 profile 均有有界旧版 C runtime codec，`--require-runtime` 可用于任一配置；显式设为 runtime=false 的静态描述仍会被拒绝。这里的 runtime 能力声明属于旧 codec 路径，不是对应 `generic_wire.json` 的在线资格。BACnet 使用 UDP，其余五种使用 TCP。支持的是描述中列出的服务与叶字段，新增服务仍需相应 codec 实现。
 
 ## 2. 按被测实现修改生成的 YAML
@@ -143,4 +149,4 @@ python3 tools/proto_spec_compiler.py \
 
 非 BACnet 编译需 C11 编译器（`CC` 或 `cc`）、`tools/native_protocol_codecs.py`、`protocol_codecs.h` 和五个 `protocol_codec_*.c`。helper 每进程在临时目录构建一次；StateAFL 在线直接执行 C，不在每次变异运行 Python。标量支持完整 UInt64 范围。
 
-变量 CONTENT 仅支持 codec 明确实现的叶替换，不能复制任意 opaque CIP/UA/BER 容器。MMS 叶变化会重新编码祖先 BER/session 长度和必要的 INTEGER 宽度。运行时按 TCP 协议长度处理响应分片与合并；M1 前缀仅提供模拟语义起点，session/channel/token 等仍绑定实际响应。任意 guard/actions、会话前缀搜索和完整多事务数据库均不在实现范围。
+变量 CONTENT 仅支持 codec 明确实现的叶替换，不能复制任意 opaque CIP/UA/BER 容器。MMS 叶变化会重新编码祖先 BER/session 长度和必要的 INTEGER 宽度。运行时按 TCP 协议长度处理响应分片与合并；M1 前缀仅提供模拟语义起点，session/channel/token 等仍绑定实际响应。生成器提供离线模型请求前缀搜索；运行时没有目标交互式前缀探测、任意 guard/actions 或完整多事务数据库。

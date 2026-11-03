@@ -1,0 +1,204 @@
+{
+  "format": "stateafl.model-corpus",
+  "version": 1,
+  "protocol_id": "ethernet_ip_cip_tcp",
+  "proof_scope": "Declared legacy codec model reachability from initial, with one expected-response projection per request; no actual target session was observed or proven.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "validation_source": "stored validation.json snapshot; source/IR consistency checked; compiler and target not re-executed",
+  "runtime_examples_validated": true,
+  "model_sha256": {
+    "protocol": "05a87a66a844f418c2fa7dcf172aaf4f179c23956f36804d66b806b1ef2f9e74",
+    "state": "a5564250efef5017cce93d5c1b17bc9ef4b9da1ad679071a296a1b7398c5109e"
+  },
+  "initial_state": "connected",
+  "canonical_aliases": {},
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576,
+    "MAX_FILE": 1048576,
+    "MAX_WIRE": 65507
+  },
+  "resource_scope": "Request records only; max_bytes includes every 4-byte LE32 replay header; repeat counts use canonical request identity.",
+  "static_annotations_not_executed": [
+    "guard",
+    "actions",
+    "dependency.scope",
+    "dependency.when"
+  ],
+  "external_prerequisites": [
+    "ForwardOpen/ForwardClose fixture generation and automatic class-3 connection establishment (external prerequisite for SendUnitData)",
+    "implicit UDP I/O",
+    "CIP Security",
+    "other CIP objects/services",
+    "full subscription-only ODVA normative conformance"
+  ],
+  "search": {
+    "algorithm": "breadth-first with resource dominance",
+    "max_nodes": 16384,
+    "expanded_nodes": 2,
+    "scheduled_nodes": 3,
+    "budget_exhausted": false
+  },
+  "seeds": 4,
+  "fixtures": 4,
+  "requests": {
+    "register": {
+      "fixture": "fixtures/requests/register.replay",
+      "fixture_status": "complete",
+      "notes": "RegisterSession request handle is zero. A successful response assigns a nonzero handle; Sender Context is echoed. Registration request alone does not establish a registered session.",
+      "status": "model_reachable",
+      "seed": "seeds/register.replay",
+      "request_ids": [
+        "register"
+      ],
+      "model_states": [
+        "connected",
+        "registered"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "register",
+          "canonical_request": "register",
+          "request_state": "registering",
+          "expected_response": "register_response",
+          "canonical_response": "register_response",
+          "to_state": "registered"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 32,
+      "canonical_repeats": {
+        "register": 1
+      }
+    },
+    "unregister": {
+      "fixture": "fixtures/requests/unregister.replay",
+      "fixture_status": "complete",
+      "notes": "UnregisterSession has no command-specific data and no response; closes registered encapsulation session and its connections.",
+      "status": "model_reachable",
+      "seed": "seeds/unregister.replay",
+      "request_ids": [
+        "register",
+        "unregister"
+      ],
+      "model_states": [
+        "connected",
+        "registered",
+        "closed"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "register",
+          "canonical_request": "register",
+          "request_state": "registering",
+          "expected_response": "register_response",
+          "canonical_response": "register_response",
+          "to_state": "registered"
+        },
+        {
+          "from_state": "registered",
+          "request": "unregister",
+          "canonical_request": "unregister",
+          "request_state": "closed",
+          "expected_response": null,
+          "canonical_response": null,
+          "to_state": "closed"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 60,
+      "canonical_repeats": {
+        "register": 1,
+        "unregister": 1
+      }
+    },
+    "send_rr": {
+      "fixture": "fixtures/requests/send_rr.replay",
+      "fixture_status": "complete",
+      "notes": "CIP GetAttributeSingle Identity class 1/instance 1/attribute 1 (Vendor ID). Response bit7 set; additional-status size counts UInt16 words.",
+      "status": "model_reachable",
+      "seed": "seeds/send_rr.replay",
+      "request_ids": [
+        "register",
+        "send_rr"
+      ],
+      "model_states": [
+        "connected",
+        "registered",
+        "registered"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "register",
+          "canonical_request": "register",
+          "request_state": "registering",
+          "expected_response": "register_response",
+          "canonical_response": "register_response",
+          "to_state": "registered"
+        },
+        {
+          "from_state": "registered",
+          "request": "send_rr",
+          "canonical_request": "send_rr",
+          "request_state": "registered",
+          "expected_response": "send_rr_response",
+          "canonical_response": "send_rr_response",
+          "to_state": "registered"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 84,
+      "canonical_repeats": {
+        "register": 1,
+        "send_rr": 1
+      }
+    },
+    "send_unit": {
+      "fixture": "fixtures/requests/send_unit.replay",
+      "fixture_status": "complete",
+      "notes": "Complete static SendUnitData packet: ConnectedAddress(0xA1,length=4), ConnectedData(0xB1) with UInt16 sequence plus complete GetAttributeSingle CIP. EXTERNAL PRECONDITION: a successful ForwardOpen has already established an unexpired class-3 explicit connection in this registered session and supplied both directional connection IDs. RegisterSession alone is insufficient. IDs 0x10000001/0x20000001 are illustrative placeholders, not an automatically established connection; no ForwardOpen fixture or automatic provisioning is claimed.",
+      "status": "model_reachable",
+      "seed": "seeds/send_unit.replay",
+      "request_ids": [
+        "register",
+        "send_unit"
+      ],
+      "model_states": [
+        "connected",
+        "registered",
+        "registered"
+      ],
+      "transitions": [
+        {
+          "from_state": "connected",
+          "request": "register",
+          "canonical_request": "register",
+          "request_state": "registering",
+          "expected_response": "register_response",
+          "canonical_response": "register_response",
+          "to_state": "registered"
+        },
+        {
+          "from_state": "registered",
+          "request": "send_unit",
+          "canonical_request": "send_unit",
+          "request_state": "registered",
+          "expected_response": "send_unit_response",
+          "canonical_response": "send_unit_response",
+          "to_state": "registered"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 90,
+      "canonical_repeats": {
+        "register": 1,
+        "send_unit": 1
+      }
+    }
+  }
+}

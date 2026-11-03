@@ -8,6 +8,37 @@
 #include <unistd.h>
 
 #include "protocol_runtime.h"
+#include "native_json.h"
+
+/* Real request aliases precede their response aliases in this package. Reverse
+   all message declarations as well: identity must not depend on that order. */
+static void check_mutual_alias_order(const char *temporary) {
+  const char *protocol = "protocols/modbus_tcp/protocol_ir.json";
+  const char *state = "protocols/modbus_tcp/state_ir.json";
+  char error[512];
+  proto_engine *engine = proto_load(protocol, state, error, sizeof(error));
+  assert(engine);
+  proto_free(engine);
+  nj_document *document = NULL;
+  assert(nj_load_file(protocol, &document, error, sizeof(error)) == 0);
+  const nj_value *messages = nj_get(document->root, "messages");
+  assert(messages && messages->type == NJ_ARRAY && messages->count > 2);
+  FILE *output = fopen(temporary, "wb"); assert(output);
+  assert(fwrite(document->source, 1, messages->start, output) == messages->start);
+  assert(fputc('[', output) != EOF);
+  for (size_t i = messages->count; i > 0; i--) {
+    if (i < messages->count) assert(fputc(',', output) != EOF);
+    assert(nj_write_value(output, document, messages->items[i - 1]) == 0);
+  }
+  assert(fputc(']', output) != EOF);
+  size_t tail = document->length - messages->end;
+  assert(fwrite(document->source + messages->end, 1, tail, output) == tail);
+  assert(fclose(output) == 0);
+  nj_free(document);
+  engine = proto_load(temporary, state, error, sizeof(error));
+  assert(engine);
+  proto_free(engine);
+}
 
 static int write_file_content(const char *path, const char *content) {
   FILE *f = fopen(path, "w");
@@ -206,6 +237,7 @@ int main(void) {
   assert(strstr(err, "repeat constraint") != NULL || strstr(err, "sequence") != NULL);
   proto_free(e);
 
+  check_mutual_alias_order(proto_path);
   /* Clean up temporary files */
   unlink(proto_path);
   unlink(state_path);

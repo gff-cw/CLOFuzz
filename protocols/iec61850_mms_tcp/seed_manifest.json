@@ -1,0 +1,404 @@
+{
+  "format": "stateafl.model-corpus",
+  "version": 1,
+  "protocol_id": "iec61850_mms_tcp",
+  "proof_scope": "Declared legacy codec model reachability from initial, with one expected-response projection per request; no actual target session was observed or proven.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "validation_source": "stored validation.json snapshot; source/IR consistency checked; compiler and target not re-executed",
+  "runtime_examples_validated": true,
+  "model_sha256": {
+    "protocol": "a954cad752340aa9d78e60431743f7cb666347e5ff6825c483082f683375991e",
+    "state": "bb6408b61c792b4150d05f0b533531242c23edac58f52a3f430fe855ffdc1e16"
+  },
+  "initial_state": "tcp",
+  "canonical_aliases": {},
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576,
+    "MAX_FILE": 1048576,
+    "MAX_WIRE": 65507
+  },
+  "resource_scope": "Request records only; max_bytes includes every 4-byte LE32 replay header; repeat counts use canonical request identity.",
+  "static_annotations_not_executed": [
+    "guard",
+    "actions",
+    "dependency.scope",
+    "dependency.when"
+  ],
+  "external_prerequisites": [
+    "full IEC61850 ACSI mapping",
+    "reports/GOOSE/SV",
+    "generalized arrays/alternate access and data-set services",
+    "arbitrary ACSE authentication",
+    "association rejection/abort and MMS confirmed-error/reject fixtures unverified",
+    "TLS",
+    "arbitrary BER container generation"
+  ],
+  "search": {
+    "algorithm": "breadth-first with resource dominance",
+    "max_nodes": 16384,
+    "expanded_nodes": 4,
+    "scheduled_nodes": 5,
+    "budget_exhausted": false
+  },
+  "seeds": 7,
+  "fixtures": 7,
+  "requests": {
+    "cotp_cr": {
+      "fixture": "fixtures/requests/cotp_cr.replay",
+      "fixture_status": "complete",
+      "notes": "Complete RFC1006 TP0 connection request/confirm. LI counts bytes after LI, excluding TPKT; negotiated max TPDU is 2**13 in these reference fixtures.",
+      "status": "model_reachable",
+      "seed": "seeds/cotp_cr.replay",
+      "request_ids": [
+        "cotp_cr"
+      ],
+      "model_states": [
+        "tcp",
+        "cotp"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "cotp_cr",
+          "canonical_request": "cotp_cr",
+          "request_state": "cotp_pending",
+          "expected_response": "cotp_cc",
+          "canonical_response": "cotp_cc",
+          "to_state": "cotp"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 26,
+      "canonical_repeats": {
+        "cotp_cr": 1
+      }
+    },
+    "associate": {
+      "fixture": "fixtures/requests/associate.replay",
+      "fixture_status": "complete",
+      "notes": "Complete TPKT/COTP + session CONNECT/ACCEPT + presentation CP/CPA + ACSE AARQ/AARE; MMS initiate request/response is nested in user-information, never an independent TCP message.",
+      "status": "model_reachable",
+      "seed": "seeds/associate.replay",
+      "request_ids": [
+        "cotp_cr",
+        "associate"
+      ],
+      "model_states": [
+        "tcp",
+        "cotp",
+        "associated"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "cotp_cr",
+          "canonical_request": "cotp_cr",
+          "request_state": "cotp_pending",
+          "expected_response": "cotp_cc",
+          "canonical_response": "cotp_cc",
+          "to_state": "cotp"
+        },
+        {
+          "from_state": "cotp",
+          "request": "associate",
+          "canonical_request": "associate",
+          "request_state": "association_pending",
+          "expected_response": "associate_response",
+          "canonical_response": "associate_response",
+          "to_state": "associated"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 217,
+      "canonical_repeats": {
+        "cotp_cr": 1,
+        "associate": 1
+      }
+    },
+    "get_name_list": {
+      "fixture": "fixtures/requests/get_name_list.replay",
+      "fixture_status": "complete",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "status": "model_reachable",
+      "seed": "seeds/get_name_list.replay",
+      "request_ids": [
+        "cotp_cr",
+        "associate",
+        "get_name_list"
+      ],
+      "model_states": [
+        "tcp",
+        "cotp",
+        "associated",
+        "associated"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "cotp_cr",
+          "canonical_request": "cotp_cr",
+          "request_state": "cotp_pending",
+          "expected_response": "cotp_cc",
+          "canonical_response": "cotp_cc",
+          "to_state": "cotp"
+        },
+        {
+          "from_state": "cotp",
+          "request": "associate",
+          "canonical_request": "associate",
+          "request_state": "association_pending",
+          "expected_response": "associate_response",
+          "canonical_response": "associate_response",
+          "to_state": "associated"
+        },
+        {
+          "from_state": "associated",
+          "request": "get_name_list",
+          "canonical_request": "get_name_list",
+          "request_state": "associated",
+          "expected_response": "get_name_list_response",
+          "canonical_response": "get_name_list_response",
+          "to_state": "associated"
+        }
+      ],
+      "request_count": 3,
+      "serialized_bytes": 257,
+      "canonical_repeats": {
+        "cotp_cr": 1,
+        "associate": 1,
+        "get_name_list": 1
+      }
+    },
+    "read": {
+      "fixture": "fixtures/requests/read.replay",
+      "fixture_status": "complete",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "status": "model_reachable",
+      "seed": "seeds/read.replay",
+      "request_ids": [
+        "cotp_cr",
+        "associate",
+        "read"
+      ],
+      "model_states": [
+        "tcp",
+        "cotp",
+        "associated",
+        "associated"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "cotp_cr",
+          "canonical_request": "cotp_cr",
+          "request_state": "cotp_pending",
+          "expected_response": "cotp_cc",
+          "canonical_response": "cotp_cc",
+          "to_state": "cotp"
+        },
+        {
+          "from_state": "cotp",
+          "request": "associate",
+          "canonical_request": "associate",
+          "request_state": "association_pending",
+          "expected_response": "associate_response",
+          "canonical_response": "associate_response",
+          "to_state": "associated"
+        },
+        {
+          "from_state": "associated",
+          "request": "read",
+          "canonical_request": "read",
+          "request_state": "associated",
+          "expected_response": "read_response",
+          "canonical_response": "read_response",
+          "to_state": "associated"
+        }
+      ],
+      "request_count": 3,
+      "serialized_bytes": 301,
+      "canonical_repeats": {
+        "cotp_cr": 1,
+        "associate": 1,
+        "read": 1
+      }
+    },
+    "write": {
+      "fixture": "fixtures/requests/write.replay",
+      "fixture_status": "complete",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "status": "model_reachable",
+      "seed": "seeds/write.replay",
+      "request_ids": [
+        "cotp_cr",
+        "associate",
+        "write"
+      ],
+      "model_states": [
+        "tcp",
+        "cotp",
+        "associated",
+        "associated"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "cotp_cr",
+          "canonical_request": "cotp_cr",
+          "request_state": "cotp_pending",
+          "expected_response": "cotp_cc",
+          "canonical_response": "cotp_cc",
+          "to_state": "cotp"
+        },
+        {
+          "from_state": "cotp",
+          "request": "associate",
+          "canonical_request": "associate",
+          "request_state": "association_pending",
+          "expected_response": "associate_response",
+          "canonical_response": "associate_response",
+          "to_state": "associated"
+        },
+        {
+          "from_state": "associated",
+          "request": "write",
+          "canonical_request": "write",
+          "request_state": "associated",
+          "expected_response": "write_response",
+          "canonical_response": "write_response",
+          "to_state": "associated"
+        }
+      ],
+      "request_count": 3,
+      "serialized_bytes": 308,
+      "canonical_repeats": {
+        "cotp_cr": 1,
+        "associate": 1,
+        "write": 1
+      }
+    },
+    "conclude": {
+      "fixture": "fixtures/requests/conclude.replay",
+      "fixture_status": "complete",
+      "notes": "Complete reference profile message, including session DATA and presentation context 3.",
+      "status": "model_reachable",
+      "seed": "seeds/conclude.replay",
+      "request_ids": [
+        "cotp_cr",
+        "associate",
+        "conclude"
+      ],
+      "model_states": [
+        "tcp",
+        "cotp",
+        "associated",
+        "concluded"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "cotp_cr",
+          "canonical_request": "cotp_cr",
+          "request_state": "cotp_pending",
+          "expected_response": "cotp_cc",
+          "canonical_response": "cotp_cc",
+          "to_state": "cotp"
+        },
+        {
+          "from_state": "cotp",
+          "request": "associate",
+          "canonical_request": "associate",
+          "request_state": "association_pending",
+          "expected_response": "associate_response",
+          "canonical_response": "associate_response",
+          "to_state": "associated"
+        },
+        {
+          "from_state": "associated",
+          "request": "conclude",
+          "canonical_request": "conclude",
+          "request_state": "concluding",
+          "expected_response": "conclude_response",
+          "canonical_response": "conclude_response",
+          "to_state": "concluded"
+        }
+      ],
+      "request_count": 3,
+      "serialized_bytes": 243,
+      "canonical_repeats": {
+        "cotp_cr": 1,
+        "associate": 1,
+        "conclude": 1
+      }
+    },
+    "release": {
+      "fixture": "fixtures/requests/release.replay",
+      "fixture_status": "complete",
+      "notes": "Complete session FINISH/DISCONNECT carrying presentation context 1 and ACSE RLRQ/RLRE; distinct from MMS conclude handshake.",
+      "status": "model_reachable",
+      "seed": "seeds/release.replay",
+      "request_ids": [
+        "cotp_cr",
+        "associate",
+        "conclude",
+        "release"
+      ],
+      "model_states": [
+        "tcp",
+        "cotp",
+        "associated",
+        "concluded",
+        "closed"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "cotp_cr",
+          "canonical_request": "cotp_cr",
+          "request_state": "cotp_pending",
+          "expected_response": "cotp_cc",
+          "canonical_response": "cotp_cc",
+          "to_state": "cotp"
+        },
+        {
+          "from_state": "cotp",
+          "request": "associate",
+          "canonical_request": "associate",
+          "request_state": "association_pending",
+          "expected_response": "associate_response",
+          "canonical_response": "associate_response",
+          "to_state": "associated"
+        },
+        {
+          "from_state": "associated",
+          "request": "conclude",
+          "canonical_request": "conclude",
+          "request_state": "concluding",
+          "expected_response": "conclude_response",
+          "canonical_response": "conclude_response",
+          "to_state": "concluded"
+        },
+        {
+          "from_state": "concluded",
+          "request": "release",
+          "canonical_request": "release",
+          "request_state": "releasing",
+          "expected_response": "release_response",
+          "canonical_response": "release_response",
+          "to_state": "closed"
+        }
+      ],
+      "request_count": 4,
+      "serialized_bytes": 272,
+      "canonical_repeats": {
+        "cotp_cr": 1,
+        "associate": 1,
+        "conclude": 1,
+        "release": 1
+      }
+    }
+  }
+}

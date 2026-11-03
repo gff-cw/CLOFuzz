@@ -83,6 +83,15 @@ class TemplateTests(unittest.TestCase):
                 validate(p,s)
                 self.assertEqual(json.loads((output/'protocol_ir.json').read_text())['protocol_id'],p['protocol_id'])
                 self.assertTrue(list((output/'seeds').glob('*.replay')))
+                manifest=json.loads((output/'seed_manifest.json').read_text())
+                self.assertFalse(manifest['actual_target_session_verified'])
+                for mid,entry in manifest['requests'].items():
+                    self.assertTrue((output/entry['fixture']).is_file())
+                    if entry['status']=='model_reachable':
+                        expected=b''.join((output/'fixtures/requests'/f'{request}.replay').read_bytes()
+                                          for request in entry['request_ids'])
+                        self.assertEqual((output/entry['seed']).read_bytes(),expected)
+                        self.assertEqual(entry['serialized_bytes'],len(expected))
                 text=(output/'protocol_spec.yaml').read_text()
                 self.assertNotIn('{{',text)
                 self.assertNotIn('&id',text)
@@ -104,7 +113,7 @@ class TemplateTests(unittest.TestCase):
                     # Simulate a user's saved YAML, then compile exactly those files.
                     (output/'protocol_spec.yaml').write_text(yaml.safe_dump(p,sort_keys=False))
                     compile_spec(load(output/'protocol_spec.yaml'),s,output)
-                    result=subprocess.run([str(self.binary),str(output/'protocol_ir.json'),str(output/'state_ir.json'),str(output/'seeds/read_property.replay'),str(value)],capture_output=True,text=True,check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
+                    result=subprocess.run([str(self.binary),str(output/'protocol_ir.json'),str(output/'state_ir.json'),str(output/'fixtures/requests/read_property.replay'),str(value)],capture_output=True,text=True,check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
                     self.assertIn(f'invoke_id={value}',result.stdout)
                     print(result.stdout.strip())
 
@@ -116,7 +125,7 @@ class TemplateTests(unittest.TestCase):
             for transition in s['transitions']:
                 if transition['message']=='who_is':transition['message']='my_who_is_request'
             compile_spec(p,s,path)
-            result=subprocess.run([str(self.binary),str(path/'protocol_ir.json'),str(path/'state_ir.json'),str(path/'seeds/who_is.replay'),'whois'],capture_output=True,text=True,check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
+            result=subprocess.run([str(self.binary),str(path/'protocol_ir.json'),str(path/'state_ir.json'),str(path/'fixtures/requests/who_is.replay'),'whois'],capture_output=True,text=True,check=True,env=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1'))
             self.assertIn('renamed Who-Is',result.stdout)
             print(result.stdout.strip())
 
@@ -155,6 +164,7 @@ class TemplateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, mock.patch('init_protocol_spec.load',side_effect=selected):
             path=Path(folder)/'configured';instantiate('modbus_tcp',path)
             self.assertFalse((path/'seeds'/f"{request['id']}.replay").exists())
+            self.assertTrue((path/'fixtures/requests'/f"{request['id']}.replay").is_file())
             self.assertEqual(load(path/'evidence.yaml')['skipped_fragment_seeds'],[request['id']])
 
     def test_static_profile_cannot_become_runtime_by_copying(self):

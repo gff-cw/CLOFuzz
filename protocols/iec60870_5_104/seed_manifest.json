@@ -1,0 +1,232 @@
+{
+  "format": "stateafl.model-corpus",
+  "version": 1,
+  "protocol_id": "iec60870_5_104",
+  "proof_scope": "Declared legacy codec model reachability from initial, with one expected-response projection per request; no actual target session was observed or proven.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "validation_source": "stored validation.json snapshot; source/IR consistency checked; compiler and target not re-executed",
+  "runtime_examples_validated": true,
+  "model_sha256": {
+    "protocol": "c7ded845a48610cf48a2c22465f4e1391421561b3b6fc84152802701c5378f20",
+    "state": "151798ccb4c6c15910cfbbb147b113cb19ef88a0420c1e046cb0cfa7c15b1804"
+  },
+  "initial_state": "stopped",
+  "canonical_aliases": {},
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576,
+    "MAX_FILE": 1048576,
+    "MAX_WIRE": 65507
+  },
+  "resource_scope": "Request records only; max_bytes includes every 4-byte LE32 replay header; repeat counts use canonical request identity.",
+  "static_annotations_not_executed": [
+    "guard",
+    "actions",
+    "dependency.scope",
+    "dependency.when"
+  ],
+  "external_prerequisites": [
+    "other ASDU payload types",
+    "TLS",
+    "multi-object runtime generation"
+  ],
+  "search": {
+    "algorithm": "breadth-first with resource dominance",
+    "max_nodes": 16384,
+    "expanded_nodes": 2,
+    "scheduled_nodes": 3,
+    "budget_exhausted": false
+  },
+  "seeds": 5,
+  "fixtures": 5,
+  "requests": {
+    "start_act": {
+      "fixture": "fixtures/requests/start_act.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/start_act.replay",
+      "request_ids": [
+        "start_act"
+      ],
+      "model_states": [
+        "stopped",
+        "active"
+      ],
+      "transitions": [
+        {
+          "from_state": "stopped",
+          "request": "start_act",
+          "canonical_request": "start_act",
+          "request_state": "starting",
+          "expected_response": "start_con",
+          "canonical_response": "start_con",
+          "to_state": "active"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 10,
+      "canonical_repeats": {
+        "start_act": 1
+      }
+    },
+    "stop_act": {
+      "fixture": "fixtures/requests/stop_act.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/stop_act.replay",
+      "request_ids": [
+        "start_act",
+        "stop_act"
+      ],
+      "model_states": [
+        "stopped",
+        "active",
+        "stopped"
+      ],
+      "transitions": [
+        {
+          "from_state": "stopped",
+          "request": "start_act",
+          "canonical_request": "start_act",
+          "request_state": "starting",
+          "expected_response": "start_con",
+          "canonical_response": "start_con",
+          "to_state": "active"
+        },
+        {
+          "from_state": "active",
+          "request": "stop_act",
+          "canonical_request": "stop_act",
+          "request_state": "stopping",
+          "expected_response": "stop_con",
+          "canonical_response": "stop_con",
+          "to_state": "stopped"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 20,
+      "canonical_repeats": {
+        "start_act": 1,
+        "stop_act": 1
+      }
+    },
+    "test_act": {
+      "fixture": "fixtures/requests/test_act.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/test_act.replay",
+      "request_ids": [
+        "test_act"
+      ],
+      "model_states": [
+        "stopped",
+        "stopped"
+      ],
+      "transitions": [
+        {
+          "from_state": "stopped",
+          "request": "test_act",
+          "canonical_request": "test_act",
+          "request_state": "stopped",
+          "expected_response": "test_con",
+          "canonical_response": "test_con",
+          "to_state": "stopped"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 10,
+      "canonical_repeats": {
+        "test_act": 1
+      }
+    },
+    "s_ack": {
+      "fixture": "fixtures/requests/s_ack.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/s_ack.replay",
+      "request_ids": [
+        "start_act",
+        "s_ack"
+      ],
+      "model_states": [
+        "stopped",
+        "active",
+        "active"
+      ],
+      "transitions": [
+        {
+          "from_state": "stopped",
+          "request": "start_act",
+          "canonical_request": "start_act",
+          "request_state": "starting",
+          "expected_response": "start_con",
+          "canonical_response": "start_con",
+          "to_state": "active"
+        },
+        {
+          "from_state": "active",
+          "request": "s_ack",
+          "canonical_request": "s_ack",
+          "request_state": "active",
+          "expected_response": null,
+          "canonical_response": null,
+          "to_state": "active"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 20,
+      "canonical_repeats": {
+        "start_act": 1,
+        "s_ack": 1
+      }
+    },
+    "interrogation": {
+      "fixture": "fixtures/requests/interrogation.replay",
+      "fixture_status": "complete",
+      "notes": "C_IC_NA_1 request: SQ=0/count=1, IOA=0, QOI 20 global or 21..36 group. Data ASDUs between confirmation/termination are excluded, so completion does not mean an empty remote database.",
+      "status": "model_reachable",
+      "seed": "seeds/interrogation.replay",
+      "request_ids": [
+        "start_act",
+        "interrogation"
+      ],
+      "model_states": [
+        "stopped",
+        "active",
+        "interrogation_data"
+      ],
+      "transitions": [
+        {
+          "from_state": "stopped",
+          "request": "start_act",
+          "canonical_request": "start_act",
+          "request_state": "starting",
+          "expected_response": "start_con",
+          "canonical_response": "start_con",
+          "to_state": "active"
+        },
+        {
+          "from_state": "active",
+          "request": "interrogation",
+          "canonical_request": "interrogation",
+          "request_state": "interrogating",
+          "expected_response": "interrogation_confirmation",
+          "canonical_response": "interrogation_confirmation",
+          "to_state": "interrogation_data"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 30,
+      "canonical_repeats": {
+        "start_act": 1,
+        "interrogation": 1
+      }
+    }
+  }
+}

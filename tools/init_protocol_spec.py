@@ -10,6 +10,7 @@ import tempfile
 
 import yaml
 from proto_spec_compiler import SpecError, compile_spec, ident, load, validate
+from protocol_seed_planner import write_model_corpus
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = ("bacnet_ip", "modbus_tcp", "iec60870_5_104", "iec61850_mms_tcp",
@@ -58,23 +59,18 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
                 f"# Instantiated from protocols/templates using {base}.\n"
                 "# Edit this YAML, then recompile both files; do not hand-edit IR.\n"
                 + yaml.dump(document, Dumper=EditableDumper, sort_keys=False), encoding="utf-8")
-        seed_directory = draft / "seeds"
-        seed_directory.mkdir()
-        skipped_fragments = []
-        for message in protocol["messages"]:
-            if message["direction"] == "request":
-                if message.get("fixture_status", "complete") == "fragment":
-                    skipped_fragments.append(message["id"])
-                    continue
-                wire = bytes.fromhex(message["example"])
-                (seed_directory / (message["id"] + ".replay")).write_bytes(
-                    len(wire).to_bytes(4, "little") + wire)
+        corpus = write_model_corpus(draft, protocol, state, result)
+        skipped_fragments = [message["id"] for message in protocol["messages"]
+                             if message["direction"] == "request"
+                             and message.get("fixture_status", "complete") == "fragment"]
         evidence = dict(base_profile=base, protocol_id=protocol_id,
                         source_files={name: hashlib.sha256((source / name).read_bytes()).hexdigest()
                                       for name in ("protocol_spec.yaml", "state_transition.yaml")},
                         sources=protocol["sources"], scope=protocol["scope"],
                         support=protocol["support"], validation=result,
-                        skipped_fragment_seeds=skipped_fragments)
+                        skipped_fragment_seeds=skipped_fragments,
+                        model_corpus_manifest="seed_manifest.json",
+                        model_reachable_seeds=corpus["seeds"])
         (draft / "evidence.yaml").write_text(yaml.safe_dump(evidence, sort_keys=False), encoding="utf-8")
         (draft / "README.md").write_text(
             f"# {protocol['name']} description package\n\n"
@@ -82,13 +78,17 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
             f"Scope: {protocol['scope']}\n\n"
             f"Runtime encoder available: {str(result['runtime']).lower()}. "
             "This flag does not claim this copied package has passed a live target test.\n\n"
-            "Examples marked fragment are retained as static descriptions and are not written as replay seeds. "
-            "Generated seeds are scoped fixtures, not evidence of service conformance.\n\n"
+            "fixtures/requests retains single-message request examples, including static fragments. "
+            "seeds contains only request sequences reachable from the declared initial state: "
+            "each request projects its declared expected response once, without writing response bytes. "
+            "seed_manifest.json records request IDs, projected states, limits and reasons for withholding a seed. "
+            "This is a model-level proof; no actual target session, guard, external prerequisite or live response binding is proven.\n\n"
             "Field default, structure_model, state guard/actions and dependency scope/when are annotations; "
             "read validation.json execution_contract for the fields actually interpreted by the runtime.\n\n"
             "Edit protocol_spec.yaml and state_transition.yaml, then run:\n\n"
             "```bash\npython3 /path/to/stateafl/tools/proto_spec_compiler.py "
-            "--protocol protocol_spec.yaml --state state_transition.yaml --output-dir .\n```\n\n"
+            "--protocol protocol_spec.yaml --state state_transition.yaml --output-dir .\n"
+            "python3 /path/to/stateafl/tools/protocol_seed_planner.py --spec-dir .\n```\n\n"
             "For a runtime-enabled package, load protocol_ir.json and state_ir.json "
             "using afl-fuzz --protocol-spec and --state-spec.\n", encoding="utf-8")
         # Same-parent move publishes a complete package; validation failures
@@ -97,7 +97,8 @@ def instantiate(base, output, protocol_id=None, runtime_required=False):
             raise SpecError(f"refusing to overwrite existing path: {output}")
         draft.rename(output)
     return dict(output=str(output), base_profile=base, protocol_id=protocol_id,
-                validated=True, runtime=result["runtime"], messages=result["messages"])
+                validated=True, runtime=result["runtime"], messages=result["messages"],
+                model_reachable_seeds=corpus["seeds"])
 
 
 def main():

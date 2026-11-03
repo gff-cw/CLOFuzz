@@ -11,12 +11,13 @@
 | [EtherNet/IP + CIP/TCP](ethernet_ip_cip_tcp/protocol_spec.yaml) | [状态](ethernet_ip_cip_tcp/state_transition.yaml) | 10 / 132 / 4 | Register/Unregister、SendRRData、SendUnitData、CPF/EPATH；连接型消息有显式外部前提 | 有界 C runtime；配套 TCP 功能夹具 |
 | [OPC UA TCP](opcua_tcp/protocol_spec.yaml) | [状态](opcua_tcp/state_transition.yaml) | 10 / 107 / 6 | HEL/ACK/ERR/RHE、完整 None OPN、GetEndpoints/ServiceFault、实现 profile CLO | 有界 C runtime；配套 TCP 功能夹具 |
 
-每套目录另含 protocol_ir.json、state_ir.json、evidence.yaml、validation.json、README.md 和完整请求的 seeds/。通用可填写模板在 [templates/](templates/README.md)，格式校验规则在 schema/。
+每套目录另含 protocol_ir.json、state_ir.json、evidence.yaml、validation.json、README.md、单包请求 `fixtures/requests/`、模型可达请求序列 `seeds/` 和 `seed_manifest.json`。种子从 `initial` 开始，逐请求投影声明的 expected response，保留实际请求报文；只证明模型级可达性与 replay 资源上限，不证明真实目标会话、外部前提或响应绑定已验证。不能直接把单包 fixture 当作需要建链协议的完整种子。通用可填写模板在 [templates/](templates/README.md)，格式校验规则在 schema/。
 
 - [完整性与来源审查](../docs/protocol-model-audit.md)：逐协议范围、规范/实现证据、未覆盖内容。
 - [六协议描述与 C 执行能力核验](../docs/six-protocol-executable-readiness.md)：profile边界、codec写入能力、在线三级C路径及实际验证结果。
 - [五协议 YAML 与通用 C 接口审查](../docs/five-protocol-yaml-readiness.md)：静态字段/状态清单、保存 IR 一致性及执行契约边界；未运行编译、codec 或目标。
 - [模板与 C/Python 一致性审查](../docs/template-audit.md)：已修复的问题及执行语义边界。
+- [最小 profile 与模型请求语料修复](../docs/seed-corpus-repair-20261102.md)：单寄存器范围、建链请求前缀、存量语料迁移与静态证明边界。
 - [BACnet 多轮对照结果](../docs/bacnet-controlled-results.md)：真实发送样本、功能 A/B 和五模式重复实验。
 - 描述包导出：`python3 tools/export_protocol_bundle.py --output deliverables/industrial-protocol-descriptions.zip`。ZIP 内含六套模型、模板、schema 和 SHA-256 MANIFEST。
 

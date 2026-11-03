@@ -525,8 +525,8 @@ static int mf_read_manifest(const nj_value *root, run_manifest *m, char *err, si
   return mf_valid(m, err, cap);
 }
 
-int manifest_init_or_resume_config(const char *out_dir, const manifest_config *config,
-                                   run_manifest **out, char *err, size_t cap) {
+int manifest_prepare_config(const char *out_dir, const manifest_config *config,
+                              run_manifest **out, char *err, size_t cap) {
   if (!out) return mf_error(err, cap, "Missing manifest output");
   *out = NULL;
   if (mf_config_valid(config, err, cap) < 0) return -1;
@@ -599,7 +599,6 @@ int manifest_init_or_resume_config(const char *out_dir, const manifest_config *c
   segment->state_spec_hash = state_hash;
   m->num_segments = count;
   m->current_segment_id = segment->segment_id;
-  if (manifest_save_atomic(m, out_dir, err, cap) < 0) goto done;
   *out = m;
   m = NULL;
   result = 0;
@@ -607,6 +606,15 @@ int manifest_init_or_resume_config(const char *out_dir, const manifest_config *c
   free(path);
   manifest_free(m);
   return result;
+}
+
+int manifest_init_or_resume_config(const char *out_dir, const manifest_config *config,
+                                   run_manifest **out, char *err, size_t cap) {
+  if (manifest_prepare_config(out_dir, config, out, err, cap) < 0) return -1;
+  if (manifest_save_atomic(*out, out_dir, err, cap) == 0) return 0;
+  manifest_free(*out);
+  *out = NULL;
+  return -1;
 }
 
 int manifest_init_or_resume(const char *out_dir, const char *protocol,

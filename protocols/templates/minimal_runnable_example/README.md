@@ -2,6 +2,8 @@
 
 本目录提供面向已有 Modbus codec 的完整参考输入（G04），用于区别待填骨架和具备实际字段/消息/状态的描述。它不是 generic-wire 模板，也不实现任意新协议。本轮未运行该样例或编译器；源码修复与待验证状态见[修复清单](../../../docs/repair-status-20261102.md)。
 
+本最小 profile 只读取 **1 个 holding register**：请求 `quantity` 的 role/mutability 固定且 `min=max=default=1`；配对正常响应的数据范围固定为 2 字节。可变地址仍可用于内容变异。扩大 quantity 必须同时扩大响应字段并核对请求/响应关联，不能只改枚举候选；完整 [Modbus profile](../../modbus_tcp/protocol_spec.yaml) 保留原来的多寄存器范围。
+
 ---
 
 ## 1. 核心概念与防误配要点

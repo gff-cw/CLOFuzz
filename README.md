@@ -14,9 +14,10 @@ StateAFL has been implemented on top of the codebase of [AFL](http://lcamtuf.cor
 The optional [description-driven C mutation engine](docs/generic-wire-language.md)
 loads a JSON wire grammar with `--generic-spec` and implements
 HEAD/CONTENT/SEQUENCE mutation. Its online insertion points are present, but the
-[current integration review](docs/current-integration-gaps.md) identifies a
-nonzero-memory-state selection blocker, response-boundary issues and limits on
-whole-session validation. The separate YAML templates configure existing codecs;
+[current integration review](docs/current-integration-gaps.md) records the
+implemented host fixes, required cooperative message boundaries and pending
+runtime acceptance. The [usability repair record](docs/usability-repair-20261103.zh-CN.md)
+covers startup, calibration, selection and model session corpora. The separate YAML templates configure existing codecs;
 they are not a compiler front end for the new JSON format. The [six industrial
 protocol migration subsets](docs/generic-wire-profile-scope.md) have explicit
 limits; five are currently offline-only. Existing loopback evidence does not

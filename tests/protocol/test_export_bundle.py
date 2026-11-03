@@ -24,6 +24,7 @@ class BundleTests(unittest.TestCase):
                 self.assertTrue(all(p['runtime'] for p in manifest['profiles']))
                 self.assertTrue(all(p['all_fixtures_complete'] for p in manifest['profiles']))
                 for filename in ('tools/native_protocol_codecs.py','protocol_codecs.h',
+                                 'tools/protocol_seed_planner.py',
                                  'tools/build_generic_wire_profiles.py','tools/check_generic_wire_profiles.py',
                                  'generic_wire.c','generic_wire.h','generic_runtime.c','generic_runtime.h',
                                  'native_json.c','native_json.h','docs/generic-wire-profile-scope.md',
@@ -33,7 +34,7 @@ class BundleTests(unittest.TestCase):
                     self.assertNotIn('..',Path(name).parts)
                     self.assertEqual(hashlib.sha256(archive.read(name)).hexdigest(),digest)
                 for profile in manifest['profiles']:
-                    for filename in ('protocol_spec.yaml','state_transition.yaml','protocol_ir.json','state_ir.json','evidence.yaml','validation.json'):
+                    for filename in ('protocol_spec.yaml','state_transition.yaml','protocol_ir.json','state_ir.json','evidence.yaml','validation.json','seed_manifest.json'):
                         self.assertIn('protocols/'+profile['protocol_id']+'/'+filename,archive.namelist())
             self.assertEqual(hashlib.sha256(first.read_bytes()).hexdigest(),result['sha256'])
             extracted=Path(directory)/'extracted'

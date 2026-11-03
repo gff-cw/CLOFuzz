@@ -117,6 +117,11 @@ void manifest_write_escaped_json_string(FILE *file, const char *text);
 
 /* All requested settings and both description contents must match on resume.
  * Learning starts fresh in each segment. Version 1 is explicitly rejected. */
+/* Prepare a validated next segment entirely in memory. This only reads disk;
+ * the caller holds the output-directory lock and publishes with save_atomic
+ * after preparing the directory layout. Rejection never changes old files. */
+int manifest_prepare_config(const char *out_dir, const manifest_config *config,
+                             run_manifest **out_manifest, char *error, size_t cap);
 int manifest_init_or_resume_config(const char *out_dir,
                                    const manifest_config *config,
                                    run_manifest **out_manifest,

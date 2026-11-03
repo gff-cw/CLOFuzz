@@ -1,0 +1,107 @@
+{
+  "format": "stateafl.model-corpus",
+  "version": 1,
+  "protocol_id": "bacnet_ip",
+  "proof_scope": "Declared legacy codec model reachability from initial, with one expected-response projection per request; no actual target session was observed or proven.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "validation_source": "stored validation.json snapshot; source/IR consistency checked; compiler and target not re-executed",
+  "runtime_examples_validated": true,
+  "model_sha256": {
+    "protocol": "d63fc4a284a4a249e9514e606d3b13f760cc79a58281c438d021c597cef382e0",
+    "state": "2f2059c9051611388eacaaf7ce2d8ed9cd3358606579bf706024ce5538a5d8fe"
+  },
+  "initial_state": "ready",
+  "canonical_aliases": {},
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576,
+    "MAX_FILE": 1048576,
+    "MAX_WIRE": 65507
+  },
+  "resource_scope": "Request records only; max_bytes includes every 4-byte LE32 replay header; repeat counts use canonical request identity.",
+  "static_annotations_not_executed": [
+    "guard",
+    "actions",
+    "dependency.scope",
+    "dependency.when"
+  ],
+  "external_prerequisites": [
+    "segmented APDUs",
+    "BACnet/SC",
+    "other services runtime encoding",
+    "BBMD/foreign-device lifecycle"
+  ],
+  "search": {
+    "algorithm": "breadth-first with resource dominance",
+    "max_nodes": 16384,
+    "expanded_nodes": 1,
+    "scheduled_nodes": 1,
+    "budget_exhausted": false
+  },
+  "seeds": 2,
+  "fixtures": 2,
+  "requests": {
+    "who_is": {
+      "fixture": "fixtures/requests/who_is.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/who_is.replay",
+      "request_ids": [
+        "who_is"
+      ],
+      "model_states": [
+        "ready",
+        "ready"
+      ],
+      "transitions": [
+        {
+          "from_state": "ready",
+          "request": "who_is",
+          "canonical_request": "who_is",
+          "request_state": "ready",
+          "expected_response": "i_am",
+          "canonical_response": "i_am",
+          "to_state": "ready"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 12,
+      "canonical_repeats": {
+        "who_is": 1
+      }
+    },
+    "read_property": {
+      "fixture": "fixtures/requests/read_property.replay",
+      "fixture_status": "complete",
+      "notes": "",
+      "status": "model_reachable",
+      "seed": "seeds/read_property.replay",
+      "request_ids": [
+        "read_property"
+      ],
+      "model_states": [
+        "ready",
+        "ready"
+      ],
+      "transitions": [
+        {
+          "from_state": "ready",
+          "request": "read_property",
+          "canonical_request": "read_property",
+          "request_state": "pending",
+          "expected_response": "read_property_ack",
+          "canonical_response": "read_property_ack",
+          "to_state": "ready"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 21,
+      "canonical_repeats": {
+        "read_property": 1
+      }
+    }
+  }
+}

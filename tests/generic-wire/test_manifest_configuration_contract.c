@@ -80,6 +80,11 @@ int main(void) {
   CHECK(strcmp(config.target_arguments, "4;3:a b1:a1:b0:") == 0);
 
   run_manifest *m = NULL;
+  /* Preparation is read-only even for a fresh output directory. */
+  CHECK(manifest_prepare_config(directory, &config, &m, error, sizeof(error)) == 0);
+  CHECK(m != NULL && m->num_segments == 1);
+  CHECK(access(manifest_path, F_OK) != 0);
+  manifest_free(m); m = NULL;
   CHECK(manifest_init_or_resume_config(directory, &config, &m, error, sizeof(error)) == 0);
   CHECK(m != NULL && m->manifest_version == 2 && m->num_segments == 1);
   CHECK(m->spec_hash != 0 && m->state_spec_hash != 0);
@@ -93,6 +98,18 @@ int main(void) {
 
   nj_document *saved = NULL;
   CHECK(nj_load_file(manifest_path, &saved, error, sizeof(error)) == 0);
+  /* Neither an accepted in-memory segment nor a rejected configuration may
+     publish, truncate or otherwise alter the old manifest. */
+  CHECK(manifest_prepare_config(directory, &config, &m, error, sizeof(error)) == 0);
+  CHECK(m->num_segments == 2 && m->current_segment_id == 1);
+  manifest_free(m); m = NULL;
+  manifest_config conflict = config; conflict.ratio = 69;
+  CHECK(manifest_prepare_config(directory, &conflict, &m, error, sizeof(error)) < 0 && !m);
+  unsigned char *unchanged = NULL; size_t unchanged_length = 0;
+  CHECK(nj_read_file(manifest_path, &unchanged, &unchanged_length, NJ_MAX_BYTES,
+                     error, sizeof(error)) == 0);
+  CHECK(unchanged_length == saved->length && !memcmp(unchanged, saved->source, saved->length));
+  free(unchanged);
   const nj_value *segments = nj_get(saved->root, "segments");
   CHECK(segments != NULL && segments->count == 1);
   CHECK(nj_get(segments->items[0], "effective_exec_timeout_ms")->number.magnitude == 2500);

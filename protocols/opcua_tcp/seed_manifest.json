@@ -1,0 +1,228 @@
+{
+  "format": "stateafl.model-corpus",
+  "version": 1,
+  "protocol_id": "opcua_tcp",
+  "proof_scope": "Declared legacy codec model reachability from initial, with one expected-response projection per request; no actual target session was observed or proven.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "validation_source": "stored validation.json snapshot; source/IR consistency checked; compiler and target not re-executed",
+  "runtime_examples_validated": true,
+  "model_sha256": {
+    "protocol": "1feee3942c6e0d719be0fd458559dc319619e6e0cb5644fbb7b9d4414fe92bb9",
+    "state": "b0cd44ce4339b679a7fa1e6358a9788ae05cfe6501f16979a28f35d2e7ae8209"
+  },
+  "initial_state": "tcp",
+  "canonical_aliases": {},
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576,
+    "MAX_FILE": 1048576,
+    "MAX_WIRE": 65507
+  },
+  "resource_scope": "Request records only; max_bytes includes every 4-byte LE32 replay header; repeat counts use canonical request identity.",
+  "static_annotations_not_executed": [
+    "guard",
+    "actions",
+    "dependency.scope",
+    "dependency.when"
+  ],
+  "external_prerequisites": [
+    "signing/encryption and certificates",
+    "OpenSecureChannel Renew and token-overlap behavior",
+    "CreateSession/ActivateSession and authenticated/session services",
+    "intermediate/abort chunks and runtime reassembly",
+    "whole-standard conformance; CLO normative wording difference unresolved"
+  ],
+  "search": {
+    "algorithm": "breadth-first with resource dominance",
+    "max_nodes": 16384,
+    "expanded_nodes": 3,
+    "scheduled_nodes": 4,
+    "budget_exhausted": false
+  },
+  "seeds": 4,
+  "fixtures": 4,
+  "requests": {
+    "hello": {
+      "fixture": "fixtures/requests/hello.replay",
+      "fixture_status": "complete",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "status": "model_reachable",
+      "seed": "seeds/hello.replay",
+      "request_ids": [
+        "hello"
+      ],
+      "model_states": [
+        "tcp",
+        "acknowledged"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "hello",
+          "canonical_request": "hello",
+          "request_state": "hello_sent",
+          "expected_response": "ack",
+          "canonical_response": "ack",
+          "to_state": "acknowledged"
+        }
+      ],
+      "request_count": 1,
+      "serialized_bytes": 60,
+      "canonical_repeats": {
+        "hello": 1
+      }
+    },
+    "open_channel": {
+      "fixture": "fixtures/requests/open_channel.replay",
+      "fixture_status": "complete",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response.",
+      "status": "model_reachable",
+      "seed": "seeds/open_channel.replay",
+      "request_ids": [
+        "hello",
+        "open_channel"
+      ],
+      "model_states": [
+        "tcp",
+        "acknowledged",
+        "channel"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "hello",
+          "canonical_request": "hello",
+          "request_state": "hello_sent",
+          "expected_response": "ack",
+          "canonical_response": "ack",
+          "to_state": "acknowledged"
+        },
+        {
+          "from_state": "acknowledged",
+          "request": "open_channel",
+          "canonical_request": "open_channel",
+          "request_state": "channel_pending",
+          "expected_response": "open_channel_response",
+          "canonical_response": "open_channel_response",
+          "to_state": "channel"
+        }
+      ],
+      "request_count": 2,
+      "serialized_bytes": 196,
+      "canonical_repeats": {
+        "hello": 1,
+        "open_channel": 1
+      }
+    },
+    "message": {
+      "fixture": "fixtures/requests/message.replay",
+      "fixture_status": "complete",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response. MSG carries complete GetEndpoints Discovery request; this service does not require CreateSession/ActivateSession.",
+      "status": "model_reachable",
+      "seed": "seeds/message.replay",
+      "request_ids": [
+        "hello",
+        "open_channel",
+        "message"
+      ],
+      "model_states": [
+        "tcp",
+        "acknowledged",
+        "channel",
+        "channel"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "hello",
+          "canonical_request": "hello",
+          "request_state": "hello_sent",
+          "expected_response": "ack",
+          "canonical_response": "ack",
+          "to_state": "acknowledged"
+        },
+        {
+          "from_state": "acknowledged",
+          "request": "open_channel",
+          "canonical_request": "open_channel",
+          "request_state": "channel_pending",
+          "expected_response": "open_channel_response",
+          "canonical_response": "open_channel_response",
+          "to_state": "channel"
+        },
+        {
+          "from_state": "channel",
+          "request": "message",
+          "canonical_request": "message",
+          "request_state": "channel",
+          "expected_response": "message_response",
+          "canonical_response": "message_response",
+          "to_state": "channel"
+        }
+      ],
+      "request_count": 3,
+      "serialized_bytes": 293,
+      "canonical_repeats": {
+        "hello": 1,
+        "open_channel": 1,
+        "message": 1
+      }
+    },
+    "close_channel": {
+      "fixture": "fixtures/requests/close_channel.replay",
+      "fixture_status": "complete",
+      "notes": "Complete single final chunk in None profile. Assigned channel/token values are examples and must be replaced from a fresh OpenSecureChannel response. Implementation profile includes binary encoding NodeId 452 plus RequestHeader; Part6 7.1.4 says empty body. This wording difference is unresolved, so CLO is implementation evidence, not asserted full normative conformance. No response is sent.",
+      "status": "model_reachable",
+      "seed": "seeds/close_channel.replay",
+      "request_ids": [
+        "hello",
+        "open_channel",
+        "close_channel"
+      ],
+      "model_states": [
+        "tcp",
+        "acknowledged",
+        "channel",
+        "closed"
+      ],
+      "transitions": [
+        {
+          "from_state": "tcp",
+          "request": "hello",
+          "canonical_request": "hello",
+          "request_state": "hello_sent",
+          "expected_response": "ack",
+          "canonical_response": "ack",
+          "to_state": "acknowledged"
+        },
+        {
+          "from_state": "acknowledged",
+          "request": "open_channel",
+          "canonical_request": "open_channel",
+          "request_state": "channel_pending",
+          "expected_response": "open_channel_response",
+          "canonical_response": "open_channel_response",
+          "to_state": "channel"
+        },
+        {
+          "from_state": "channel",
+          "request": "close_channel",
+          "canonical_request": "close_channel",
+          "request_state": "closed",
+          "expected_response": null,
+          "canonical_response": null,
+          "to_state": "closed"
+        }
+      ],
+      "request_count": 3,
+      "serialized_bytes": 257,
+      "canonical_repeats": {
+        "hello": 1,
+        "open_channel": 1,
+        "close_channel": 1
+      }
+    }
+  }
+}

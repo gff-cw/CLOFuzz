@@ -1,6 +1,6 @@
 # 在线定向变异器与 StateAFL 的集成
 
-当前工作分支为 `feature/description-driven-c-engine-20261027`。本轮针对 `b21ea2c` 静态审计修复源码，没有执行构建、测试或目标。逐项 C/P 状态见[本次修复清单](repair-status-20261102.md)。本文后半部分保存较早 `feature/protocol-aware-integration-20261025` 工作的历史执行记录；其通过结果与预算只适用于原产物，不能迁移为当前版本的验收。
+当前工作分支为 `feature/description-driven-c-engine-20261027`。源码修复后用户授权编译；C/P 记录见[修复清单](repair-status-20261102.md)，后续 U01–U09 与编译情况见[最新修复](usability-repair-20261103.zh-CN.md)。未执行当前版本的测试或目标。本文后半部分保存较早 `feature/protocol-aware-integration-20261025` 工作的历史执行记录；其通过结果与预算只适用于原产物，不能迁移为当前版本的验收。
 
 当前接口段说明生产调用方式；接口存在、UNKNOWN 拒绝、推送成功都不证明非零状态入口或方法有效性已完成。另见[方法验证契约](method-validation-contract.md)。
 

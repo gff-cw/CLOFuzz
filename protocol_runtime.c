@@ -590,7 +590,13 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
   for(int mi=0;mi<e->nm;mi++)if(!e->m[mi].response && e->m[mi].size+4>e->max_bytes)goto malformed;
   {uint8_t reachable[SMAX]={0};reachable[e->initial]=1;for(int i=0;i<e->ns;i++)for(int t=0;t<e->nt;t++)if(reachable[e->tr[t].from])reachable[e->tr[t].to]=1;for(int i=0;i<e->ns;i++)if(!reachable[i]){fail(err,cap,"unreachable IR state %s",e->state[i]);goto bad;}}
   for(int mi=0;mi<e->nm;mi++)e->canonical[mi]=mi;
-  for(int mi=0;mi<e->nm;mi++){for(int prior=0;prior<mi;prior++)if(equivalent_models(e,mi,prior)&&equivalent_transitions(e,mi,prior)){e->canonical[mi]=e->canonical[prior];break;}}
+  /* Establish all model identities before comparing transition identities.
+   * Request aliases may name response aliases which occur later in the IR;
+   * deciding both in one pass makes their mutual equivalence order-dependent. */
+  for(int mi=0;mi<e->nm;mi++){for(int prior=0;prior<mi;prior++)if(equivalent_models(e,mi,prior)){e->canonical[mi]=e->canonical[prior];break;}}
+  for(int mi=0;mi<e->nm;mi++)if(e->canonical[mi]!=mi && !equivalent_transitions(e,mi,e->canonical[mi])){
+    fail(err,cap,"ambiguous wire identity with differing transitions: %s and %s",e->m[e->canonical[mi]].id,e->m[mi].id);goto bad;
+  }
   for(int old=0;old<e->nt;old++){
     for(int prior=0;prior<old;prior++){
       if(e->tr[old].from==e->tr[prior].from && e->canonical[e->tr[old].message]==e->canonical[e->tr[prior].message]){

@@ -49,6 +49,19 @@ int main(void) {
   region_t regions[2] = {{0}};
   struct queue_entry q = {0};
   q.regions = regions; q.region_count = 2;
+  /* Rejected state observations must not leak a scheduling preference before
+     trusted admission, even when their state sequence itself is available. */
+  q.unique_state_count = 77;
+  is_response_complete = 0;
+  update_state_aware_variables(&q, 0, NULL);
+  assert(q.unique_state_count == 77);
+  is_response_complete = 1; response_budget_exceeded = 1;
+  update_state_aware_variables(&q, 0, NULL);
+  assert(q.unique_state_count == 77);
+  response_budget_exceeded = 0; is_transmission_complete = 0;
+  update_state_aware_variables(&q, 0, NULL);
+  assert(q.unique_state_count == 77);
+  is_transmission_complete = 1;
   update_region_annotations(&q, obs);
   assert(regions[0].state_count == 2 && regions[0].state_sequence[1] == 42);
   assert(regions[1].state_count == 3 && regions[1].state_sequence[2] == 88);

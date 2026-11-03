@@ -72,6 +72,7 @@
 #include "protocol_runtime.h"
 #include "protocol_schedule.h"
 #include "native_inspect.h"
+#include "native_json.h"
 #include "execution_observation.h"
 #include "run_manifest.h"
 #include <graphviz/gvc.h>
@@ -155,6 +156,10 @@ static u32 current_feedback_exec_id;
 static u8 current_feedback_executed;
 /* P26: Cold-start segment and manifest tracking */
 static run_manifest *manifest_ctx = NULL;
+static manifest_config requested_manifest_config;
+static u8 manifest_configured;
+static u8 resume_stash_exists;
+static u8 *input_raw_queue;
 static u32 hang_tmout = EXEC_TIMEOUT; /* Timeout used for hang det (ms)   */
 
 EXP_ST u64 mem_limit  = MEM_LIMIT;    /* Memory cap for child (MB)        */
@@ -346,7 +351,11 @@ struct queue_entry {
   u8* fname;                          /* File name for the test case      */
   u32 len;                            /* Input length                     */
 
-  u8  cal_failed,                     /* Calibration failed?              */
+  u8  cal_failed,                     /* Failed calibration attempts      */
+      calibration_ready,             /* Valid measured performance       */
+      calibration_quarantined,       /* Terminal, never select or fuzz   */
+      pending_settled,               /* Pending count settled once       */
+      calibration_structured,        /* Original preparation policy      */
       trim_done,                      /* Trimmed?                         */
       was_fuzzed,                     /* Had any fuzzing done yet?        */
       passed_det,                     /* Deterministic stages passed?     */
@@ -363,6 +372,7 @@ struct queue_entry {
       depth;                          /* Path depth                       */
 
   u8* trace_mini;                     /* Trace bytes, if kept             */
+  u8* calibration_trace;              /* Retry / initial-state baseline, bounded */
   u32 tc_ref;                         /* Trace bytes ref count            */
 
   struct queue_entry *next,           /* Next element, if any             */
@@ -376,6 +386,16 @@ struct queue_entry {
   u32 unique_state_count;             /* Unique number of states traversed by this queue entry */
 
 };
+
+/* Pending entries may be selected solely to retry calibration in fuzz_one().
+   A terminal failure is retained on disk for evidence, never scheduled again. */
+static u8 queue_entry_selectable(const struct queue_entry *q) {
+  return q && q->regions && q->region_count && !q->calibration_quarantined;
+}
+
+static u8 queue_entry_fuzz_ready(const struct queue_entry *q) {
+  return queue_entry_selectable(q) && q->calibration_ready && !q->cal_failed;
+}
 
 static struct queue_entry *queue,     /* Fuzzing queue (linked list)      */
                           *queue_cur, /* Current offset within the queue  */
@@ -449,6 +469,10 @@ enum {
 char** use_argv;  /* argument to run the target program. In vanilla AFL, this is a local variable in main. */
 /* add these declarations here so we can call these functions earlier */
 static u8 run_target(char** argv, u32 timeout, struct forkserver *fsrv);
+static void cull_queue(void);
+static u8 retry_queue_calibration(char **argv, struct queue_entry *q, u8 admit_initial);
+static void persist_queue_replay(struct queue_entry *q);
+static u64 execution_wait_now_ms(void);
 static inline u32 UR(u32 limit);
 static inline u8 has_new_bits(u8* virgin_map);
 
@@ -910,9 +934,22 @@ u32 update_scores_and_select_next_state(u8 mode) {
   return result;
 }
 
+static int parse_selection_mode(const char *text, u8 *mode) {
+  if (!text || !*text || !mode || *text < '0' || *text > '9') return -1;
+  char *end;
+  errno = 0;
+  unsigned long value = strtoul(text, &end, 10);
+  if (errno || *end || value < RANDOM_SELECTION || value > FAVOR) return -1;
+  *mode = (u8)value;
+  return 0;
+}
+
 /* Select a target state at which we do state-aware fuzzing */
 unsigned int choose_target_state(u8 mode) {
   u32 result = 0;
+
+  if (!state_ids_count || mode < RANDOM_SELECTION || mode > FAVOR) return 0;
+  if (selected_state_index >= state_ids_count) selected_state_index = 0;
 
   switch (mode) {
     case RANDOM_SELECTION: //Random state selection
@@ -952,33 +989,48 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
   state_info_t *state;
   struct queue_entry *result = NULL;
 
+  if (stop_soon || mode < RANDOM_SELECTION || mode > FAVOR) return NULL;
+
   k = kh_get(hms, khms_states, target_state_id);
   if (k != kh_end(khms_states)) {
     state = kh_val(khms_states, k);
 
     if (state->seeds_count == 0) return NULL;
+    if (state->selected_seed_index >= state->seeds_count) state->selected_seed_index = 0;
 
     switch (mode) {
-      case RANDOM_SELECTION: //Random seed selection
-        state->selected_seed_index = UR(state->seeds_count);
-        result = state->seeds[state->selected_seed_index];
+      case RANDOM_SELECTION: { //Random selection over usable entries only
+        u32 available = 0;
+        for (u32 i = 0; i < state->seeds_count; i++)
+          if (queue_entry_selectable(state->seeds[i])) available++;
+        if (!available) break;
+        u32 pick = UR(available);
+        for (u32 i = 0; i < state->seeds_count; i++) {
+          if (!queue_entry_selectable(state->seeds[i])) continue;
+          if (!pick--) { state->selected_seed_index = i; result = state->seeds[i]; break; }
+        }
         break;
+      }
       case ROUND_ROBIN: //Round-robin seed selection
-        result = state->seeds[state->selected_seed_index];
-        state->selected_seed_index++;
-        if (state->selected_seed_index == state->seeds_count) state->selected_seed_index = 0;
+        for (u32 i = 0; i < state->seeds_count && !stop_soon; i++) {
+          struct queue_entry *candidate = state->seeds[state->selected_seed_index++];
+          if (state->selected_seed_index == state->seeds_count) state->selected_seed_index = 0;
+          if (queue_entry_selectable(candidate)) { result = candidate; break; }
+        }
         break;
       case FAVOR:
         if (state->seeds_count > 10) {
           //Do seed selection similar to AFL + take into account state-aware information
           //e.g., was_fuzzed information becomes state-aware
           u32 passed_cycles = 0;
-          while (passed_cycles < 5) {
+          while (passed_cycles < 5 && !stop_soon) {
             result = state->seeds[state->selected_seed_index];
             if (state->selected_seed_index + 1 == state->seeds_count) {
               state->selected_seed_index = 0;
               passed_cycles++;
             } else state->selected_seed_index++;
+
+            if (!queue_entry_selectable(result)) { result = NULL; continue; }
 
             //Skip this seed with high probability if it is neither an initial seed nor a seed generated while the
             //current target_state_id was targeted
@@ -1008,20 +1060,55 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
             }
           }
         } else {
-          //Do Round-robin if seeds_count of the selected state is small
-          result = state->seeds[state->selected_seed_index];
-          state->selected_seed_index++;
-          if (state->selected_seed_index == state->seeds_count) state->selected_seed_index = 0;
+          for (u32 i = 0; i < state->seeds_count && !stop_soon; i++) {
+            struct queue_entry *candidate = state->seeds[state->selected_seed_index++];
+            if (state->selected_seed_index == state->seeds_count) state->selected_seed_index = 0;
+            if (queue_entry_selectable(candidate)) { result = candidate; break; }
+          }
         }
         break;
       default:
         break;
     }
+    /* Probability affects preference, never the existence of usable work. */
+    if (!result && !stop_soon) {
+      for (u32 i = 0; i < state->seeds_count; i++) {
+        if (queue_entry_selectable(state->seeds[i])) {
+          result = state->seeds[i];
+          break;
+        }
+      }
+    }
   } else {
     PFATAL("AFLNet - the states hashtable has no entries for state %d", target_state_id);
   }
 
-  return result;
+  return !stop_soon && queue_entry_selectable(result) ? result : NULL;
+}
+
+/* Preferences can select a state with no usable seed. Try them a bounded
+   number of times, then enumerate states once so a usable state is not missed. */
+static struct queue_entry *choose_usable_state_seed(void) {
+  /* Pending coverage entries need a retry even before trusted state admission.
+     This selection does not register reachability or add a memory state. */
+  for (struct queue_entry *q = queue; q && !stop_soon; q = q->next) {
+    if (queue_entry_selectable(q) && !queue_entry_fuzz_ready(q)) {
+      target_state_id = 0;
+      return q;
+    }
+  }
+  for (u32 pass = 0; pass < 2 && !stop_soon; pass++) {
+    for (u32 i = 0; i < state_ids_count && !stop_soon; i++) {
+      target_state_id = pass ? state_ids[i] : choose_target_state(state_selection_algo);
+      cull_queue();
+      struct queue_entry *seed = choose_seed(target_state_id, seed_selection_algo);
+      if (!seed) continue;
+      khint_t k = kh_get(hms, khms_states, target_state_id);
+      if (k != kh_end(khms_states)) kh_val(khms_states, k)->selected_times++;
+      return seed;
+    }
+  }
+  return NULL;
 }
 
 static u8 submitted_execution_complete(void) {
@@ -1206,8 +1293,6 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     return;
   }
 
-  q->unique_state_count = orig_obs->unique_state_count;
-
 #ifdef DEBUG_STATE_SEQUENCE
   printf("STATE SEQUENCE: ");
   for(int ii=0; ii<orig_obs->state_count; ii++) {
@@ -1330,6 +1415,10 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run, char** argv
     free_execution_observation(orig_obs);
     return;
   }
+
+  /* This scheduling input belongs to the same trusted transaction as region
+     annotations and reachability. Rejected replays preserve its last value. */
+  q->unique_state_count = orig_obs->unique_state_count;
 
   /* P06/B04: Commit novel confirmed path to trusted set ONLY when interesting == 1 AND repeatable == 1 AND accepted == 1 */
   if (is_interesting == 1 && is_repeatable == 1 && is_accepted == 1 && hashKey != 0) {
@@ -1852,10 +1941,14 @@ int wait_for_state_sequence(u32 timeout_ms) {
   if (!state_shared_ptr) return STATE_TRACER_STATUS_UNAVAILABLE;
 
   /* Check execution identity and terminal publication status using bounded wait */
-  u64 start_time = get_cur_time();
+  u64 start_time = execution_wait_now_ms();
+  if (start_time == UINT64_MAX) return STATE_TRACER_STATUS_FAILED;
   if (timeout_ms == 0) timeout_ms = 1000;
 
-  while (get_cur_time() - start_time < timeout_ms) {
+  for (;;) {
+    if (stop_soon || child_timed_out) return STATE_TRACER_STATUS_FAILED;
+    u64 now = execution_wait_now_ms();
+    if (now == UINT64_MAX || now - start_time >= timeout_ms) break;
     if (state_shared_ptr->exec_id == state_exec_id) {
       uint32_t st = __atomic_load_n(&state_shared_ptr->status, __ATOMIC_ACQUIRE);
       if (st == STATE_TRACER_STATUS_COMPLETE ||
@@ -2010,6 +2103,11 @@ int send_over_network()
   is_response_complete = 1;
   response_budget_exceeded = 0;
 
+  if (stop_soon || child_timed_out) {
+    is_response_complete = 0;
+    return 1;
+  }
+
   //Clean up the server if needed
   if (cleanup_script) system(cleanup_script);
 
@@ -2029,6 +2127,10 @@ int send_over_network()
     response_bytes = NULL;
   }
 
+  if (stop_soon || child_timed_out) {
+    is_response_complete = 0;
+    return 1;
+  }
 
   // Add more wait time for executions under state analysis
   u32 poll_wait_msecs_total = poll_wait_msecs;
@@ -2081,6 +2183,11 @@ int send_over_network()
     //If it cannot connect to the server under test
     //try it again as the server initial startup time is varied
     for (n=0; n < 1000; n++) {
+      if (stop_soon || child_timed_out) {
+        is_response_complete = 0;
+        close(sockfd);
+        return 1;
+      }
       if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == 0) break;
       usleep(1000);
     }
@@ -2112,7 +2219,16 @@ int send_over_network()
   if (kl_messages) {
     for (it = kl_begin(kl_messages); it != kl_end(kl_messages); it = kl_next(it)) {
 
+    if (stop_soon || child_timed_out) {
+      is_response_complete = 0;
+      goto HANDLE_RESPONSES;
+    }
+
     usleep(send_delay_us);
+    if (stop_soon || child_timed_out) {
+      is_response_complete = 0;
+      goto HANDLE_RESPONSES;
+    }
 
     logical_digest = hash32(kl_val(it)->mdata, kl_val(it)->msize, logical_digest);
 
@@ -2211,7 +2327,7 @@ HANDLE_RESPONSES:
   is_transmission_complete = planned_messages > 0 &&
       complete_messages == planned_messages && partial_bytes_tail == 0;
 
-  if (!response_budget_exceeded) {
+  if (!response_budget_exceeded && !stop_soon && !child_timed_out) {
     receive_network_responses(sockfd, timeout, poll_wait_msecs_total);
   }
 
@@ -2327,12 +2443,9 @@ HANDLE_RESPONSES:
     }
   }
 
-  //give the server a bit more time to gracefully terminate
-
-  while(1) {
-    int status = kill(child_pid, 0);
-    if ((status != 0) && (errno == ESRCH)) break;
-  }
+  /* run_target owns completion: direct children must be reaped there, while
+     forkserver children are reported through the forkserver status pipe.
+     Waiting here for PID disappearance deadlocks on our own zombie child. */
 
   return 0;
 }
@@ -2826,7 +2939,7 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
   }
 
   /* AFLNet: extract regions keeping client requests if needed */
-  if (corpus_read_or_sync) {
+  if (corpus_read_or_sync == 1) {
     FILE *fp;
     unsigned char *buf;
 
@@ -2854,6 +2967,7 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
   u8 *fn = alloc_printf("%s/regions/%s", out_dir, basename(fname));
   save_regions_to_file(q->regions, q->region_count, fn);
   ck_free(fn);
+  if (corpus_read_or_sync != 1) persist_queue_replay(q);
 
   last_path_time = get_cur_time();
 
@@ -2878,6 +2992,7 @@ EXP_ST void destroy_queue(void) {
     n = q->next;
     ck_free(q->fname);
     ck_free(q->trace_mini);
+    ck_free(q->calibration_trace);
     u32 i;
     //Free AFLNet-specific data structure
     for (i = 0; i < q->region_count; i++) {
@@ -3285,7 +3400,10 @@ static void remove_shm(void) {
 #endif
 
 #ifdef LOG_STATE_TRACER
-  fclose(log_state_tracer);
+  if (log_state_tracer) {
+    fclose(log_state_tracer);
+    log_state_tracer = NULL;
+  }
 #endif
 }
 
@@ -3316,30 +3434,40 @@ static void minimize_bits(u8* dst, u8* src) {
 
    The first step of the process is to maintain a list of top_rated[] entries
    for every byte in the bitmap. We win that slot if there is no previous
-   contender, or if the contender has smaller unique state count or
-   it has a more favorable speed x size factor. */
+   contender, or if we traverse more trusted unique states. Equal state counts
+   are ordered by speed x size; equal costs preserve the incumbent. */
 
-static void update_bitmap_score(struct queue_entry* q) {
+static u64 queue_entry_cost(const struct queue_entry *q) {
+  if (q->len && q->exec_us > UINT64_MAX / q->len) return UINT64_MAX;
+  return q->exec_us * q->len;
+}
+
+static u8 queue_entry_better(const struct queue_entry *candidate,
+                             const struct queue_entry *incumbent) {
+  if (!queue_entry_fuzz_ready(candidate) || candidate == incumbent) return 0;
+  if (!queue_entry_fuzz_ready(incumbent)) return 1;
+  if (candidate->unique_state_count != incumbent->unique_state_count)
+    return candidate->unique_state_count > incumbent->unique_state_count;
+  return queue_entry_cost(candidate) < queue_entry_cost(incumbent);
+}
+
+static void update_bitmap_score_from_trace(struct queue_entry* q,
+                                            const u8 *coverage_trace) {
 
   u32 i;
-  u64 fav_factor = q->exec_us * q->len;
+
+  if (!queue_entry_fuzz_ready(q) || !coverage_trace) return;
 
   /* For every byte set in trace_bits[], see if there is a previous winner,
      and how it compares to us. */
 
   for (i = 0; i < MAP_SIZE; i++)
 
-    if (trace_bits[i]) {
+    if (coverage_trace[i]) {
+
+       if (!queue_entry_better(q, top_rated[i])) continue;
 
        if (top_rated[i]) {
-
-         /* AFLNet check unique state count first */
-
-         if (q->unique_state_count < top_rated[i]->unique_state_count) continue;
-
-         /* Faster-executing or smaller test cases are favored. */
-
-         if ((q->unique_state_count < top_rated[i]->unique_state_count) && (fav_factor > top_rated[i]->exec_us * top_rated[i]->len)) continue;
 
          /* Looks like we're going to win. Decrease ref count for the
             previous winner, discard its trace_bits[] if necessary. */
@@ -3358,13 +3486,17 @@ static void update_bitmap_score(struct queue_entry* q) {
 
        if (!q->trace_mini) {
          q->trace_mini = ck_alloc(MAP_SIZE >> 3);
-         minimize_bits(q->trace_mini, trace_bits);
+         minimize_bits(q->trace_mini, (u8 *)coverage_trace);
        }
 
        score_changed = 1;
 
      }
 
+}
+
+static void update_bitmap_score(struct queue_entry* q) {
+  update_bitmap_score_from_trace(q, trace_bits);
 }
 
 
@@ -3392,8 +3524,7 @@ static void cull_queue(void) {
   q = queue;
 
   while (q) {
-    if (!q->is_initial_seed)
-      q->favored = 0;
+    q->favored = 0;
     q = q->next;
   }
 
@@ -3401,7 +3532,8 @@ static void cull_queue(void) {
      If yes, and if it has a top_rated[] contender, let's use it. */
 
   for (i = 0; i < MAP_SIZE; i++)
-    if (top_rated[i] && (temp_v[i >> 3] & (1 << (i & 7)))) {
+    if (queue_entry_fuzz_ready(top_rated[i]) &&
+        (temp_v[i >> 3] & (1 << (i & 7)))) {
 
       u32 j = MAP_SIZE >> 3;
 
@@ -3416,7 +3548,8 @@ static void cull_queue(void) {
 
       //if (!top_rated[i]->was_fuzzed) pending_favored++;
       /* AFLNet takes into account more information to make this decision */
-      if ((top_rated[i]->generating_state_id == target_state_id || top_rated[i]->is_initial_seed) && (was_fuzzed_map[get_state_index(target_state_id)][top_rated[i]->index] == 0)) pending_favored++;
+      if ((top_rated[i]->generating_state_id == target_state_id || top_rated[i]->is_initial_seed) &&
+          (was_fuzzed_map[get_state_index(target_state_id)][top_rated[i]->index] == 0)) pending_favored++;
 
     }
 
@@ -3512,12 +3645,6 @@ EXP_ST void setup_shm(void) {
 #endif
 
 
-#ifdef LOG_STATE_TRACER
-  char log_state_fname[PATH_MAX];
-  snprintf(log_state_fname, PATH_MAX, "%s/%s", out_dir, LOG_STATE_TRACER_FILE);
-
-  log_state_tracer = fopen(log_state_fname, "w+");
-#endif
 }
 
 
@@ -3533,6 +3660,16 @@ void init_ipsm(char** argv) {
   struct queue_entry* q = queue;
 
   while (q) {
+
+    /* These initial entries have no trusted state-list membership yet. Resolve
+       their finite retry budget before the initial state scan can skip them. */
+    if (queue_entry_selectable(q) && !queue_entry_fuzz_ready(q))
+      retry_queue_calibration(argv, q, 0);
+    if (stop_soon) break;
+    if (!queue_entry_fuzz_ready(q)) {
+      q = q->next;
+      continue;
+    }
 
     /* AFLNet construct the kl_messages linked list for this queue entry*/
     kl_messages = construct_kl_messages(q->fname, q->regions, q->region_count);
@@ -3563,6 +3700,15 @@ void init_ipsm(char** argv) {
     if (state_aware_mode) update_state_aware_variables(q, 1, argv);
     current_exec_purpose = prev_purpose;
     proto_set_execution_purpose(protocol_engine, current_exec_purpose);
+
+    /* Initial coverage was measured before the state model was initialized.
+       Re-rank with the trusted count using that original coverage bitmap,
+       never the state-analyzer or confirmation replay's global trace. */
+    if (q->calibration_trace) {
+      update_bitmap_score_from_trace(q, q->calibration_trace);
+      ck_free(q->calibration_trace);
+      q->calibration_trace = NULL;
+    }
 
     /* AFLNet delete the kl_messages */
     delete_kl_messages(kl_messages);
@@ -3938,7 +4084,8 @@ static void read_testcases(void) {
     struct stat st;
 
     u8* fn = alloc_printf("%s/%s", in_dir, nl[i]->d_name);
-    u8* dfn = alloc_printf("%s/.state/deterministic_done/%s", in_dir, nl[i]->d_name);
+    u8* dfn = alloc_printf("%s/.state/deterministic_done/%s",
+                          input_raw_queue ? input_raw_queue : in_dir, nl[i]->d_name);
 
     u8  passed_det = 0;
 
@@ -3949,7 +4096,8 @@ static void read_testcases(void) {
 
     /* This also takes care of . and .. */
 
-    if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn, "/README.txt")) {
+    if (!S_ISREG(st.st_mode) || !st.st_size || strstr(fn, "/README.txt") ||
+        (input_raw_queue && strrchr(fn, '/')[1] == '.')) {
 
       ck_free(fn);
       ck_free(dfn);
@@ -4405,7 +4553,8 @@ static void load_auto(void) {
   for (i = 0; i < USE_AUTO_EXTRAS; i++) {
 
     u8  tmp[MAX_AUTO_EXTRA + 1];
-    u8* fn = alloc_printf("%s/.state/auto_extras/auto_%06u", in_dir, i);
+    u8* fn = alloc_printf("%s/.state/auto_extras/auto_%06u",
+                          input_raw_queue ? input_raw_queue : in_dir, i);
     s32 fd, len;
 
     fd = open(fn, O_RDONLY, 0600);
@@ -4485,7 +4634,10 @@ EXP_ST void init_forkserver(char** argv, struct forkserver *fsrv, u8* exe_path, 
 
   if (!fsrv->forksrv_pid) {
 
-    if(working_dir) chdir(working_dir);
+    if (working_dir && chdir(working_dir) < 0) {
+      *(u32 *)trace_bits = EXEC_FAIL_SIG;
+      _exit(1);
+    }
 
     struct rlimit r;
 
@@ -4758,6 +4910,96 @@ EXP_ST void init_forkserver(char** argv, struct forkserver *fsrv, u8* exe_path, 
 /* Execute target application, monitoring for timeouts. Return status
    information. The called program will update trace_bits[]. */
 
+#define EXECUTION_REAP_GRACE_MS 1000u
+
+typedef struct {
+  u64 deadline;
+  u64 cleanup_deadline;
+} execution_wait_budget_t;
+
+static u64 execution_wait_now_ms(void) {
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) return UINT64_MAX;
+  return (u64)now.tv_sec * 1000ULL + (u64)now.tv_nsec / 1000000ULL;
+}
+
+/* The caller retains the status word until all four bytes have arrived. The
+   same monotonic execution deadline covers request, PID, network and status;
+   termination gets a bounded cleanup interval, never another execution. */
+static int transfer_execution_word(int fd, void *word, u8 writing,
+                                    execution_wait_budget_t *budget,
+                                    struct forkserver *fsrv) {
+  if (fd < 0 || !word || !budget) { errno = EINVAL; return -1; }
+  u8 buffer[4];
+  if (writing) memcpy(buffer, word, sizeof(buffer));
+  size_t offset = 0;
+  while (offset < 4) {
+    if (stop_soon) return 0;
+    u64 now = execution_wait_now_ms();
+    if (now == UINT64_MAX) return -1;
+    if (!budget->cleanup_deadline && (child_timed_out || now >= budget->deadline)) {
+      child_timed_out = 1;
+      if (child_pid > 0) kill(child_pid, SIGKILL);
+      else if (fsrv && fsrv->forksrv_pid > 0) kill(fsrv->forksrv_pid, SIGKILL);
+      budget->cleanup_deadline = now + EXECUTION_REAP_GRACE_MS;
+    }
+    u64 limit = budget->cleanup_deadline ? budget->cleanup_deadline : budget->deadline;
+    if (now >= limit) { errno = ETIMEDOUT; return -1; }
+    int wait_ms = limit - now > 20 ? 20 : (int)(limit - now);
+    struct pollfd ready = {.fd = fd, .events = writing ? POLLOUT : POLLIN};
+    int result = poll(&ready, 1, wait_ms);
+    if (result < 0) {
+      if (errno == EINTR) continue;
+      return -1;
+    }
+    if (!result) continue;
+    if (ready.revents & POLLNVAL) { errno = EBADF; return -1; }
+    if (!(ready.revents & ((writing ? POLLOUT : POLLIN) | POLLHUP | POLLERR))) {
+      errno = EIO;
+      return -1;
+    }
+    ssize_t count = writing
+        ? write(fd, buffer + offset, 4 - offset)
+        : read(fd, buffer + offset, 4 - offset);
+    if (count < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) continue;
+    if (count <= 0) { if (!count) errno = EPIPE; return -1; }
+    if ((size_t)count > 4 - offset) { errno = EPROTO; return -1; }
+    offset += (size_t)count;
+  }
+  if (!writing) memcpy(word, buffer, sizeof(buffer));
+  return 1;
+}
+
+/* Only run_target calls this for its own direct child. A zombie is collected
+   before checking cancellation, and no other helper can reap this PID twice. */
+static int reap_execution_child(pid_t pid, int *status, execution_wait_budget_t *budget) {
+  if (pid <= 0 || !status || !budget) { errno = EINVAL; return -1; }
+  for (;;) {
+    pid_t result = waitpid(pid, status, WNOHANG);
+    if (result == pid) {
+      if (!WIFSTOPPED(*status)) child_pid = 0;
+      return 1;
+    }
+    if (result < 0 && errno != EINTR) return -1;
+    u64 now = execution_wait_now_ms();
+    if (now == UINT64_MAX) return -1;
+    if (!budget->cleanup_deadline && (stop_soon || child_timed_out || now >= budget->deadline)) {
+      if (!stop_soon) child_timed_out = 1;
+      kill(pid, SIGKILL);
+      budget->cleanup_deadline = now + EXECUTION_REAP_GRACE_MS;
+    }
+    u64 limit = budget->cleanup_deadline ? budget->cleanup_deadline : budget->deadline;
+    if (now >= limit) { errno = ETIMEDOUT; return -1; }
+    struct timespec pause = {.tv_sec = 0, .tv_nsec = 1000000};
+    if (nanosleep(&pause, NULL) < 0 && errno != EINTR) return -1;
+  }
+}
+
+static void disarm_execution_timer(void) {
+  struct itimerval disabled = {{0, 0}, {0, 0}};
+  setitimer(ITIMER_REAL, &disabled, NULL);
+}
+
 static u8 run_target(char** argv, u32 timeout, struct forkserver *fsrv) {
 
   static struct itimerval it;
@@ -4771,6 +5013,17 @@ static u8 run_target(char** argv, u32 timeout, struct forkserver *fsrv) {
 
   current_fsrv = fsrv;  /* for handling signals and timeouts */
   reset_state_execution();
+  if (stop_soon) return FAULT_NONE;
+  u64 wait_started = execution_wait_now_ms();
+  if (wait_started == UINT64_MAX) PFATAL("clock_gettime() failed");
+  execution_wait_budget_t wait_budget = {.deadline = wait_started + timeout};
+  child_pid = -1;
+
+  /* Arm before requesting a child, so a stuck forkserver PID reply is covered
+     by the same timeout as the subsequent target execution. */
+  it.it_value.tv_sec = timeout / 1000;
+  it.it_value.tv_usec = (timeout % 1000) * 1000;
+  setitimer(ITIMER_REAL, &it, NULL);
 
   /* After this memset, trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
@@ -4870,43 +5123,49 @@ static u8 run_target(char** argv, u32 timeout, struct forkserver *fsrv) {
     /* In non-dumb mode, we have the fork server up and running, so simply
        tell it to have at it, and then read back PID. */
 
-    if ((res = write(fsrv->fsrv_ctl_fd, &prev_timed_out, 4)) != 4) {
+    if ((res = transfer_execution_word(fsrv->fsrv_ctl_fd, &prev_timed_out, 1,
+                                       &wait_budget, fsrv)) != 1) {
 
+      disarm_execution_timer();
       if (stop_soon) return 0;
-      RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+      RPFATAL(res, "Unable to send an execution request to fork server");
 
     }
 
-    if ((res = read(fsrv->fsrv_st_fd, &child_pid, 4)) != 4) {
+    if ((res = transfer_execution_word(fsrv->fsrv_st_fd, &child_pid, 0,
+                                       &wait_budget, fsrv)) != 1) {
 
+      disarm_execution_timer();
       if (stop_soon) return 0;
-      RPFATAL(res, "Unable to request new process from fork server (OOM?)");
+      RPFATAL(res, "Unable to obtain child PID from fork server");
 
     }
 
     if (child_pid <= 0) FATAL("Fork server is misbehaving (OOM?)");
 
+    /* A timeout can kill the forkserver while its complete PID reply is
+       already buffered. That newly identified child still needs termination. */
+    if (stop_soon || child_timed_out) kill(child_pid, SIGKILL);
+
   }
-
-  /* Configure timeout, as requested by user, then wait for child to terminate. */
-
-  it.it_value.tv_sec = (timeout / 1000);
-  it.it_value.tv_usec = (timeout % 1000) * 1000;
-
-  setitimer(ITIMER_REAL, &it, NULL);
 
   /* The SIGALRM handler simply kills the child_pid and sets child_timed_out. */
 
   if (dumb_mode == 1 || no_forkserver) {
     if (use_net) send_over_network();
-    if (waitpid(child_pid, &status, 0) <= 0) PFATAL("waitpid() failed");
+    if (reap_execution_child(child_pid, &status, &wait_budget) != 1) {
+      disarm_execution_timer();
+      PFATAL("Unable to reap direct target child");
+    }
 
   } else {
     if (use_net) send_over_network();
     s32 res;
 
-    if ((res = read(fsrv->fsrv_st_fd, &status, 4)) != 4) {
+    if ((res = transfer_execution_word(fsrv->fsrv_st_fd, &status, 0,
+                                       &wait_budget, fsrv)) != 1) {
 
+      disarm_execution_timer();
       if (stop_soon) return 0;
       RPFATAL(res, "Unable to communicate with fork server (OOM?)");
 
@@ -5013,6 +5272,39 @@ static void write_to_testcase(void* mem, u32 len) {
 
 static void show_stats(void);
 
+static void settle_queue_pending(struct queue_entry *q) {
+  if (q->pending_settled) return;
+  if (pending_not_fuzzed) pending_not_fuzzed--;
+  if (q->favored && pending_favored) pending_favored--;
+  q->pending_settled = 1;
+}
+
+static void quarantine_queue_entry(struct queue_entry *q, const char *reason) {
+  if (q->calibration_quarantined) return;
+  settle_queue_pending(q);
+  q->calibration_ready = 0;
+  q->calibration_quarantined = 1;
+  if (q->favored && queued_favored) queued_favored--;
+  q->favored = 0;
+  for (u32 i = 0; i < MAP_SIZE; i++)
+    if (top_rated[i] == q) top_rated[i] = NULL;
+  q->tc_ref = 0;
+  ck_free(q->trace_mini);
+  q->trace_mini = NULL;
+  ck_free(q->calibration_trace);
+  q->calibration_trace = NULL;
+  score_changed = 1;
+  WARNF("Queue entry %u quarantined after %u calibration attempt(s): %s",
+        q->index, q->cal_failed, reason);
+  if (protocol_log) {
+    fprintf(protocol_log, "{\"event\":\"calibration_quarantined\","
+            "\"seed_id\":%u,\"attempts\":%u,\"reason\":",
+            q->index, q->cal_failed);
+    manifest_write_escaped_json_string(protocol_log, reason);
+    fputs("}\n", protocol_log);
+  }
+}
+
 /* Calibrate a new test case. This is done when processing the input directory
    to warn about flaky or otherwise problematic test cases early on; and when
    new paths are discovered to detect variable behavior and so on. */
@@ -5021,6 +5313,16 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
                          u32 handicap, u8 from_queue,
                          const execution_observation_t *expected_wire,
                          const u8 *expected_trace) {
+
+  if (!queue_entry_selectable(q)) {
+    if (q && !q->calibration_quarantined)
+      quarantine_queue_entry(q, "seed_has_no_message_regions");
+    return FAULT_NOBITS;
+  }
+  if (q->cal_failed >= CAL_CHANCES) {
+    quarantine_queue_entry(q, "calibration_retry_exhausted");
+    return FAULT_NOBITS;
+  }
 
   u8 prev_purpose = current_exec_purpose;
   current_exec_purpose = EXEC_PURPOSE_CALIBRATION;
@@ -5049,6 +5351,9 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
     use_tmout = MAX(exec_tmout + CAL_TMOUT_ADD,
                     exec_tmout * CAL_TMOUT_PERC / 100);
 
+  if (!q->cal_failed) q->calibration_structured = protocol_structured_run;
+  q->calibration_ready = 0;
+  q->handicap = handicap;
   q->cal_failed++;
 
   stage_name = "calibration";
@@ -5078,13 +5383,13 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
 
     /* Network execution sends kl_messages and may apply fresh session bindings;
        writing use_mem alone does not replay the original submitted bytes. */
-    if (expected_wire && (!submitted_execution_complete() ||
-                          !current_execution_matches_wire(expected_wire))) {
+    if (use_net && (!submitted_execution_complete() ||
+        (expected_wire && !current_execution_matches_wire(expected_wire)))) {
       if (protocol_log)
         fprintf(protocol_log, "{\"event\":\"calibration_rejected\","
                 "\"reason\":\"submitted_input_changed_or_incomplete\","
                 "\"expected_exec_id\":%u,\"exec_id\":%u}\n",
-                expected_wire->exec_id, state_exec_id);
+                expected_wire ? expected_wire->exec_id : 0, state_exec_id);
       fault = FAULT_NOBITS;
       goto abort_calibration;
     }
@@ -5139,10 +5444,25 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
   /* OK, let's collect some stats about the performance of this test case.
      This is used for fuzzing air time calculations in calculate_score(). */
 
-  q->exec_us     = (stop_us - start_us) / stage_max;
+  /* Preserve sub-microsecond averages by rounding a real completed timing
+     sample upward. Unmeasured entries remain explicitly not ready. */
+  q->exec_us     = (stop_us - start_us) / stage_max +
+                  ((stop_us - start_us) % stage_max != 0);
   q->bitmap_size = count_bytes(trace_bits);
   q->handicap    = handicap;
   q->cal_failed  = 0;
+  q->calibration_ready = 1;
+#ifndef DISABLE_TLSH_CALIBRATION
+  if (q->is_initial_seed && state_aware_mode) {
+    if (!q->calibration_trace) q->calibration_trace = ck_alloc(MAP_SIZE);
+    memcpy(q->calibration_trace, trace_bits, MAP_SIZE);
+  } else {
+#endif
+    ck_free(q->calibration_trace);
+    q->calibration_trace = NULL;
+#ifndef DISABLE_TLSH_CALIBRATION
+  }
+#endif
 
   total_bitmap_size += q->bitmap_size;
   total_bitmap_entries++;
@@ -5156,6 +5476,23 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
   if (!dumb_mode && first_run && !fault && !new_bits) fault = FAULT_NOBITS;
 
 abort_calibration:
+
+  if (!q->calibration_ready) {
+    if (q->cal_failed >= CAL_CHANCES) {
+      quarantine_queue_entry(q, "calibration_retry_exhausted");
+    } else {
+      /* Only retain the coverage baseline, never the original response/wire
+         observation. Retry wire is reconstructed from the saved queue file. */
+      if (q->exec_cksum) {
+        if (!q->calibration_trace) q->calibration_trace = ck_alloc(MAP_SIZE);
+        memcpy(q->calibration_trace, first_trace, MAP_SIZE);
+      }
+      if (protocol_log)
+        fprintf(protocol_log, "{\"event\":\"calibration_pending\","
+                "\"seed_id\":%u,\"attempts\":%u,\"fault\":%u}\n",
+                q->index, q->cal_failed, fault);
+    }
+  }
 
   if (new_bits == 2 && !q->has_new_cov) {
     q->has_new_cov = 1;
@@ -5185,6 +5522,156 @@ abort_calibration:
   proto_set_execution_purpose(protocol_engine, current_exec_purpose);
   return fault;
 
+}
+
+/* Build only borrowed wire descriptors. The saved raw bytes and region lengths
+   are the persistent identity of a retained seed; the caller owns both the
+   input buffer and free(expected->wire), never free_execution_observation(). */
+static int queue_calibration_expected_wire(const struct queue_entry *q, u8 *input,
+                                            execution_observation_t *expected) {
+  if (!q || !input || !expected || !q->regions || !q->region_count ||
+      q->region_count > q->len) return -1;
+  memset(expected, 0, sizeof(*expected));
+  expected->wire = calloc(q->region_count, sizeof(*expected->wire));
+  if (!expected->wire) FATAL("Out of memory rebuilding calibration wire");
+  u32 offset = 0;
+  for (u32 i = 0; i < q->region_count; i++) {
+    const region_t *r = &q->regions[i];
+    if (r->start_byte < 0 || (u32)r->start_byte != offset ||
+        r->end_byte < r->start_byte) goto invalid;
+    u64 length = (u64)(u32)r->end_byte - (u32)r->start_byte + 1;
+    if (length > q->len - offset) goto invalid;
+    expected->wire[i].data = input + offset;
+    expected->wire[i].size = expected->wire[i].planned_size = (u32)length;
+    offset += (u32)length;
+  }
+  if (offset != q->len) goto invalid;
+  expected->planned_messages = expected->wire_count = q->region_count;
+  expected->complete_messages = expected->messages_sent = q->region_count;
+  expected->total_bytes_sent = q->len;
+  expected->has_wire_observation = expected->is_transmission_complete = 1;
+  return 0;
+invalid:
+  free(expected->wire);
+  expected->wire = NULL;
+  return -1;
+}
+
+/* Authoritative input snapshot, separate from diagnostic replayable-queue and
+   best-effort regions files. It preserves this queue file's exact boundaries
+   and bytes, and moves with queue/.state during a cold-start resume. */
+static void persist_queue_replay(struct queue_entry *q) {
+  if (!q->region_count) return; /* Such entries cannot later be resumed. */
+  unsigned char *input = NULL; size_t size = 0; char error[256] = "length mismatch";
+  if (nj_read_file((char *)q->fname, &input, &size, MAX_FILE, error, sizeof(error)) < 0 || size != q->len)
+    FATAL("Cannot snapshot queue input: %s", error);
+  execution_observation_t expected;
+  if (queue_calibration_expected_wire(q, input, &expected) < 0)
+    FATAL("Cannot snapshot invalid queue message boundaries");
+  u8 *path = alloc_printf("%s/queue/.state/replay/%s", out_dir, basename(q->fname));
+  u8 *temporary = alloc_printf("%s/queue/.state/replay/.pending-%u", out_dir, q->index);
+  FILE *file = fopen((char *)temporary, "wb");
+  if (!file) PFATAL("Cannot create queue snapshot '%s'", temporary);
+  size_t written = 0;
+  int result = write_execution_wire(file, &expected, 1, &written);
+  if (fclose(file)) result = -1;
+  if (result < 0 || written > MAX_FILE) {
+    unlink((char *)temporary);
+    FATAL("Cannot write bounded queue snapshot '%s'", path);
+  }
+  if (rename((char *)temporary, (char *)path)) PFATAL("Cannot publish '%s'", path);
+  free(expected.wire); free(input); ck_free(temporary); ck_free(path);
+}
+
+/* Resolve pending entries before any mutation stage. Keep the original
+   preparation policy, including fresh session binding and pending-response
+   checks. A changed submitted wire cannot calibrate the saved input. */
+static u8 retry_queue_calibration(char **argv, struct queue_entry *q, u8 admit_initial) {
+  if (!queue_entry_selectable(q)) return 0;
+  if (queue_entry_fuzz_ready(q)) return 1;
+  if (q->cal_failed >= CAL_CHANCES) {
+    quarantine_queue_entry(q, "calibration_retry_exhausted");
+    return 0;
+  }
+
+  s32 fd = open(q->fname, O_RDONLY);
+  if (fd < 0) PFATAL("Unable to open '%s'", q->fname);
+  struct stat st;
+  if (fstat(fd, &st)) PFATAL("Unable to stat '%s'", q->fname);
+  if (st.st_size < 0 || (u64)st.st_size != q->len) {
+    close(fd);
+    quarantine_queue_entry(q, "saved_input_length_changed");
+    return 0;
+  }
+  u8 *input = ck_alloc_nozero(q->len);
+  ck_read(fd, input, q->len, q->fname);
+  close(fd);
+
+  execution_observation_t expected;
+  if (queue_calibration_expected_wire(q, input, &expected) < 0) {
+    ck_free(input);
+    quarantine_queue_entry(q, "saved_input_regions_invalid");
+    return 0;
+  }
+
+  klist_t(lms) *saved_messages = kl_messages;
+  kliter_t(lms) *saved_m2_prev = M2_prev, *saved_m2_next = M2_next;
+  u8 saved_structured = protocol_structured_run;
+  u32 saved_seed = current_seed_id, saved_state = current_target_state_id;
+  kl_messages = construct_kl_messages(q->fname, q->regions, q->region_count);
+  protocol_structured_run = q->calibration_structured;
+  /* No current mutation exists here. The empty M2 prevents inheriting the
+     last candidate's intentional-invalid preparation exemption. Records must
+     independently pass ordinary prepare/commit/response transactions. */
+  M2_prev = NULL;
+  M2_next = kl_begin(kl_messages);
+  if (protocol_log)
+    fprintf(protocol_log, "{\"event\":\"calibration_retry\",\"seed_id\":%u,"
+            "\"policy\":\"strict_original_mode\",\"structured\":%s,"
+            "\"invalid_provenance\":\"not_restored\",\"attempts_remaining\":%u}\n",
+            q->index, protocol_structured_run ? "true" : "false",
+            CAL_CHANCES - q->cal_failed);
+
+  while (!stop_soon && !queue_entry_fuzz_ready(q) && !q->calibration_quarantined) {
+    u8 result = calibrate_case(argv, q, input, q->len, q->handicap, 0,
+                               use_net ? &expected : NULL, q->calibration_trace);
+    if (result == FAULT_ERROR) FATAL("Unable to execute target application");
+  }
+
+  /* A pending initial input was excluded from init_ipsm. Complete that same
+     trusted admission step once calibration succeeds, including wire identity
+     and repeatability checks; do not leave it permanently outside reachability. */
+  if (admit_initial && !stop_soon && queue_entry_fuzz_ready(q) && q->is_initial_seed && state_aware_mode) {
+    u8 saved_purpose = current_exec_purpose;
+    current_exec_purpose = EXEC_PURPOSE_STATE_ANALYSIS;
+    proto_set_execution_purpose(protocol_engine, current_exec_purpose);
+    run_target(argv, exec_tmout * 2, stateafl_fsrv);
+    execution_observation_t *state_obs = capture_execution_observation(current_exec_purpose);
+    if (state_obs && execution_wire_equal(&expected, state_obs))
+      update_state_aware_variables(q, 1, argv);
+    else if (protocol_log)
+      fprintf(protocol_log, "{\"event\":\"state_observation_rejected\","
+              "\"seed_id\":%u,\"reason\":\"retry_submitted_input_differs\"}\n", q->index);
+    free_execution_observation(state_obs);
+    current_exec_purpose = saved_purpose;
+    proto_set_execution_purpose(protocol_engine, current_exec_purpose);
+  }
+  if (admit_initial && queue_entry_fuzz_ready(q) && q->calibration_trace) {
+    update_bitmap_score_from_trace(q, q->calibration_trace);
+    ck_free(q->calibration_trace);
+    q->calibration_trace = NULL;
+  }
+
+  delete_kl_messages(kl_messages);
+  kl_messages = saved_messages;
+  M2_prev = saved_m2_prev;
+  M2_next = saved_m2_next;
+  protocol_structured_run = saved_structured;
+  current_seed_id = saved_seed;
+  current_target_state_id = saved_state;
+  free(expected.wire);
+  ck_free(input);
+  return queue_entry_fuzz_ready(q);
 }
 
 
@@ -5221,6 +5708,13 @@ static void perform_dry_run(char** argv) {
 
     q->is_initial_seed = 1;
 
+    if (!queue_entry_selectable(q)) {
+      quarantine_queue_entry(q, "initial_seed_has_no_message_regions");
+      cal_failures++;
+      q = q->next;
+      continue;
+    }
+
     u8* fn = strrchr(q->fname, '/') + 1;
 
     ACTF("Attempting dry run with '%s'...", fn);
@@ -5249,7 +5743,7 @@ static void perform_dry_run(char** argv) {
     ck_free(use_mem);
 
     /* Perform additional runs to get data for TLSH calibration */
-    if (state_aware_mode) {
+    if (state_aware_mode && queue_entry_fuzz_ready(q)) {
 
 #ifdef DEBUG_TLSH
       int dist_len = calib_shm->dist_len;
@@ -5292,7 +5786,8 @@ static void perform_dry_run(char** argv) {
 
     if (stop_soon) return;
 
-    if (res == crash_mode || res == FAULT_NOBITS)
+    if (queue_entry_fuzz_ready(q) &&
+        (res == crash_mode || res == FAULT_NOBITS))
       SAYF(cGRA "    len = %u, map size = %u, exec speed = %llu us\n" cRST,
            q->len, q->bitmap_size, q->exec_us);
 
@@ -5438,6 +5933,9 @@ static void perform_dry_run(char** argv) {
     }
 
     if (q->var_behavior) WARNF("Instrumentation output varies across runs.");
+
+    if (q->cal_failed >= CAL_CHANCES)
+      quarantine_queue_entry(q, "initial_seed_explicitly_skipped");
 
     q = q->next;
 
@@ -5637,6 +6135,7 @@ static void pivot_inputs(void) {
     ck_free(q->fname);
     q->fname = nfn;
     q->len = len;
+    persist_queue_replay(q);
 
     /* Make sure that the passed_det value carries over, too. */
 
@@ -6005,7 +6504,7 @@ static u32 find_start_position(void) {
   if (!resuming_fuzz) return 0;
 
   if (in_place_resume) fn = alloc_printf("%s/fuzzer_stats", out_dir);
-  else fn = alloc_printf("%s/../fuzzer_stats", in_dir);
+  else fn = alloc_printf("%s/../fuzzer_stats", input_raw_queue ? input_raw_queue : in_dir);
 
   fd = open(fn, O_RDONLY);
   ck_free(fn);
@@ -6040,7 +6539,7 @@ static void find_timeout(void) {
   if (!resuming_fuzz) return;
 
   if (in_place_resume) fn = alloc_printf("%s/fuzzer_stats", out_dir);
-  else fn = alloc_printf("%s/../fuzzer_stats", in_dir);
+  else fn = alloc_printf("%s/../fuzzer_stats", input_raw_queue ? input_raw_queue : in_dir);
 
   fd = open(fn, O_RDONLY);
   ck_free(fn);
@@ -6341,6 +6840,20 @@ static double get_runnable_processes(void) {
 
 /* Delete the temporary directory used for in-place session resume. */
 
+static u8 delete_queue_replay_files(u8 *path) {
+  DIR *directory = opendir((char *)path);
+  if (!directory) return errno == ENOENT ? 0 : 1;
+  struct dirent *entry;
+  while ((entry = readdir(directory))) {
+    if (strncmp(entry->d_name, ".pending-", 9)) continue;
+    u8 *file = alloc_printf("%s/%s", path, entry->d_name);
+    int result = unlink((char *)file); ck_free(file);
+    if (result) { closedir(directory); return 1; }
+  }
+  closedir(directory);
+  return delete_files(path, NULL);
+}
+
 static void nuke_resume_dir(void) {
 
   u8* fn;
@@ -6359,6 +6872,10 @@ static void nuke_resume_dir(void) {
 
   fn = alloc_printf("%s/_resume/.state/variable_behavior", out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
+  ck_free(fn);
+
+  fn = alloc_printf("%s/_resume/.state/replay", out_dir);
+  if (delete_queue_replay_files(fn)) goto dir_cleanup_failed;
   ck_free(fn);
 
   fn = alloc_printf("%s/_resume/.state", out_dir);
@@ -6381,6 +6898,123 @@ dir_cleanup_failed:
 /* Delete fuzzer output directory if we recognize it as ours, if the fuzzer
    is not currently running, and if the last run time isn't too great. */
 
+/* Called only after acquiring the output-directory lock and before changing
+   any existing session files. Preparing the segment never publishes it. */
+static int saved_replay_matches_raw(const char *raw_path, const char *replay_path) {
+  unsigned char *raw = NULL, *replay = NULL;
+  size_t raw_size = 0, replay_size = 0, count = 0, offset = 0, at = 0;
+  char error[256]; int result = -1;
+  if (nj_read_file(raw_path, &raw, &raw_size, MAX_FILE, error, sizeof(error)) < 0 ||
+      nj_read_file(replay_path, &replay, &replay_size, MAX_FILE, error, sizeof(error)) < 0) goto done;
+  while (at < replay_size) {
+    if (replay_size - at < 4) goto done;
+    u32 size = 0;
+    for (u32 i = 0; i < 4; i++) size |= (u32)replay[at + i] << (8 * i);
+    at += 4;
+    if (!size || size > replay_size - at || offset > raw_size || size > raw_size - offset ||
+        memcmp(raw + offset, replay + at, size)) goto done;
+    count++;
+    offset += size; at += size;
+  }
+  if (count && offset == raw_size) result = 0;
+done:
+  free(raw); free(replay); return result;
+}
+
+/* Only producer-owned queue/.state/replay snapshots are resume inputs. Debug
+   regions and replayable-queue may describe a different diagnostic execution. */
+static void validate_saved_queue_replays(const char *raw_directory) {
+  u8 *replays = alloc_printf("%s/.state/replay", raw_directory);
+  DIR *raw = opendir(raw_directory), *snapshots = opendir((char *)replays);
+  if (!raw || !snapshots)
+    FATAL("Queue '%s' lacks authoritative replay snapshots; retain it and use an explicitly exported replay corpus", raw_directory);
+  struct dirent *entry; u32 raw_count = 0, replay_count = 0;
+  while ((entry = readdir(raw))) {
+    if (strncmp(entry->d_name, CASE_PREFIX, strlen(CASE_PREFIX))) continue;
+    u8 *path = alloc_printf("%s/%s", raw_directory, entry->d_name);
+    u8 *snapshot = alloc_printf("%s/%s", replays, entry->d_name);
+    struct stat info;
+    if (lstat((char *)path, &info) || !S_ISREG(info.st_mode) ||
+        lstat((char *)snapshot, &info) || !S_ISREG(info.st_mode) ||
+        saved_replay_matches_raw((char *)path, (char *)snapshot) < 0)
+      FATAL("Missing or mismatched authoritative replay for '%s'", path);
+    raw_count++; ck_free(path); ck_free(snapshot);
+  }
+  while ((entry = readdir(snapshots))) {
+    if (entry->d_name[0] == '.') continue;
+    if (strncmp(entry->d_name, CASE_PREFIX, strlen(CASE_PREFIX)))
+      FATAL("Unexpected queue replay snapshot '%s'", entry->d_name);
+    replay_count++;
+  }
+  closedir(raw); closedir(snapshots); ck_free(replays);
+  if (!raw_count || replay_count != raw_count)
+    FATAL("Queue replay inventory mismatch in '%s'", raw_directory);
+}
+
+static void prepare_external_queue_input(void) {
+  if (in_place_resume) return;
+  u8 *raw = alloc_printf("%s/queue", in_dir);
+  struct stat source, destination;
+  if (stat((char *)raw, &source)) {
+    if (errno != ENOENT) PFATAL("Cannot inspect '%s'", raw);
+    ck_free(raw);
+    raw = alloc_printf("%s/.state", in_dir);
+    if (stat((char *)raw, &source)) {
+      if (errno != ENOENT) PFATAL("Cannot inspect '%s'", raw);
+      ck_free(raw); return;
+    }
+    ck_free(raw); raw = ck_strdup(in_dir);
+  }
+  u8 *same_output = alloc_printf("%s/queue", out_dir);
+  if (!stat((char *)raw, &source) && !stat((char *)same_output, &destination) &&
+      source.st_dev == destination.st_dev && source.st_ino == destination.st_ino)
+    FATAL("Importing the output's own queue requires -i -");
+  ck_free(same_output);
+  validate_saved_queue_replays((char *)raw);
+  input_raw_queue = raw;
+  in_dir = alloc_printf("%s/.state/replay", raw);
+}
+
+static void prepare_output_manifest(void) {
+  if (manifest_ctx) return;
+  u8 *path = alloc_printf("%s/%s", out_dir, MANIFEST_FILENAME);
+  struct stat info;
+  int has_manifest = stat((char *)path, &info) == 0;
+  if (!has_manifest && errno != ENOENT) PFATAL("Cannot inspect '%s'", path);
+  ck_free(path);
+  if (in_place_resume) {
+    path = alloc_printf("%s/_resume", out_dir);
+    resume_stash_exists = stat((char *)path, &info) == 0;
+    if (!resume_stash_exists && errno != ENOENT) PFATAL("Cannot inspect '%s'", path);
+    if (!resume_stash_exists) {
+      ck_free(path); path = alloc_printf("%s/queue", out_dir);
+    }
+    validate_saved_queue_replays((char *)path);
+    ck_free(path);
+  }
+  if (!manifest_configured) {
+    if (has_manifest)
+      FATAL("Existing protocol output requires its matching description and settings");
+    return;
+  }
+  if (!has_manifest) {
+    int old_session = 0;
+    const char *artifacts[] = {"fuzzer_stats", "queue", "_resume", "regions", "replayable-queue"};
+    for (u32 i = 0; i < sizeof(artifacts) / sizeof(*artifacts); i++) {
+      path = alloc_printf("%s/%s", out_dir, artifacts[i]);
+      if (!stat((char *)path, &info)) old_session = 1;
+      else if (errno != ENOENT) PFATAL("Cannot inspect '%s'", path);
+      ck_free(path);
+    }
+    if (old_session || in_place_resume)
+      FATAL("Cannot attribute an existing session without a run manifest; use a new output directory");
+  }
+  char error[256];
+  if (manifest_prepare_config((char *)out_dir, &requested_manifest_config,
+                                &manifest_ctx, error, sizeof(error)) < 0)
+    FATAL("Run manifest preflight: %s", error);
+}
+
 static void maybe_delete_out_dir(void) {
 
   FILE* f;
@@ -6395,7 +7029,10 @@ static void maybe_delete_out_dir(void) {
 
 #ifndef __sun
 
-  if (flock(out_dir_fd, LOCK_EX | LOCK_NB) && errno == EWOULDBLOCK) {
+  if (flock(out_dir_fd, LOCK_EX | LOCK_NB)) {
+
+    if (errno != EWOULDBLOCK && errno != EAGAIN)
+      PFATAL("Unable to lock output directory '%s'", out_dir);
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the job output directory is being actively used by another\n"
@@ -6408,6 +7045,8 @@ static void maybe_delete_out_dir(void) {
   }
 
 #endif /* !__sun */
+
+  prepare_output_manifest();
 
   f = fopen(fn, "r");
 
@@ -6453,9 +7092,10 @@ static void maybe_delete_out_dir(void) {
 
     u8* orig_q = alloc_printf("%s/queue", out_dir);
 
-    in_dir = alloc_printf("%s/_resume", out_dir);
-
-    rename(orig_q, in_dir); /* Ignore errors */
+    input_raw_queue = alloc_printf("%s/_resume", out_dir);
+    if (!resume_stash_exists && rename(orig_q, input_raw_queue))
+      PFATAL("Cannot preserve original resume queue");
+    in_dir = alloc_printf("%s/.state/replay", input_raw_queue);
 
     OKF("Output directory exists, will attempt session resume.");
 
@@ -6496,6 +7136,10 @@ static void maybe_delete_out_dir(void) {
 
   fn = alloc_printf("%s/queue/.state/variable_behavior", out_dir);
   if (delete_files(fn, CASE_PREFIX)) goto dir_cleanup_failed;
+  ck_free(fn);
+
+  fn = alloc_printf("%s/queue/.state/replay", out_dir);
+  if (delete_queue_replay_files(fn)) goto dir_cleanup_failed;
   ck_free(fn);
 
   /* Then, get rid of the .state subdirectory itself (should be empty by now)
@@ -7717,8 +8361,11 @@ static u32 choose_block_len(u32 limit) {
 
 static u32 calculate_score(struct queue_entry* q) {
 
-  u32 avg_exec_us = total_cal_us / total_cal_cycles;
-  u32 avg_bitmap_size = total_bitmap_size / total_bitmap_entries;
+  if (!queue_entry_fuzz_ready(q) || !total_cal_cycles || !total_bitmap_entries)
+    return 0;
+
+  u64 avg_exec_us = total_cal_us / total_cal_cycles;
+  u64 avg_bitmap_size = total_bitmap_size / total_bitmap_entries;
   u32 perf_score = 100;
 
   /* Adjust score based on execution speed of this path, compared to the
@@ -7729,9 +8376,9 @@ static u32 calculate_score(struct queue_entry* q) {
   else if (q->exec_us * 0.25 > avg_exec_us) perf_score = 25;
   else if (q->exec_us * 0.5 > avg_exec_us) perf_score = 50;
   else if (q->exec_us * 0.75 > avg_exec_us) perf_score = 75;
-  else if (q->exec_us * 4 < avg_exec_us) perf_score = 300;
-  else if (q->exec_us * 3 < avg_exec_us) perf_score = 200;
-  else if (q->exec_us * 2 < avg_exec_us) perf_score = 150;
+  else if ((double)q->exec_us * 4 < avg_exec_us) perf_score = 300;
+  else if ((double)q->exec_us * 3 < avg_exec_us) perf_score = 200;
+  else if ((double)q->exec_us * 2 < avg_exec_us) perf_score = 150;
 
   /* Adjust score based on bitmap size. The working theory is that better
      coverage translates to better targets. Multiplier from 0.25x to 3x. */
@@ -8145,6 +8792,8 @@ static u8 fuzz_one(char** argv) {
 
   u8  a_collect[MAX_AUTO_EXTRA];
   u32 a_len = 0;
+
+  if (!retry_queue_calibration(argv, queue_cur, 1)) return 1;
 
 #ifdef IGNORE_FINDS
 
@@ -10059,11 +10708,10 @@ abandon_entry:
   /* Update pending_not_fuzzed count if we made it through the calibration
      cycle and have not seen this entry before. */
 
-  if (!stop_soon && !queue_cur->cal_failed && !queue_cur->was_fuzzed) {
+  if (!stop_soon && queue_entry_fuzz_ready(queue_cur) && !queue_cur->was_fuzzed) {
     queue_cur->was_fuzzed = 1;
     was_fuzzed_map[get_state_index(target_state_id)][queue_cur->index] = 1;
-    pending_not_fuzzed--;
-    if (queue_cur->favored) pending_favored--;
+    settle_queue_pending(queue_cur);
   }
 
   //munmap(orig_in, queue_cur->len);
@@ -10375,6 +11023,13 @@ EXP_ST void check_binary(u8* fname) {
 
   }
 
+  /* Resolve in the validating process, before -U can change the child's cwd. */
+  char *absolute_target = realpath((char *)target_path, NULL);
+  if (!absolute_target) PFATAL("Unable to resolve executable '%s'", target_path);
+  ck_free(target_path);
+  target_path = ck_strdup(absolute_target);
+  free(absolute_target);
+
   if (getenv("AFL_SKIP_BIN_CHECK")) return;
 
   /* Check for blatant user errors. */
@@ -10662,6 +11317,8 @@ EXP_ST void setup_dirs_fds(void) {
 
 #endif /* !__sun */
 
+    prepare_output_manifest();
+
   }
 
   /* Queue directory for any starting & discovered paths. */
@@ -10674,6 +11331,10 @@ EXP_ST void setup_dirs_fds(void) {
      resume and related tasks. */
 
   tmp = alloc_printf("%s/queue/.state/", out_dir);
+  if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
+  ck_free(tmp);
+
+  tmp = alloc_printf("%s/queue/.state/replay", out_dir);
   if (mkdir(tmp, 0700)) PFATAL("Unable to create '%s'", tmp);
   ck_free(tmp);
 
@@ -11677,11 +12338,13 @@ int main(int argc, char** argv) {
         break;
 
       case 'q': /* state selection option */
-        if (sscanf(optarg, "%hhu", &state_selection_algo) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -q");
+        if (parse_selection_mode(optarg, &state_selection_algo) < 0)
+          FATAL("-q requires selection mode 1, 2 or 3");
         break;
 
       case 's': /* seed selection option */
-        if (sscanf(optarg, "%hhu", &seed_selection_algo) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -s");
+        if (parse_selection_mode(optarg, &seed_selection_algo) < 0)
+          FATAL("-s requires selection mode 1, 2 or 3");
         break;
 
       case 'R':
@@ -11722,7 +12385,12 @@ int main(int argc, char** argv) {
 
           if (wd_vanilla) FATAL("Multiple -U options not supported");
 
-	  wd_vanilla = ck_strdup(optarg);
+	  char *absolute_workdir = realpath(optarg, NULL);
+          if (!absolute_workdir) PFATAL("Unable to resolve -U directory '%s'", optarg);
+          wd_vanilla = ck_strdup(absolute_workdir);
+          free(absolute_workdir);
+          if (access((char *)wd_vanilla, X_OK) < 0)
+            PFATAL("Cannot enter -U directory '%s'", wd_vanilla);
 
 	  DIR* dir = opendir(wd_vanilla);
 	  if(!dir) FATAL("-U should provide a valid and accessible path to directory");
@@ -11798,6 +12466,9 @@ int main(int argc, char** argv) {
 
   if (dumb_mode == 2 && no_forkserver)
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
+  if (wd_vanilla && !target_path_afl) FATAL("-U requires a separate -u executable");
+  if (target_path_afl && (dumb_mode == 1 || no_forkserver))
+    FATAL("The separate -u executable requires forkserver mode");
 
   if (getenv("AFL_PRELOAD")) {
     setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
@@ -11826,14 +12497,15 @@ int main(int argc, char** argv) {
   setup_post();
   if (protocol_engine && post_handler)
     FATAL("Protocol mutation and AFL_POST_LIBRARY cannot share message boundaries");
+  /* Reject a missing/invalid target before touching any old output session. */
+  check_binary(argv[optind]);
+  prepare_external_queue_input();
   setup_shm();
   init_count_class16();
 
   setup_ipsm();
 
-  setup_dirs_fds();
-
-  /* P26: Validate cold-start segment lineage and manifest attribution */
+  /* Capture requested settings before the locked, read-only preflight. */
   if (protocol_engine) {
     manifest_config config;
     manifest_config_init(&config);
@@ -11898,11 +12570,27 @@ int main(int argc, char** argv) {
     config.max_response_bytes = net_get_response_budget();
     config.memory_limit_mb = mem_limit;
     char merr[256];
-    if (manifest_config_set_target_argv(&config, argc - optind, argv + optind, merr, sizeof(merr)) < 0 ||
-        manifest_init_or_resume_config((char *)out_dir, &config,
-                                      &manifest_ctx, merr, sizeof(merr)) < 0) {
+    if (manifest_config_set_target_argv(&config, argc - optind, argv + optind, merr, sizeof(merr)) < 0) {
       FATAL("Run manifest validation: %s", merr);
     }
+    if (strlen((char *)target_path) >= sizeof(config.target))
+      FATAL("Resolved target path exceeds manifest capacity");
+    strcpy(config.target, (char *)target_path);
+    requested_manifest_config = config;
+    manifest_configured = 1;
+  }
+
+  setup_dirs_fds();
+#ifdef LOG_STATE_TRACER
+  u8 *log_state_fname = alloc_printf("%s/%s", out_dir, LOG_STATE_TRACER_FILE);
+  log_state_tracer = fopen((char *)log_state_fname, "w+");
+  if (!log_state_tracer) PFATAL("Cannot open '%s'", log_state_fname);
+  ck_free(log_state_fname);
+#endif
+  if (manifest_ctx) {
+    char error[256];
+    if (manifest_save_atomic(manifest_ctx, (char *)out_dir, error, sizeof(error)) < 0)
+      FATAL("Cannot publish prepared run manifest: %s", error);
   }
 
   if (protocol_candidate_limit) {
@@ -11952,8 +12640,6 @@ int main(int argc, char** argv) {
   detect_file_args(argv + optind + 1);
 
   if (!out_file) setup_stdio_file();
-
-  check_binary(argv[optind]);
 
   start_time = get_cur_time();
 
@@ -12010,20 +12696,13 @@ int main(int argc, char** argv) {
     while (1) {
       u8 skipped_fuzz;
 
-      struct queue_entry *selected_seed = NULL;
-      while(!selected_seed || selected_seed->region_count == 0) {
-        target_state_id = choose_target_state(state_selection_algo);
-
-        /* Update favorites based on the selected state */
-        cull_queue();
-
-        /* Update number of times a state has been selected for targeted fuzzing */
-        khint_t k = kh_get(hms, khms_states, target_state_id);
-        if (k != kh_end(khms_states)) {
-          kh_val(khms_states, k)->selected_times++;
+      struct queue_entry *selected_seed = choose_usable_state_seed();
+      if (!selected_seed) {
+        if (!stop_soon) {
+          WARNF("No selectable seeds remain after calibration; stopping this session");
+          stop_soon = 2;
         }
-
-        selected_seed = choose_seed(target_state_id, seed_selection_algo);
+        break;
       }
 
       /* Seek to the selected seed */
@@ -12064,6 +12743,15 @@ int main(int argc, char** argv) {
     while (1) {
 
       u8 skipped_fuzz;
+
+      if (stop_soon) break;
+      struct queue_entry *usable = queue;
+      while (usable && !queue_entry_selectable(usable)) usable = usable->next;
+      if (!usable) {
+        WARNF("No selectable seeds remain after calibration; stopping this session");
+        stop_soon = 2;
+        break;
+      }
 
       cull_queue();
 

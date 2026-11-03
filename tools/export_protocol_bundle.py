@@ -9,6 +9,7 @@ import tempfile
 import zipfile
 from init_protocol_spec import PROFILES
 from proto_spec_compiler import compile_spec, load, SpecError
+from protocol_seed_planner import plan_model_corpus
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -26,6 +27,18 @@ def build_bundle(destination):
             for filename in ('protocol_ir.json','state_ir.json','spec_bundle.json','validation.json'):
                 if (Path(temporary)/filename).read_bytes()!=(directory/filename).read_bytes():
                     raise SpecError(f'{name}: stale {filename}; regenerate before export')
+        expected,fixtures,seeds=plan_model_corpus(protocol,state,result)
+        recorded=json.loads((directory/'seed_manifest.json').read_text())
+        # Provenance differs for a saved-snapshot file conversion and a fresh
+        # compile; all actual model proofs and resource accounting must agree.
+        if {k:v for k,v in recorded.items() if k!='validation_source'} != {k:v for k,v in expected.items() if k!='validation_source'}:
+            raise SpecError(f'{name}: stale seed_manifest.json; refresh model corpus before export')
+        for relative,contents in (('fixtures/requests',fixtures),('seeds',seeds)):
+            if {path.name for path in (directory/relative).glob('*.replay')} != set(contents):
+                raise SpecError(f'{name}: stale {relative} inventory; refresh model corpus before export')
+            for filename,data in contents.items():
+                if (directory/relative/filename).read_bytes()!=data:
+                    raise SpecError(f'{name}: stale {relative}/{filename}; refresh model corpus before export')
         packages.append(dict(protocol_id=protocol['protocol_id'],name=protocol['name'],
             scope=protocol['scope'],runtime=result['runtime'],messages=result['messages'],
             fields=result['fields'],semantic_states=result['semantic_states'],
@@ -49,8 +62,11 @@ def build_bundle(destination):
                  'docs/current-integration-gaps.md','docs/generic-wire-validation-20261027.md',
                  'docs/method-validation-contract.md',
                  'docs/repair-status-20261102.md','docs/format-capability-matrix.md',
+                 'docs/seed-corpus-repair-20261102.md',
+                 'docs/usability-repair-20261103.zh-CN.md',
                  'tests/protocol/test_model_completeness.py','tools/proto_spec_compiler.py',
-                 'tools/init_protocol_spec.py','tools/run_protocol_campaign.py','tools/requirements-protocol.txt'):
+                 'tools/init_protocol_spec.py','tools/protocol_seed_planner.py',
+                 'tools/run_protocol_campaign.py','tools/requirements-protocol.txt'):
         files[name]=(ROOT/name).read_bytes()
     files['BUNDLE-README.md']=('''# Industrial protocol description bundle
 
@@ -99,4 +115,4 @@ if __name__=='__main__':
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     try:print(json.dumps(build_bundle(args.output),ensure_ascii=False,indent=2))
-    except (OSError,SpecError) as error:parser.exit(1,f'protocol export error: {error}\n')
+    except (OSError,SpecError,ValueError) as error:parser.exit(1,f'protocol export error: {error}\n')

@@ -18,6 +18,18 @@ Run the strict C tests from the repository root:
 make check-generic-wire
 ```
 
+To compile and link the complete C regression set without executing any tests,
+Python validators, examples or target services:
+
+```sh
+bash tests/generic-wire/run_all.sh --build-only /tmp/stateafl-contract-build
+```
+
+This includes the production startup/selection, calibration queue, child
+waiting and raw/replay restoration contracts. Build-only mode does not produce runtime PASS evidence;
+its skipped execution log files may be empty. The latest repair and remaining
+acceptance conditions are recorded in the [usability repair](../../docs/usability-repair-20261103.zh-CN.md).
+
 The equivalent individual commands are:
 
 ```sh

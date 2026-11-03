@@ -1,4 +1,4 @@
-> 当前修复状态：本文描述旧 YAML/codec 路径；generic-wire 和 offline-layout 是不同格式。本轮只做源码修改与静态复核，未运行编译器、构建或测试，见[修复清单](repair-status-20261102.md)。
+> 当前修复状态：本文描述旧 YAML/codec 路径；generic-wire 和 offline-layout 是不同格式。最新源码、模型语料及只编译检查见[可用性修复](usability-repair-20261103.zh-CN.md)；尚未执行当前版本的运行验收。
 
 # ICP-IR v1 协议描述语言
 
@@ -20,7 +20,9 @@ ICP-IR 是本次工程新增的声明式描述及中间表示。它把消息结�
 | `protocol_ir.json` / `state_ir.json` | 校验后的确定性 JSON；增加 `ir_version: 1` |
 | `validation.json` | 消息/字段/状态数量、范围及 runtime 开关；不代表完整协议合规 |
 | `evidence.yaml` | 字段来源、可信度及未访问资料说明 |
-| `seeds/*.replay` | 示例请求；每条记录为 LE32 长度和报文字节 |
+| `fixtures/requests/*.replay` | 原始单包请求 fixture，每条为 LE32 长度及报文字节 |
+| `seeds/*.replay` | 从模型 initial 可达的请求序列，含必要请求前缀；不写响应 |
+| `seed_manifest.json` | 请求路径、响应状态投影、资源与搜索范围；不证明实际会话 |
 
 编译一组描述：
 
