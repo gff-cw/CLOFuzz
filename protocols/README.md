@@ -2,6 +2,8 @@
 
 本目录包含同一 ICP-IR v1 模板下的六套具体协议描述。当前共 **71 条完整消息示例、641 个字段声明**，含31条请求、40条响应。这里的“完整”指明确声明 profile 中报文的各层与服务体完整，不代表覆盖整部工业协议标准。
 
+本轮进一步静态复核发现字段范围、响应关联与状态说明仍有缺口，已构造[六套修订源输入](reviewed/README.md)，逐消息列出修复、codec 条件和未迁入 generic 的内容。原发布包统计仍为下表；修订源需通过 `--source-dir` 生成正式 IR/语料后再使用，尚无新增原生或运行验收。逐项问题与验证边界见[完整性复核](../docs/protocol-description-completeness-20261104.zh-CN.md)。
+
 | 协议描述 YAML | 状态 YAML | 消息 / 字段 / 状态 | 明确范围 | 支持等级 |
 | --- | --- | --- | --- | --- |
 | [BACnet/IP](bacnet_ip/protocol_spec.yaml) | [状态](bacnet_ip/state_transition.yaml) | 7 / 66 / 2 | Who-Is/I-Am、ReadProperty ACK/Error、Reject/Abort，动态 NPDU 和 BACnet 标签 | BACnet 请求子集已实测 |

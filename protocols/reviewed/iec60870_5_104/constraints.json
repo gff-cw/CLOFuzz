@@ -1,0 +1,182 @@
+{
+  "format": "stateafl.reviewed-description",
+  "version": 1,
+  "protocol_id": "iec60870_5_104",
+  "changes": [
+    {
+      "id": "IE01",
+      "problem": "两字节COT被当作单一uint16，响应继承请求cause说明且originator没有独立现场关联。",
+      "resolution": "显式拆分cause/PN/test低字节与originator高字节；逐消息修正cause说明，三种响应都copy核对实际请求originator。",
+      "messages": [
+        "interrogation",
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
+      ]
+    },
+    {
+      "id": "IE02",
+      "problem": "negative只有copy依赖，可改变状态但无法以关联依赖完成pending；response-side sequence_number误示收到响应时会更新自己的序号。",
+      "resolution": "positive/negative的CA改为correlate_request_response，保留QOI/originator比较；termination保留copy作后续响应；移除响应上的sequence_number声明。",
+      "messages": [
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
+      ]
+    },
+    {
+      "id": "IE03",
+      "problem": "TESTFR在starting/stopping缺边；interrogation阶段没有S确认边。",
+      "resolution": "增加starting/stopping的TESTFR请求/确认自环，增加interrogating/interrogation_data的s_ack自环；single-pending发送限制仍明确保留。",
+      "messages": [
+        "test_act",
+        "test_con",
+        "s_ack"
+      ]
+    }
+  ],
+  "codec_constraints": [
+    {
+      "id": "IE-APCI",
+      "messages": [
+        "start_act",
+        "start_con",
+        "stop_act",
+        "stop_con",
+        "test_act",
+        "test_con",
+        "s_ack",
+        "interrogation",
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
+      ],
+      "constraint": "Every APDU starts68 with length=APDU bytes-2; native codec bounds6..255 bytes and validates I/S/U control structure. All example bytes have explicit abs fields.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "IE-U",
+      "messages": [
+        "start_act",
+        "start_con",
+        "stop_act",
+        "stop_con",
+        "test_act",
+        "test_con"
+      ],
+      "constraint": "U frames contain exactly6 bytes; STARTDT act/con controls07/0B, STOPDT13/23, TESTFR43/83 and other control octets zero.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "IE-S",
+      "messages": [
+        "s_ack"
+      ],
+      "constraint": "S frame contains6 bytes, first control word0001(little endian), and a wire receive sequence with bit0 clear. State edges represent active/interrogation-phase acknowledgements; live peer N(R) binding is not implemented.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "IE-I",
+      "messages": [
+        "interrogation",
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
+      ],
+      "constraint": "I frames contain16 bytes: one C_IC_NA_1(Type100) object, VSQ=1/SQ=0, two COT octets, CA UInt16, IOA UInt24 fixed0 and QOI20..36. Send/receive wire sequence bit0 must be clear.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "IE-COT",
+      "messages": [
+        "interrogation",
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
+      ],
+      "constraint": "COT abs8 is cause/PN/test: request06, positive07, negative47 and termination0A in low7 bits, with test bit independently accepted by codec kind matching. abs9 is the separate originator octet; values is not an acceptance whitelist.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "IE-CORRELATE",
+      "messages": [
+        "interrogation_confirmation",
+        "interrogation_negative"
+      ],
+      "constraint": "Compare actual response CA, QOI and originator against cached interrogation request; CA uses correlate_request_response and requires/clears that pending request. No response value is fabricated from fixture defaults.",
+      "enforced_by": "model"
+    },
+    {
+      "id": "IE-FOLLOWUP",
+      "messages": [
+        "interrogation_termination"
+      ],
+      "constraint": "Termination follows positive confirmation in interrogation_data and compares CA/QOI/originator using cached request copy checks; it does not require a second pending completion.",
+      "enforced_by": "model"
+    },
+    {
+      "id": "IE-SEQUENCE",
+      "messages": [
+        "interrogation"
+      ],
+      "constraint": "The local request send_seq dependency advances its own prior wire value by2; this does not implement peer N(S), cumulative N(R), k/w windows or timers.",
+      "enforced_by": "model"
+    }
+  ],
+  "remaining_gaps": [
+    {
+      "id": "IE-STANDARD",
+      "layer": "standard",
+      "description": "Only single-object C_IC_NA_1 and bounded APCI client-initiated controls are represented. Monitoring/command ASDUs, multiple objects, security/TLS and the complete IEC104 standard are absent.",
+      "resolution": "Add separately sourced ASDU type/quality/time layouts and state/session behavior together with codec/grammar support before claiming full standard coverage."
+    },
+    {
+      "id": "IE-SEQUENCE-WINDOW",
+      "layer": "runtime",
+      "description": "Peer receive-sequence binding, independent live sequence spaces, cumulative acknowledgement, k/w windows, t0/t1/t2/t3 timers and reconnect/reset semantics are not fully executed.",
+      "resolution": "Implement explicit connection-scoped state and observed-sequence binding; static guard/action strings cannot enforce it."
+    },
+    {
+      "id": "IE-SINGLE-PENDING",
+      "layer": "runtime",
+      "description": "Added TESTFR/S-acknowledgement graph edges do not bypass the runtime single-outstanding-request rule. STARTDT/STOPDT/interrogation pending may block otherwise legal control sends.",
+      "resolution": "Implement independent APCI control and ASDU pending state or keep experiments within the serial current runtime contract."
+    },
+    {
+      "id": "IE-DATA-ASDUS",
+      "layer": "runtime",
+      "description": "Real interrogation can return monitoring data ASDUs between confirmation and termination. This codec only accepts the declared C_IC_NA_1 forms and does not model those data frames or peer-initiated control conversations.",
+      "resolution": "Extend message grammar and asynchronous response handling; do not treat omitted data or an accepted confirmation as full interrogation-session validation."
+    },
+    {
+      "id": "IE-GENERIC",
+      "layer": "generic",
+      "description": "Published generic_wire.json is still offline-only with four fixed message grammars; it has no complete sequence, phase, negative/termination or originator-binding implementation matching this reviewed source.",
+      "resolution": "Extend generic session/sequence and multi-response capabilities, then build and independently check a full generic description; do not enable online merely by changing its boolean."
+    },
+    {
+      "id": "IE-EVIDENCE",
+      "layer": "evidence",
+      "description": "This reviewed source has no native validation, generated IR, managed seed plan, executed regression or controlled target session evidence.",
+      "resolution": "Generate current paired IR/validation and corpus using the real project tools, then verify actual APCI/ASDU exchanges, boundary/state evidence and fixed-budget method results."
+    }
+  ],
+  "generic_coverage": {
+    "online": false,
+    "implemented_messages": [
+      "start_act",
+      "start_con",
+      "interrogation",
+      "interrogation_confirmation"
+    ],
+    "missing_messages": [
+      "stop_act",
+      "stop_con",
+      "test_act",
+      "test_con",
+      "s_ack",
+      "interrogation_termination",
+      "interrogation_negative"
+    ]
+  }
+}

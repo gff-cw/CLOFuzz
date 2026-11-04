@@ -1,0 +1,169 @@
+# Reviewed editable source only; no native compilation or target acceptance is asserted.
+format_version: 1
+protocol_id: iec60870_5_104
+initial: stopped
+states:
+- id: stopped
+  meaning: Data transfer stopped
+- id: starting
+  meaning: STARTDT confirmation pending
+- id: active
+  meaning: STARTDT confirmed
+- id: stopping
+  meaning: STOPDT confirmation pending
+- id: interrogating
+  meaning: Activation sent; confirmation pending
+- id: interrogation_data
+  meaning: Positive activation confirmation; data/termination pending
+transitions:
+- from: stopped
+  to: starting
+  message: start_act
+  response: start_con
+  guard: TCP connected
+  actions: []
+- from: starting
+  to: active
+  message: start_con
+  response: ''
+  guard: matching STARTDT
+  actions: []
+- from: active
+  to: stopping
+  message: stop_act
+  response: stop_con
+  guard: ''
+  actions: []
+- from: stopping
+  to: stopped
+  message: stop_con
+  response: ''
+  guard: ''
+  actions: []
+- from: active
+  to: active
+  message: s_ack
+  response: ''
+  guard: acknowledge received I frames
+  actions: []
+- from: active
+  to: active
+  message: test_act
+  response: test_con
+  guard: TESTFR keepalive
+  actions: []
+- from: active
+  to: active
+  message: test_con
+  response: ''
+  guard: TESTFR keepalive
+  actions: []
+- from: active
+  to: interrogating
+  message: interrogation
+  response: interrogation_confirmation
+  guard: send window available
+  actions:
+  - increment local N(S)
+- from: interrogating
+  to: interrogation_data
+  message: interrogation_confirmation
+  response: ''
+  guard: positive activation confirmation; matching CA/QOI; matching request originator
+  actions: []
+- from: interrogating
+  to: active
+  message: interrogation_negative
+  response: ''
+  guard: negative activation confirmation; matching request originator
+  actions: []
+- from: interrogation_data
+  to: active
+  message: interrogation_termination
+  response: ''
+  guard: matching CA/QOI; all preceding I frames acknowledged; matching request originator
+  actions: []
+- from: stopped
+  to: stopped
+  message: test_act
+  response: test_con
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: stopped
+  to: stopped
+  message: test_con
+  response: ''
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogating
+  to: interrogating
+  message: test_act
+  response: test_con
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogating
+  to: interrogating
+  message: test_con
+  response: ''
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogation_data
+  to: interrogation_data
+  message: test_act
+  response: test_con
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: interrogation_data
+  to: interrogation_data
+  message: test_con
+  response: ''
+  guard: TESTFR does not depend on transfer phase
+  actions: []
+- from: starting
+  to: starting
+  message: test_act
+  response: test_con
+  guard: TESTFR is independent of transfer phase; the current single-pending runtime
+    may still block a send while STARTDT/STOPDT is pending.
+  actions: []
+- from: starting
+  to: starting
+  message: test_con
+  response: ''
+  guard: TESTFR is independent of transfer phase; the current single-pending runtime
+    may still block a send while STARTDT/STOPDT is pending.
+  actions: []
+- from: stopping
+  to: stopping
+  message: test_act
+  response: test_con
+  guard: TESTFR is independent of transfer phase; the current single-pending runtime
+    may still block a send while STARTDT/STOPDT is pending.
+  actions: []
+- from: stopping
+  to: stopping
+  message: test_con
+  response: ''
+  guard: TESTFR is independent of transfer phase; the current single-pending runtime
+    may still block a send while STARTDT/STOPDT is pending.
+  actions: []
+- from: interrogating
+  to: interrogating
+  message: s_ack
+  response: ''
+  guard: S-format acknowledgement during the declared interrogation phase; N(R) must
+    be supplied consistently with actual received I frames.
+  actions: []
+- from: interrogation_data
+  to: interrogation_data
+  message: s_ack
+  response: ''
+  guard: S-format acknowledgement during the declared interrogation phase; N(R) must
+    be supplied consistently with actual received I frames.
+  actions: []
+limits:
+  max_messages: 32
+  max_repeat: 4
+  max_bytes: 1048576
+invalid_strategy: one explicitly logged length or semantic transition violation; preserve
+  other dependencies

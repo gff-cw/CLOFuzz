@@ -1,0 +1,231 @@
+{
+  "format": "stateafl.reviewed-description",
+  "version": 1,
+  "protocol_id": "iec61850_mms_tcp",
+  "changes": [
+    {
+      "id": "MMS-01",
+      "problem": "COTP CR destination reference was a mutable Head value although no remote transport reference exists yet.",
+      "resolution": "Fix CR destination_reference to zero; retain CC correlation to the actual CR source_reference.",
+      "messages": [
+        "cotp_cr",
+        "cotp_cc"
+      ]
+    },
+    {
+      "id": "MMS-02",
+      "problem": "Association context/version descriptors allowed values rejected by the current codec; other message context IDs were visible only in static trees.",
+      "resolution": "Fix association presentation context and MMS version to1, and declare explicit fixed context3 for MMS services/conclude or context1 for ACSE release.",
+      "messages": [
+        "associate",
+        "associate_response",
+        "get_name_list",
+        "get_name_list_response",
+        "read",
+        "read_response",
+        "write",
+        "write_response",
+        "conclude",
+        "conclude_response",
+        "release",
+        "release_response"
+      ]
+    },
+    {
+      "id": "MMS-03",
+      "problem": "Read/Write structure trees advertised multiple variables and variable-list-name while the codec supports one domain-specific name.",
+      "resolution": "Restrict variable access to exactly one domain/item pair and require both identifiers to be nonempty.",
+      "messages": [
+        "read",
+        "write"
+      ]
+    },
+    {
+      "id": "MMS-04",
+      "problem": "Write listed arbitrary MMS Data and arrays, but the codec only replaces one VisibleString data leaf.",
+      "resolution": "Restrict list_of_data to one context10 VisibleString; explicitly enumerate the bounded Read-result Data alternatives accepted by this codec.",
+      "messages": [
+        "write",
+        "read_response"
+      ]
+    },
+    {
+      "id": "MMS-05",
+      "problem": "State guards/actions suggested general negotiated outstanding-transaction handling.",
+      "resolution": "Make single-flight scheduling and non-executable guards/actions explicit without claiming a multi-transaction scheduler.",
+      "messages": [
+        "associate_response",
+        "get_name_list",
+        "read",
+        "write",
+        "conclude"
+      ]
+    },
+    {
+      "id": "MMS-06",
+      "problem": "Container content fields could be mistaken for general BER/session encoders.",
+      "resolution": "Keep complete container projections but mark their static-tree status and require named codec leaves for mutation.",
+      "messages": [
+        "associate",
+        "associate_response",
+        "get_name_list",
+        "get_name_list_response",
+        "read",
+        "read_response",
+        "write",
+        "write_response",
+        "conclude",
+        "conclude_response",
+        "release",
+        "release_response"
+      ]
+    }
+  ],
+  "codec_constraints": [
+    {
+      "id": "MMS-C01",
+      "messages": [
+        "cotp_cr",
+        "cotp_cc"
+      ],
+      "constraint": "Complete TPKT/COTP TP0 CR/CC with C0 TPDU-size and C1/C2 TSAP parameters; LI equals record bytes minus5. CR destination reference is fixed0; CC destination correlates to CR source reference.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C02",
+      "messages": [
+        "associate",
+        "associate_response"
+      ],
+      "constraint": "Session CONNECT/ACCEPT, normal-mode presentation context1, ACSE AARQ/accepted AARE with application context1.0.9506.2.3 and embedded MMS Initiate; fixed MMS version1. Initiate is not a standalone TCP message.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C03",
+      "messages": [
+        "get_name_list"
+      ],
+      "constraint": "Presentation context3, ConfirmedRequest GetNameList for basic object class domain9 and VMD-specific scope; one current invoke.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C04",
+      "messages": [
+        "get_name_list_response"
+      ],
+      "constraint": "Presentation context3, current invoke correlation, Identifier result sequence and one-octet moreFollows boolean0/255.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C05",
+      "messages": [
+        "read",
+        "write"
+      ],
+      "constraint": "Exactly one domain-specific named variable; nonempty domain/item VisibleStrings. No variable-list-name, alternate access or variable array. Write carries one context10 VisibleString value.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C06",
+      "messages": [
+        "read_response"
+      ],
+      "constraint": "Presentation context3 with current invoke correlation. Codec result tags are failure0, boolean3, integer5, unsigned6, float7, octets9, VisibleString10 or UtcTime17; the tree does not certify complete normative semantics of every encoded Data value.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C07",
+      "messages": [
+        "write_response"
+      ],
+      "constraint": "Presentation context3, current invoke correlation, response result choices restricted to DataAccessError context0 or zero-length success NULL context1.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C08",
+      "messages": [
+        "conclude",
+        "conclude_response"
+      ],
+      "constraint": "Presentation context3 with empty MMS conclude request tag11 / response tag12; conclude does not by itself release the ACSE/session association.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C09",
+      "messages": [
+        "release",
+        "release_response"
+      ],
+      "constraint": "Session FINISH/DISCONNECT, presentation context1 and ACSE RLRQ normal reason0 / empty RLRE; requires the model conclude handshake first.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MMS-C10",
+      "messages": [
+        "cotp_cr",
+        "cotp_cc",
+        "associate",
+        "associate_response",
+        "get_name_list",
+        "get_name_list_response",
+        "read",
+        "read_response",
+        "write",
+        "write_response",
+        "conclude",
+        "conclude_response",
+        "release",
+        "release_response"
+      ],
+      "constraint": "State edges are modeled, but guards/actions and structure_model are static annotations. The host independently allows one pending request. General negotiated outstanding limits and whole opaque container mutation are not implemented.",
+      "enforced_by": "codec"
+    }
+  ],
+  "remaining_gaps": [
+    {
+      "id": "MMS-G01",
+      "layer": "standard",
+      "description": "The profile does not implement complete IEC61850 ACSI/ISO9506 services, reports, data sets, GOOSE/SV, generalized arrays/alternate access, arbitrary authentication, TLS or all failure branches.",
+      "resolution": "Add service-specific field/state models, reference fixtures and encoder/parser support from the required standard version before extending the claim."
+    },
+    {
+      "id": "MMS-G02",
+      "layer": "runtime",
+      "description": "Guard/action strings do not enforce negotiated outstanding limits. General session/presentation/BER container replacement and arbitrary MMS Data generation are absent.",
+      "resolution": "Implement explicit execution support and independent contracts if required; retain single-flight and supported leaf replacements meanwhile."
+    },
+    {
+      "id": "MMS-G03",
+      "layer": "generic",
+      "description": "generic_wire.json contains only COTP CR/CC, is online:false and omits twelve association/service/conclude/release messages. Flat uint/bytes cannot represent required recursive BER, session/presentation and ACSE semantics.",
+      "resolution": "Extend the generic grammar/loader with bounded recursive structures, semantic wrappers and response rules, then construct all service descriptions. Fixed opaque fixtures and online=true are not substitutes."
+    },
+    {
+      "id": "MMS-G04",
+      "layer": "evidence",
+      "description": "This independent reviewed YAML candidate has only static schema/data review; no native validator, tests or target session were run for it.",
+      "resolution": "Generate native-validated IR and a fresh model corpus into a new package, then verify actual session, correlations, boundaries and method comparisons separately."
+    }
+  ],
+  "generic_coverage": {
+    "online": false,
+    "implemented_messages": [
+      "cotp_cr",
+      "cotp_cc"
+    ],
+    "missing_messages": [
+      "associate",
+      "associate_response",
+      "get_name_list",
+      "get_name_list_response",
+      "read",
+      "read_response",
+      "write",
+      "write_response",
+      "conclude",
+      "conclude_response",
+      "release",
+      "release_response"
+    ]
+  }
+}

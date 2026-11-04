@@ -1,0 +1,3479 @@
+# Reviewed source input; native compilation and target execution have not been performed for this copy.
+format_version: 1
+protocol_id: ethernet_ip_cip_tcp
+name: EtherNet/IP and CIP explicit TCP
+version: Encapsulation v1; public OpENer implementation
+scope: 'Reviewed bounded EtherNet/IP encapsulation v1 source input: RegisterSession success and status
+  0x69 failure, no-reply UnregisterSession, SendRRData GetAttributeSingle Identity Vendor-ID success/status
+  0x14, SendRRData invalid-session status 0x64, and externally provisioned SendUnitData Vendor-ID success.
+  All ten complete original wire examples are retained; no ForwardOpen/ForwardClose or automatic class-3
+  provisioning is implemented. This source pair has not undergone native revalidation.'
+transport: tcp
+framing: protocol length inside replayable records
+codec: enip
+support:
+  runtime: true
+  level: existing bounded C codec; reviewed source input; native revalidation pending
+  excluded:
+  - ForwardOpen/ForwardClose fixture generation and automatic class-3 connection establishment (external
+    prerequisite for SendUnitData)
+  - implicit UDP I/O
+  - CIP Security
+  - other CIP objects/services
+  - full subscription-only ODVA normative conformance
+  - Encapsulation error commands/statuses beyond register 0x69 and SendRRData 0x64 in this model
+  - Connected CIP error responses and CIP general statuses other than the declared SendRRData 0x14 error
+  - EPATH classes/instances/attributes other than Identity 1/1/1 and nonlogical segment forms
+  - Generic-wire execution of this complete profile; the separate migration inventory is offline-only
+  - Enforcement of class-3 establishment/expiry or external connection-ID provisioning by guard/actions
+sources:
+- id: wire
+  url: https://github.com/EIPStackGroup/OpENer/tree/d8820ef41ce30dda06d213438ba81c81de33ffe2/source/src
+  basis: implementation
+  sections: encap.c; cpf.c NotifyConnectedCommonPacketFormat/AssembleLinearMessage; cipconnectionmanager.c
+    GetConnectedObject/AssembleForwardOpenResponse; cipclass3connection.c EstablishClass3Connection. ForwardOpen
+    request is not a verified fixture in this profile.
+- id: official
+  url: https://www.odva.org/subscriptions-services/specifications/
+  basis: inferred
+  sections: ODVA catalogue/subscription boundary only; paid volumes not consulted; wire details from OpENer
+- id: review_codec
+  url: ../../../protocol_codec_enip.c
+  basis: implementation
+  sections: Static review of parse/path_ok/pc_enip_replace and current bounded Identity Vendor-ID constraints;
+    no validator or target was executed for this reviewed copy.
+messages:
+- id: register
+  example: '65000400000000000000000001000000000000000000000001000000'
+  direction: request
+  weight: 2
+  match: register
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+    - protocol_version
+    - option_flags
+  - id: CONTENT
+    fields: []
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 101
+    min: 101
+    max: 101
+    values:
+    - 101
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 4
+    min: 4
+    max: 4
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: protocol_version
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: option_flags
+    block: HEAD
+    path: abs:26
+    locator: abs:26
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  notes: RegisterSession command 0x0065, zero request session, protocol version 1/options 0; success is
+    not implied by sending it. Reviewed constraints are in constraints.json. support.runtime declares
+    an existing codec, not native or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: true
+- id: unregister
+  example: '660000000100000000000000010000000000000000000000'
+  direction: request
+  weight: 2
+  match: unregister
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+  - id: CONTENT
+    fields: []
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 102
+    min: 102
+    max: 102
+    values:
+    - 102
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 0
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: bind_from_response
+    target: session
+    source: session
+    message: register_response
+    scope: connection
+  notes: UnregisterSession command 0x0066 with bound nonzero registered handle; no payload or response.
+    Reviewed constraints are in constraints.json. support.runtime declares an existing codec, not native
+    or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: true
+- id: register_response
+  example: '65000400010000000000000001000000000000000000000001000000'
+  direction: response
+  weight: 2
+  match: register_response
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+    - protocol_version
+    - option_flags
+  - id: CONTENT
+    fields: []
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 101
+    min: 101
+    max: 101
+    values:
+    - 101
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 4
+    min: 4
+    max: 4
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: protocol_version
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 1
+    min: 1
+    max: 1
+    values:
+    - 1
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: option_flags
+    block: HEAD
+    path: abs:26
+    locator: abs:26
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: correlate_request_response
+    target: context
+    source: context
+    message: register
+    scope: transaction
+  notes: Successful RegisterSession command 0x0065, nonzero assigned handle, version 1/options 0 and echoed
+    Sender Context. Reviewed constraints are in constraints.json. support.runtime declares an existing
+    codec, not native or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: false
+- id: send_rr
+  example: 6f0018000100000000000000010000000000000000000000000000000000020000000000b20008000e03200124013001
+  direction: request
+  weight: 2
+  match: send_rr
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+    - interface_handle
+    - timeout
+    - item_count
+    - address_type
+    - address_length
+    - data_type
+    - data_length
+    - cip_service
+    - path_words
+  - id: CONTENT
+    fields:
+    - cip
+    - epath
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 111
+    min: 111
+    max: 111
+    values:
+    - 111
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 24
+    min: 24
+    max: 36
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: interface_handle
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: timeout
+    block: HEAD
+    path: abs:28
+    locator: abs:28
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: item_count
+    block: HEAD
+    path: abs:30
+    locator: abs:30
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: cpf
+      kind: sequence
+      children:
+      - id: interface_handle
+        kind: field
+        type: uint32-little-zero
+      - id: timeout
+        kind: field
+        type: uint16-little
+      - id: item_count
+        kind: field
+        type: uint16-little-2
+      - id: items
+        kind: repeat
+        children:
+        - id: item
+          kind: tlv
+          children:
+          - id: type
+            kind: field
+            type: uint16-little
+          - id: length
+            kind: field
+            type: uint16-little
+          - id: data
+            kind: field
+            type: length-octets
+        min: 2
+        max: 2
+      encoding: CPF NullAddress followed by UnconnectedData
+  - id: address_type
+    block: HEAD
+    path: abs:32
+    locator: abs:32
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: address_length
+    block: HEAD
+    path: abs:34
+    locator: abs:34
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_type
+    block: HEAD
+    path: abs:36
+    locator: abs:36
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 178
+    min: 178
+    max: 178
+    values:
+    - 178
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_length
+    block: HEAD
+    path: abs:38
+    locator: abs:38
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 8
+    min: 8
+    max: 20
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cip
+    block: CONTENT
+    path: abs:40
+    locator: abs:40
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0e03200124013001
+    min: 8
+    max: 20
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: cip_service
+    block: HEAD
+    path: abs:40
+    locator: abs:40
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 14
+    min: 14
+    max: 14
+    values:
+    - 14
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: path_words
+    block: HEAD
+    path: abs:41
+    locator: abs:41
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 3
+    min: 3
+    max: 9
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: epath
+    block: CONTENT
+    path: abs:42
+    locator: abs:42
+    type: epath
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '200124013001'
+    min: 6
+    max: 18
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: identity_epath
+      kind: sequence
+      children:
+      - id: class
+        kind: choice
+        children:
+        - id: class8
+          kind: field
+          type: logical-8-little
+          encoding: tag=0x20; value=1
+        - id: class16
+          kind: field
+          type: logical-16-little
+          encoding: tag=0x21; reserved pad=0; value=1
+        - id: class32
+          kind: field
+          type: logical-32-little
+          encoding: tag=0x22; reserved pad=0; value=1
+      - id: instance
+        kind: choice
+        children:
+        - id: instance8
+          kind: field
+          type: logical-8-little
+          encoding: tag=0x24; value=1
+        - id: instance16
+          kind: field
+          type: logical-16-little
+          encoding: tag=0x25; reserved pad=0; value=1
+        - id: instance32
+          kind: field
+          type: logical-32-little
+          encoding: tag=0x26; reserved pad=0; value=1
+      - id: attribute
+        kind: choice
+        children:
+        - id: attribute8
+          kind: field
+          type: logical-8-little
+          encoding: tag=0x30; value=1
+        - id: attribute16
+          kind: field
+          type: logical-16-little
+          encoding: tag=0x31; reserved pad=0; value=1
+        - id: attribute32
+          kind: field
+          type: logical-32-little
+          encoding: tag=0x32; reserved pad=0; value=1
+      encoding: class=1, instance=1, attribute=1; 3..9 UInt16 words
+    structure: Exactly three logical segments in class/instance/attribute order, each with value 1; each
+      segment may use padded 8/16/32-bit logical encoding. No general CIP path parser is implied.
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: length_of
+    target: data_length
+    source: cip
+  - op: bind_from_response
+    target: session
+    source: session
+    message: register_response
+    scope: connection
+  - op: count_of
+    target: path_words
+    source: epath
+    unit: 2
+  notes: SendRRData command 0x006f with NullAddress then UnconnectedData; service 0x0e, logical class=1/instance=1/attribute=1,
+    no service request data. Reviewed constraints are in constraints.json. support.runtime declares an
+    existing codec, not native or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: true
+- id: send_rr_response
+  example: 6f0016000100000000000000010000000000000000000000000000000000020000000000b20006008e0000000100
+  direction: response
+  weight: 2
+  match: send_rr_response
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+    - interface_handle
+    - timeout
+    - item_count
+    - address_type
+    - address_length
+    - data_type
+    - data_length
+    - cip_service
+    - reserved
+    - general_status
+    - additional_status_words
+  - id: CONTENT
+    fields:
+    - cip
+    - additional_status
+    - response_data
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 111
+    min: 111
+    max: 111
+    values:
+    - 111
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 22
+    min: 22
+    max: 86
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: interface_handle
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: timeout
+    block: HEAD
+    path: abs:28
+    locator: abs:28
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: item_count
+    block: HEAD
+    path: abs:30
+    locator: abs:30
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: cpf
+      kind: sequence
+      children:
+      - id: interface_handle
+        kind: field
+        type: uint32-little-zero
+      - id: timeout
+        kind: field
+        type: uint16-little
+      - id: item_count
+        kind: field
+        type: uint16-little-2
+      - id: items
+        kind: repeat
+        children:
+        - id: item
+          kind: tlv
+          children:
+          - id: type
+            kind: field
+            type: uint16-little
+          - id: length
+            kind: field
+            type: uint16-little
+          - id: data
+            kind: field
+            type: length-octets
+        min: 2
+        max: 2
+      encoding: CPF NullAddress followed by UnconnectedData
+  - id: address_type
+    block: HEAD
+    path: abs:32
+    locator: abs:32
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: address_length
+    block: HEAD
+    path: abs:34
+    locator: abs:34
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_type
+    block: HEAD
+    path: abs:36
+    locator: abs:36
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 178
+    min: 178
+    max: 178
+    values:
+    - 178
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_length
+    block: HEAD
+    path: abs:38
+    locator: abs:38
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 6
+    min: 6
+    max: 70
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cip
+    block: CONTENT
+    path: abs:40
+    locator: abs:40
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 8e0000000100
+    min: 6
+    max: 70
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: cip_service
+    block: HEAD
+    path: abs:40
+    locator: abs:40
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 142
+    min: 142
+    max: 142
+    values:
+    - 142
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:41
+    locator: abs:41
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: general_status
+    block: HEAD
+    path: abs:42
+    locator: abs:42
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    evidence: wire
+    confidence: implementation
+  - id: additional_status_words
+    block: HEAD
+    path: abs:43
+    locator: abs:43
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 32
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: additional_status
+    block: CONTENT
+    path: cip:additional_status
+    locator: cip:additional_status
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 64
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: additional_status
+      kind: repeat
+      children:
+      - id: word
+        kind: field
+        type: uint16-little
+      min: 0
+      max: 32
+      encoding: additional_status_words*2
+  - id: response_data
+    block: CONTENT
+    path: cip:response_data
+    locator: cip:response_data
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0100'
+    min: 2
+    max: 2
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Exactly one little-endian UInt16 Identity Vendor ID, after all additional-status words.
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: length_of
+    target: data_length
+    source: cip
+  - op: bind_from_response
+    target: session
+    source: session
+    message: register_response
+    scope: connection
+  - op: count_of
+    target: additional_status_words
+    source: additional_status
+    unit: 2
+  - op: correlate_request_response
+    target: context
+    source: context
+    message: send_rr
+    scope: transaction
+  notes: SendRRData success service 0x8e, general status 0, optional bounded UInt16 additional-status
+    words, exactly two Vendor-ID result bytes. Reviewed constraints are in constraints.json. support.runtime
+    declares an existing codec, not native or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: false
+- id: send_rr_error
+  example: 6f0014000100000000000000010000000000000000000000000000000000020000000000b20004008e001400
+  direction: response
+  weight: 2
+  match: send_rr_error
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+    - interface_handle
+    - timeout
+    - item_count
+    - address_type
+    - address_length
+    - data_type
+    - data_length
+    - cip_service
+    - reserved
+    - general_status
+    - additional_status_words
+  - id: CONTENT
+    fields:
+    - cip
+    - additional_status
+    - response_data
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 111
+    min: 111
+    max: 111
+    values:
+    - 111
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 20
+    min: 20
+    max: 84
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: interface_handle
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: timeout
+    block: HEAD
+    path: abs:28
+    locator: abs:28
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: item_count
+    block: HEAD
+    path: abs:30
+    locator: abs:30
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: cpf
+      kind: sequence
+      children:
+      - id: interface_handle
+        kind: field
+        type: uint32-little-zero
+      - id: timeout
+        kind: field
+        type: uint16-little
+      - id: item_count
+        kind: field
+        type: uint16-little-2
+      - id: items
+        kind: repeat
+        children:
+        - id: item
+          kind: tlv
+          children:
+          - id: type
+            kind: field
+            type: uint16-little
+          - id: length
+            kind: field
+            type: uint16-little
+          - id: data
+            kind: field
+            type: length-octets
+        min: 2
+        max: 2
+      encoding: CPF NullAddress followed by UnconnectedData
+  - id: address_type
+    block: HEAD
+    path: abs:32
+    locator: abs:32
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: address_length
+    block: HEAD
+    path: abs:34
+    locator: abs:34
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_type
+    block: HEAD
+    path: abs:36
+    locator: abs:36
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 178
+    min: 178
+    max: 178
+    values:
+    - 178
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_length
+    block: HEAD
+    path: abs:38
+    locator: abs:38
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 4
+    min: 4
+    max: 68
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cip
+    block: CONTENT
+    path: abs:40
+    locator: abs:40
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 8e001400
+    min: 4
+    max: 68
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: cip_service
+    block: HEAD
+    path: abs:40
+    locator: abs:40
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 142
+    min: 142
+    max: 142
+    values:
+    - 142
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:41
+    locator: abs:41
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: general_status
+    block: HEAD
+    path: abs:42
+    locator: abs:42
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 20
+    min: 20
+    max: 20
+    values:
+    - 20
+    strategies:
+    - enum
+    evidence: wire
+    confidence: implementation
+  - id: additional_status_words
+    block: HEAD
+    path: abs:43
+    locator: abs:43
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 32
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: additional_status
+    block: CONTENT
+    path: cip:additional_status
+    locator: cip:additional_status
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 64
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: additional_status
+      kind: repeat
+      children:
+      - id: word
+        kind: field
+        type: uint16-little
+      min: 0
+      max: 32
+      encoding: additional_status_words*2
+  - id: response_data
+    block: CONTENT
+    path: cip:response_data
+    locator: cip:response_data
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 0
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: No result octets for general status 0x14.
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: length_of
+    target: data_length
+    source: cip
+  - op: bind_from_response
+    target: session
+    source: session
+    message: register_response
+    scope: connection
+  - op: count_of
+    target: additional_status_words
+    source: additional_status
+    unit: 2
+  - op: correlate_request_response
+    target: context
+    source: context
+    message: send_rr
+    scope: transaction
+  notes: SendRRData service 0x8e, general status 0x14, optional bounded UInt16 additional-status words,
+    no result bytes. Reviewed constraints are in constraints.json. support.runtime declares an existing
+    codec, not native or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: false
+- id: send_unit
+  example: 70001e0001000000000000000100000000000000000000000000000000000200a100040001000010b1000a0001000e03200124013001
+  direction: request
+  weight: 2
+  match: send_unit
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+    - interface_handle
+    - timeout
+    - item_count
+    - address_type
+    - address_length
+    - data_type
+    - data_length
+    - cip_service
+    - path_words
+    - connection_id
+    - connected_sequence
+  - id: CONTENT
+    fields:
+    - cip
+    - epath
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 112
+    min: 112
+    max: 112
+    values:
+    - 112
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 30
+    min: 30
+    max: 42
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: interface_handle
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: timeout
+    block: HEAD
+    path: abs:28
+    locator: abs:28
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: item_count
+    block: HEAD
+    path: abs:30
+    locator: abs:30
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: cpf
+      kind: sequence
+      children:
+      - id: interface_handle
+        kind: field
+        type: uint32-little-zero
+      - id: timeout
+        kind: field
+        type: uint16-little-zero
+      - id: item_count
+        kind: field
+        type: uint16-little-2
+      - id: connected_address
+        kind: tlv
+        children:
+        - id: connection_id
+          kind: field
+          type: UInt32-little-direction-specific
+        tag: 161
+        encoding: UInt16 type + UInt16 length=4
+      - id: connected_data
+        kind: tlv
+        children:
+        - id: connected_sequence
+          kind: field
+          type: UInt16-little
+        - id: cip
+          kind: field
+          type: complete-CIP-request-or-response
+        tag: 177
+        encoding: UInt16 type + UInt16 length=2+CIP-octets
+      encoding: CPF-class3-connected-explicit
+  - id: address_type
+    block: HEAD
+    path: abs:32
+    locator: abs:32
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 161
+    min: 161
+    max: 161
+    values:
+    - 161
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: address_length
+    block: HEAD
+    path: abs:34
+    locator: abs:34
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4
+    min: 4
+    max: 4
+    values:
+    - 4
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_type
+    block: HEAD
+    path: abs:40
+    locator: abs:40
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 177
+    min: 177
+    max: 177
+    values:
+    - 177
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_length
+    block: HEAD
+    path: abs:42
+    locator: abs:42
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 10
+    min: 10
+    max: 22
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cip
+    block: CONTENT
+    path: abs:46
+    locator: abs:46
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0e03200124013001
+    min: 8
+    max: 20
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: cip_service
+    block: HEAD
+    path: abs:46
+    locator: abs:46
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 14
+    min: 14
+    max: 14
+    values:
+    - 14
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: path_words
+    block: HEAD
+    path: abs:47
+    locator: abs:47
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 3
+    min: 3
+    max: 9
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: epath
+    block: CONTENT
+    path: abs:48
+    locator: abs:48
+    type: epath
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '200124013001'
+    min: 6
+    max: 18
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: identity_epath
+      kind: sequence
+      children:
+      - id: class
+        kind: choice
+        children:
+        - id: class8
+          kind: field
+          type: logical-8-little
+          encoding: tag=0x20; value=1
+        - id: class16
+          kind: field
+          type: logical-16-little
+          encoding: tag=0x21; reserved pad=0; value=1
+        - id: class32
+          kind: field
+          type: logical-32-little
+          encoding: tag=0x22; reserved pad=0; value=1
+      - id: instance
+        kind: choice
+        children:
+        - id: instance8
+          kind: field
+          type: logical-8-little
+          encoding: tag=0x24; value=1
+        - id: instance16
+          kind: field
+          type: logical-16-little
+          encoding: tag=0x25; reserved pad=0; value=1
+        - id: instance32
+          kind: field
+          type: logical-32-little
+          encoding: tag=0x26; reserved pad=0; value=1
+      - id: attribute
+        kind: choice
+        children:
+        - id: attribute8
+          kind: field
+          type: logical-8-little
+          encoding: tag=0x30; value=1
+        - id: attribute16
+          kind: field
+          type: logical-16-little
+          encoding: tag=0x31; reserved pad=0; value=1
+        - id: attribute32
+          kind: field
+          type: logical-32-little
+          encoding: tag=0x32; reserved pad=0; value=1
+      encoding: class=1, instance=1, attribute=1; 3..9 UInt16 words
+    structure: Exactly three logical segments in class/instance/attribute order, each with value 1; each
+      segment may use padded 8/16/32-bit logical encoding. No general CIP path parser is implied.
+  - id: connection_id
+    block: HEAD
+    path: abs:36
+    locator: abs:36
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: conditional
+    default: 268435457
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: 'Externally supplied directional Class-3 ID: consumed O-to-T in request, produced T-to-O
+      in response. The field has no model binding writer; the illustrative default does not establish
+      a connection.'
+  - id: connected_sequence
+    block: HEAD
+    path: abs:44
+    locator: abs:44
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: conditional
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Class-3 sequence UInt16 precedes CIP; request advances modulo 65536, response echoes this
+      request sequence. It is separate from Sender Context and CIP service bytes.
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: length_of
+    target: data_length
+    source: cip
+    add: 2
+  - op: bind_from_response
+    target: session
+    source: session
+    message: register_response
+    scope: connection
+  - op: count_of
+    target: path_words
+    source: epath
+    unit: 2
+  - op: sequence_number
+    target: connected_sequence
+    source: $message
+    scope: connection
+  notes: SendUnitData command 0x0070, ConnectedAddress/ConnectedData, UInt16 sequence followed by Identity
+    Vendor-ID request; requires external successful ForwardOpen on this same session. Reviewed constraints
+    are in constraints.json. support.runtime declares an existing codec, not native or target acceptance
+    of this copy.
+  fixture_status: complete
+  runtime_encode: true
+- id: send_unit_response
+  example: 70001c0001000000000000000100000000000000000000000000000000000200a100040001000020b100080001008e0000000100
+  direction: response
+  weight: 2
+  match: send_unit_response
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+    - interface_handle
+    - timeout
+    - item_count
+    - address_type
+    - address_length
+    - data_type
+    - data_length
+    - cip_service
+    - reserved
+    - general_status
+    - additional_status_words
+    - connection_id
+    - connected_sequence
+  - id: CONTENT
+    fields:
+    - cip
+    - additional_status
+    - response_data
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 112
+    min: 112
+    max: 112
+    values:
+    - 112
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 28
+    min: 28
+    max: 92
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: interface_handle
+    block: HEAD
+    path: abs:24
+    locator: abs:24
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: timeout
+    block: HEAD
+    path: abs:28
+    locator: abs:28
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: item_count
+    block: HEAD
+    path: abs:30
+    locator: abs:30
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 2
+    min: 2
+    max: 2
+    values:
+    - 2
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: cpf
+      kind: sequence
+      children:
+      - id: interface_handle
+        kind: field
+        type: uint32-little-zero
+      - id: timeout
+        kind: field
+        type: uint16-little-zero
+      - id: item_count
+        kind: field
+        type: uint16-little-2
+      - id: connected_address
+        kind: tlv
+        children:
+        - id: connection_id
+          kind: field
+          type: UInt32-little-direction-specific
+        tag: 161
+        encoding: UInt16 type + UInt16 length=4
+      - id: connected_data
+        kind: tlv
+        children:
+        - id: connected_sequence
+          kind: field
+          type: UInt16-little
+        - id: cip
+          kind: field
+          type: complete-CIP-request-or-response
+        tag: 177
+        encoding: UInt16 type + UInt16 length=2+CIP-octets
+      encoding: CPF-class3-connected-explicit
+  - id: address_type
+    block: HEAD
+    path: abs:32
+    locator: abs:32
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 161
+    min: 161
+    max: 161
+    values:
+    - 161
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: address_length
+    block: HEAD
+    path: abs:34
+    locator: abs:34
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 4
+    min: 4
+    max: 4
+    values:
+    - 4
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_type
+    block: HEAD
+    path: abs:40
+    locator: abs:40
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 177
+    min: 177
+    max: 177
+    values:
+    - 177
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: data_length
+    block: HEAD
+    path: abs:42
+    locator: abs:42
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 8
+    min: 8
+    max: 72
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: cip
+    block: CONTENT
+    path: abs:46
+    locator: abs:46
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 8e0000000100
+    min: 6
+    max: 70
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+  - id: cip_service
+    block: HEAD
+    path: abs:46
+    locator: abs:46
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 142
+    min: 142
+    max: 142
+    values:
+    - 142
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: reserved
+    block: HEAD
+    path: abs:47
+    locator: abs:47
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: general_status
+    block: HEAD
+    path: abs:48
+    locator: abs:48
+    type: uint8
+    width: 1
+    endian: big
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    evidence: wire
+    confidence: implementation
+  - id: additional_status_words
+    block: HEAD
+    path: abs:49
+    locator: abs:49
+    type: uint8
+    width: 1
+    endian: big
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 32
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: additional_status
+    block: CONTENT
+    path: cip:additional_status
+    locator: cip:additional_status
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 64
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure_model:
+      id: additional_status
+      kind: repeat
+      children:
+      - id: word
+        kind: field
+        type: uint16-little
+      min: 0
+      max: 32
+      encoding: additional_status_words*2
+  - id: response_data
+    block: CONTENT
+    path: cip:response_data
+    locator: cip:response_data
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0100'
+    min: 2
+    max: 2
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: wire
+    confidence: implementation
+    structure: Exactly one little-endian UInt16 Identity Vendor ID, after all additional-status words.
+  - id: connection_id
+    block: HEAD
+    path: abs:36
+    locator: abs:36
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: conditional
+    default: 536870913
+    min: 1
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: 'Externally supplied directional Class-3 ID: consumed O-to-T in request, produced T-to-O
+      in response. The field has no model binding writer; the illustrative default does not establish
+      a connection.'
+  - id: connected_sequence
+    block: HEAD
+    path: abs:44
+    locator: abs:44
+    type: uint16
+    width: 2
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 65535
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Class-3 sequence UInt16 precedes CIP; request advances modulo 65536, response echoes this
+      request sequence. It is separate from Sender Context and CIP service bytes.
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: length_of
+    target: data_length
+    source: cip
+    add: 2
+  - op: bind_from_response
+    target: session
+    source: session
+    message: register_response
+    scope: connection
+  - op: count_of
+    target: additional_status_words
+    source: additional_status
+    unit: 2
+  - op: correlate_request_response
+    target: context
+    source: context
+    message: send_unit
+    scope: transaction
+  - op: copy_from_message
+    target: connected_sequence
+    source: connected_sequence
+    message: send_unit
+    scope: transaction
+  notes: SendUnitData Identity Vendor-ID success with produced T-to-O connection ID, echoed UInt16 sequence/context
+    and exactly two result bytes; connection IDs are externally provisioned. Reviewed constraints are
+    in constraints.json. support.runtime declares an existing codec, not native or target acceptance of
+    this copy.
+  fixture_status: complete
+  runtime_encode: false
+- id: register_error
+  example: '650000000000000069000000010000000000000000000000'
+  direction: response
+  weight: 2
+  match: register_error
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+  - id: CONTENT
+    fields: []
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 101
+    min: 101
+    max: 101
+    values:
+    - 101
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 0
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 105
+    min: 105
+    max: 105
+    values:
+    - 105
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: correlate_request_response
+    target: context
+    source: context
+    message: register
+    scope: transaction
+  notes: RegisterSession status 0x69 header-only failure, no command-specific payload; Sender Context
+    correlates to register. Reviewed constraints are in constraints.json. support.runtime declares an
+    existing codec, not native or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: false
+- id: invalid_session
+  example: 6f0000000100000064000000010000000000000000000000
+  direction: response
+  weight: 2
+  match: invalid_session
+  blocks:
+  - id: HEAD
+    fields:
+    - command
+    - length
+    - session
+    - status
+    - context
+    - options
+  - id: CONTENT
+    fields: []
+  fields:
+  - id: command
+    block: HEAD
+    path: abs:0
+    locator: abs:0
+    type: uint16
+    width: 2
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 111
+    min: 111
+    max: 111
+    values:
+    - 111
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: length
+    block: HEAD
+    path: abs:2
+    locator: abs:2
+    type: uint16
+    width: 2
+    endian: little
+    role: derived
+    mutability: derived
+    default: 0
+    min: 0
+    max: 0
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: session
+    block: HEAD
+    path: abs:4
+    locator: abs:4
+    type: uint32
+    width: 4
+    endian: little
+    role: head
+    mutability: fuzzable
+    default: 1
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: status
+    block: HEAD
+    path: abs:8
+    locator: abs:8
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 100
+    min: 100
+    max: 100
+    values:
+    - 100
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: context
+    block: HEAD
+    path: abs:12
+    locator: abs:12
+    type: uint64
+    width: 8
+    endian: little
+    role: head
+    mutability: runtime_bound
+    default: 1
+    min: 0
+    max: 18446744073709551615
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  - id: options
+    block: HEAD
+    path: abs:20
+    locator: abs:20
+    type: uint32
+    width: 4
+    endian: little
+    role: fixed
+    mutability: fixed
+    default: 0
+    min: 0
+    max: 0
+    values:
+    - 0
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+  dependencies:
+  - op: length_of
+    target: length
+    source: $message
+    add: -24
+  - op: correlate_request_response
+    target: context
+    source: context
+    message: send_rr
+    scope: transaction
+  notes: SendRRData status 0x64 header-only failure, no CPF/CIP payload; Sender Context correlates to
+    send_rr. Reviewed constraints are in constraints.json. support.runtime declares an existing codec,
+    not native or target acceptance of this copy.
+  fixture_status: complete
+  runtime_encode: false

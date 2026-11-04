@@ -25,6 +25,7 @@ python3 -m unittest discover -s tests/protocol -p test_template_contract.py -v >
 python3 -m unittest discover -s tests/protocol -p test_generic_templates.py -v > "$protocol_test_output/generic-templates.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_corpus_contract.py -v > "$protocol_test_output/corpus-contract.log" 2>&1
 python3 -m unittest discover -s tests/protocol -p test_minimal_bundle_contract.py -v > "$protocol_test_output/minimal-bundle.log" 2>&1
+python3 -m unittest discover -s tests/protocol -p test_reviewed_descriptions.py -v > "$protocol_test_output/reviewed-descriptions.log" 2>&1
 python3 tests/protocol/test_model_completeness.py > "$protocol_test_output/model-completeness.log" 2>&1
 python3 tests/protocol/test_codec_modbus_iec.py > "$protocol_test_output/modbus-iec-codecs.log" 2>&1
 python3 tests/protocol/test_mms_codec.py > "$protocol_test_output/mms-codec.log" 2>&1

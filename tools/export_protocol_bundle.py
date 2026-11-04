@@ -13,6 +13,7 @@ from proto_spec_compiler import compile_spec, load, SpecError
 from protocol_corpus_contract import check_model_corpus
 from protocol_template_contract import checked_profile_copy
 from generic_template_catalog import check_catalog
+from check_reviewed_protocol_descriptions import check_catalog as check_reviewed_catalog
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -22,6 +23,7 @@ def build_bundle(destination):
     packages=[]
     files={}
     generic_templates = check_catalog(ROOT)
+    reviewed_sources = check_reviewed_catalog(ROOT)
     for name in PROFILES:
         directory=ROOT/'protocols'/name
         protocol=load(directory/'protocol_spec.yaml')
@@ -39,7 +41,7 @@ def build_bundle(destination):
             all_fixtures_complete=all(m.get('fixture_status')=='complete' for m in protocol['messages'])))
         for path in sorted(directory.rglob('*')):
             if path.is_file():files[str(path.relative_to(ROOT))]=path.read_bytes()
-    for directory in (ROOT/'protocols/schema',ROOT/'protocols/templates'):
+    for directory in (ROOT/'protocols/schema',ROOT/'protocols/templates',ROOT/'protocols/reviewed'):
         for path in sorted(directory.rglob('*')):
             if path.is_file():files[str(path.relative_to(ROOT))]=path.read_bytes()
     for name in ('README.md','protocols/README.md','docs/protocol-model-audit.md','docs/template-audit.md',
@@ -60,10 +62,12 @@ def build_bundle(destination):
                  'docs/usability-repair-20261103.zh-CN.md',
                  'docs/template-unification-review-20261104.zh-CN.md',
                  'docs/template-system-repair-20261104.zh-CN.md',
+                 'docs/protocol-description-completeness-20261104.zh-CN.md',
                  'tests/protocol/test_model_completeness.py','tools/proto_spec_compiler.py',
                  'tools/init_protocol_spec.py','tools/protocol_seed_planner.py',
                  'tools/protocol_template_contract.py','tools/protocol_corpus_contract.py',
                  'tools/generic_template_catalog.py',
+                 'tools/check_protocol_descriptions.py','tools/check_reviewed_protocol_descriptions.py',
                  'tools/run_protocol_campaign.py','tools/requirements-protocol.txt'):
         files[name]=(ROOT/name).read_bytes()
     files['BUNDLE-README.md']=('''# Industrial protocol description bundle
@@ -76,6 +80,10 @@ configuration source directory and records its structural/value provenance.
 The minimal source package contains a controlled target source and compile-only
 Makefile; generating native validation outputs still requires the full StateAFL
 workspace and its compiler dependencies. No target execution is implied.
+protocols/reviewed contains six revised source pairs and per-message constraint
+inventories. They have static source/schema checks only; use --source-dir to
+prepare native-validated packages before a campaign. The reviewed catalog does
+not claim whole-standard coverage or complete generic-wire migration.
 The generic_wire.json files are a separate description-driven migration with
 14/71 fixture message grammars. Only the one-register Modbus FC03 pair is
 enabled online; see docs/generic-wire-profile-scope.md for the missing rules.
@@ -99,6 +107,7 @@ repository; the archive does not claim to preserve those external references.
         runtime_scope='Six bounded C codecs; see each profile for supported services and external prerequisites.',
         generic_scope='Description-driven C grammar; 14 fixture messages, five offline-only profiles and one scoped online Modbus FC03 pair.',
         generic_template_catalog=generic_templates,
+        reviewed_source_catalog=reviewed_sources,
         runtime_tests_executed_by_exporter=False,
         historical_validation_scope='Original recorded sources only; not an acceptance result for this bundle.',
         external_references='Source and historical evidence absent from files require the original repository.',

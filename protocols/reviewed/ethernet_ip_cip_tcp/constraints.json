@@ -1,0 +1,252 @@
+{
+  "format": "stateafl.reviewed-description",
+  "version": 1,
+  "protocol_id": "ethernet_ip_cip_tcp",
+  "changes": [
+    {
+      "id": "enip_status_and_result",
+      "problem": "Success/error models allowed arbitrary CIP status and result byte lengths.",
+      "resolution": "Success general_status is fixed 0, the declared error is fixed 0x14; result length is exactly 2 or 0 respectively.",
+      "messages": [
+        "send_rr_response",
+        "send_rr_error",
+        "send_unit_response"
+      ]
+    },
+    {
+      "id": "enip_identity_path",
+      "problem": "The EPATH range and tree suggested an arbitrary repeat of 8-bit logical segments.",
+      "resolution": "Declare exactly three class/instance/attribute logical values 1/1/1, permit their supported padded 8/16/32-bit encodings, and align CIP/path word ranges.",
+      "messages": [
+        "send_rr",
+        "send_unit"
+      ]
+    },
+    {
+      "id": "enip_scalar_bounds",
+      "problem": "Session, length and CPF data-length ranges were much wider than the bounded declared model.",
+      "resolution": "Require nonzero registered sessions and align per-message derived length/default/ranges with the retained complete examples and bounded CIP payload.",
+      "messages": [
+        "register",
+        "unregister",
+        "register_response",
+        "send_rr",
+        "send_rr_response",
+        "send_rr_error",
+        "send_unit",
+        "send_unit_response",
+        "register_error",
+        "invalid_session"
+      ]
+    },
+    {
+      "id": "enip_response_context",
+      "problem": "Response context fields were labelled fuzzable although checked against a pending request.",
+      "resolution": "Mark response Sender Context runtime_bound under its existing explicit correlation dependency.",
+      "messages": [
+        "register_response",
+        "send_rr_response",
+        "send_rr_error",
+        "send_unit_response",
+        "register_error",
+        "invalid_session"
+      ]
+    },
+    {
+      "id": "enip_scope_and_preconditions",
+      "problem": "Some excluded services, hardcoded codec rules and nonexecuted external preconditions were implicit.",
+      "resolution": "Name every declared service/error, the external ForwardOpen boundary and runtime/generic limitations; do not turn notes/actions into executable claims.",
+      "messages": [
+        "register",
+        "unregister",
+        "register_response",
+        "send_rr",
+        "send_rr_response",
+        "send_rr_error",
+        "send_unit",
+        "send_unit_response",
+        "register_error",
+        "invalid_session"
+      ]
+    }
+  ],
+  "codec_constraints": [
+    {
+      "id": "enip_message_register",
+      "messages": [
+        "register"
+      ],
+      "constraint": "RegisterSession command 0x0065, zero request session, protocol version 1/options 0; success is not implied by sending it.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_unregister",
+      "messages": [
+        "unregister"
+      ],
+      "constraint": "UnregisterSession command 0x0066 with bound nonzero registered handle; no payload or response.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_register_response",
+      "messages": [
+        "register_response"
+      ],
+      "constraint": "Successful RegisterSession command 0x0065, nonzero assigned handle, version 1/options 0 and echoed Sender Context.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_send_rr",
+      "messages": [
+        "send_rr"
+      ],
+      "constraint": "SendRRData command 0x006f with NullAddress then UnconnectedData; service 0x0e, logical class=1/instance=1/attribute=1, no service request data.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_send_rr_response",
+      "messages": [
+        "send_rr_response"
+      ],
+      "constraint": "SendRRData success service 0x8e, general status 0, optional bounded UInt16 additional-status words, exactly two Vendor-ID result bytes.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_send_rr_error",
+      "messages": [
+        "send_rr_error"
+      ],
+      "constraint": "SendRRData service 0x8e, general status 0x14, optional bounded UInt16 additional-status words, no result bytes.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_send_unit",
+      "messages": [
+        "send_unit"
+      ],
+      "constraint": "SendUnitData command 0x0070, ConnectedAddress/ConnectedData, UInt16 sequence followed by Identity Vendor-ID request; requires external successful ForwardOpen on this same session.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_send_unit_response",
+      "messages": [
+        "send_unit_response"
+      ],
+      "constraint": "SendUnitData Identity Vendor-ID success with produced T-to-O connection ID, echoed UInt16 sequence/context and exactly two result bytes; connection IDs are externally provisioned.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_register_error",
+      "messages": [
+        "register_error"
+      ],
+      "constraint": "RegisterSession status 0x69 header-only failure, no command-specific payload; Sender Context correlates to register.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_message_invalid_session",
+      "messages": [
+        "invalid_session"
+      ],
+      "constraint": "SendRRData status 0x64 header-only failure, no CPF/CIP payload; Sender Context correlates to send_rr.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_cpf_and_lengths",
+      "messages": [
+        "send_rr",
+        "send_rr_response",
+        "send_rr_error",
+        "send_unit",
+        "send_unit_response"
+      ],
+      "constraint": "Encapsulation options/interface handle are zero, CPF has exactly two ordered items, data/item lengths count actual bytes. Connected timeout is zero. Derived fields describe and repair the declared bounded layouts.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_additional_status",
+      "messages": [
+        "send_rr_response",
+        "send_rr_error",
+        "send_unit_response"
+      ],
+      "constraint": "Additional status consists of an even number of octets. The model limits it to 0..64 bytes/0..32 UInt16 words although the codec accepts at most 510 bytes.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "enip_class3_external",
+      "messages": [
+        "send_unit",
+        "send_unit_response"
+      ],
+      "constraint": "A successful unexpired external ForwardOpen on this registered session must provide consumed/produced directional IDs. RegisterSession and placeholder values alone do not satisfy this prerequisite.",
+      "enforced_by": "external"
+    },
+    {
+      "id": "enip_annotation_execution",
+      "messages": [
+        "register",
+        "unregister",
+        "register_response",
+        "send_rr",
+        "send_rr_response",
+        "send_rr_error",
+        "send_unit",
+        "send_unit_response",
+        "register_error",
+        "invalid_session"
+      ],
+      "constraint": "structure_model, guard/actions and dependency scope/when are descriptive metadata. Exact field location, service acceptance and runtime correlation still use the existing codec/runtime.",
+      "enforced_by": "static_only"
+    }
+  ],
+  "remaining_gaps": [
+    {
+      "id": "enip_standard_scope",
+      "layer": "standard",
+      "description": "This is not all EtherNet/IP/CIP: only the listed Identity Vendor-ID services/errors; normative subscription-only ODVA volumes were not inspected.",
+      "resolution": "Keep the explicit subset; add other services only with primary wire evidence, concrete fields, state/dependency rules and corresponding codec support."
+    },
+    {
+      "id": "enip_generic_migration",
+      "layer": "generic",
+      "description": "The separate generic-wire inventory contains only register/register_response (2/10) and online=false.",
+      "resolution": "Implement session-value binding plus CPF/CIP/EPATH and connected-session semantics, migrate all listed models and states, then validate natively; do not enable online or fix opaque service bytes as a substitute."
+    },
+    {
+      "id": "enip_external_class3",
+      "layer": "runtime",
+      "description": "ForwardOpen/ForwardClose, externally initialized connection IDs, establishment/expiry enforcement and initial sequence provisioning are absent.",
+      "resolution": "Supply a deliberate external provisioning interface or implement verified ForwardOpen/ForwardClose and lifetime handling before treating connected traffic as self-contained."
+    },
+    {
+      "id": "enip_cache_cleanup",
+      "layer": "runtime",
+      "description": "Guard/actions do not clear cached handles/connections or execute arbitrary conditions.",
+      "resolution": "Implement explicit session/connection lifecycle handling in runtime and exercise fresh-session and invalid-session paths before claiming lifecycle completeness."
+    },
+    {
+      "id": "enip_native_and_target_evidence",
+      "layer": "evidence",
+      "description": "This reviewed source pair has no newly generated IR, native validation, seeds, target exchanges or method comparison evidence.",
+      "resolution": "Prepare the reviewed pair with the existing compiler in a later execution-authorized step, regenerate model corpus, then separately verify controlled exchanges and fixed-budget method results."
+    }
+  ],
+  "generic_coverage": {
+    "online": false,
+    "implemented_messages": [
+      "register",
+      "register_response"
+    ],
+    "missing_messages": [
+      "unregister",
+      "send_rr",
+      "send_rr_response",
+      "send_rr_error",
+      "send_unit",
+      "send_unit_response",
+      "register_error",
+      "invalid_session"
+    ]
+  }
+}

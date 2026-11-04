@@ -1,0 +1,232 @@
+{
+  "format": "stateafl.reviewed-description",
+  "version": 1,
+  "protocol_id": "modbus_tcp",
+  "changes": [
+    {
+      "id": "MB01",
+      "problem": "读响应data的0..4096范围超出实际codec范围，并允许空数据。",
+      "resolution": "位读响应改为1..250字节，寄存器读改为2..250字节；偶数与跨请求数量关系的执行边界分别注明。",
+      "messages": [
+        "read_coils_response",
+        "read_discrete_response",
+        "read_response",
+        "read_input_response"
+      ]
+    },
+    {
+      "id": "MB02",
+      "problem": "一个宽function异常模型只关联FC03，却被描述为覆盖所有函数。",
+      "resolution": "保留exception作为固定0x83的FC03模型，新增其余七类函数的固定异常function响应及对应transaction/unit依赖和状态边；FC0F partial复用canonical-equivalent请求的异常。",
+      "messages": [
+        "exception",
+        "read_coils_exception",
+        "read_discrete_exception",
+        "read_input_exception",
+        "write_coil_exception",
+        "write_register_exception",
+        "write_coils_exception",
+        "write_registers_exception",
+        "write_coils_partial"
+      ]
+    },
+    {
+      "id": "MB03",
+      "problem": "响应transaction/unit字段标为普通fuzzable，未准确表达现场请求缓存关联。",
+      "resolution": "所有已有copy/correlate响应目标明确标为runtime_bound，不改变已知codec功能。",
+      "messages": [
+        "read_response",
+        "exception",
+        "read_coils_response",
+        "read_discrete_response",
+        "read_input_response",
+        "write_coil_response",
+        "write_register_response",
+        "write_coils_response",
+        "write_coils_partial_response",
+        "write_registers_response",
+        "read_coils_exception",
+        "read_discrete_exception",
+        "read_input_exception",
+        "write_coil_exception",
+        "write_register_exception",
+        "write_coils_exception",
+        "write_registers_exception"
+      ]
+    }
+  ],
+  "codec_constraints": [
+    {
+      "id": "MB-MBAP",
+      "messages": [
+        "read_coils",
+        "read_discrete",
+        "read_holding",
+        "read_input",
+        "write_coil",
+        "write_register",
+        "write_coils",
+        "write_registers",
+        "read_response",
+        "exception",
+        "write_coils_partial",
+        "read_coils_response",
+        "read_discrete_response",
+        "read_input_response",
+        "write_coil_response",
+        "write_register_response",
+        "write_coils_response",
+        "write_coils_partial_response",
+        "write_registers_response",
+        "read_coils_exception",
+        "read_discrete_exception",
+        "read_input_exception",
+        "write_coil_exception",
+        "write_register_exception",
+        "write_coils_exception",
+        "write_registers_exception"
+      ],
+      "constraint": "Every message has a 7-byte MBAP prefix: protocol ID=0; encoded length equals complete ADU bytes minus6; native codec limits ADU to8..260 bytes. Reviewed abs fields cover every example byte.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MB-READ-REQUEST",
+      "messages": [
+        "read_coils",
+        "read_discrete",
+        "read_holding",
+        "read_input"
+      ],
+      "constraint": "Read requests have12 bytes; FC01/02 quantity1..2000 and FC03/04 quantity1..125. Function is fixed per message.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MB-SINGLE-WRITE",
+      "messages": [
+        "write_coil",
+        "write_register"
+      ],
+      "constraint": "FC05/06 requests have12 bytes. FC05 value is exactly0000 orFF00 by codec validation; values is only a suggestion pool. FC06 value is a complete UInt16.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MB-MULTIPLE-WRITE",
+      "messages": [
+        "write_coils",
+        "write_coils_partial",
+        "write_registers"
+      ],
+      "constraint": "FC0F quantity1..1968, byte_count=ceil(quantity/8), unused final high bits zero. FC10 quantity1..123, byte_count=2*quantity. Variable data1..246(coils) or2..246(registers) and MBAP length are repaired by codec.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MB-READ-RESPONSE",
+      "messages": [
+        "read_coils_response",
+        "read_discrete_response",
+        "read_response",
+        "read_input_response"
+      ],
+      "constraint": "Normal read responses have native byte_count/data agreement; bits data1..250 and registers data2..250 with even byte count. Response transaction and unit must equal cached live request fields. Quantity-to-response-size equations remain an explicit runtime gap.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MB-WRITE-ECHO",
+      "messages": [
+        "write_coil_response",
+        "write_register_response",
+        "write_coils_response",
+        "write_coils_partial_response",
+        "write_registers_response"
+      ],
+      "constraint": "Normal write acknowledgements contain no request data/byte_count extension; transaction, unit, address and value/quantity echo their corresponding live request fields.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MB-EXCEPTION",
+      "messages": [
+        "exception",
+        "read_coils_exception",
+        "read_discrete_exception",
+        "read_input_exception",
+        "write_coil_exception",
+        "write_register_exception",
+        "write_coils_exception",
+        "write_registers_exception"
+      ],
+      "constraint": "Every exception ADU has9 bytes, one fixed request-specific function|80 field and one codec-accepted exception code in01,02,03,04,05,06,08,0A,0B. Transaction/unit correlation links the declared request; FC0F partial shares write_coils canonical identity.",
+      "enforced_by": "codec_and_model"
+    }
+  ],
+  "remaining_gaps": [
+    {
+      "id": "MB-STANDARD",
+      "layer": "standard",
+      "description": "This profile covers FC01/02/03/04/05/06/0F/10 only. File records, mask write, combined read/write, FIFO, MEI/device identification and serial-specific services are not described.",
+      "resolution": "Add separately sourced field layouts, service semantics, codec support and request/response state contracts before claiming those function families."
+    },
+    {
+      "id": "MB-RESPONSE-QUANTITY",
+      "layer": "runtime",
+      "description": "Live response data length is not compared with ceil(request.quantity/8) or2*request.quantity; final response bit padding is not cross-checked against request quantity.",
+      "resolution": "Extend typed cross-message arithmetic/byte-slice correlation and add actual C contracts; annotations and values cannot enforce this relation."
+    },
+    {
+      "id": "MB-ADDRESS-SPAN",
+      "layer": "runtime",
+      "description": "Address-plus-quantity overflow and device mapping availability are not encoded as executable model constraints.",
+      "resolution": "Add explicit supported address-span constraints if valid-only generation must exclude requests requiring server illegal-address exceptions."
+    },
+    {
+      "id": "MB-SINGLE-PENDING",
+      "layer": "runtime",
+      "description": "Current legacy runtime permits one outstanding request per session; transaction IDs are not a general concurrent transaction database.",
+      "resolution": "Keep experiments serial or implement transaction-keyed caches and pending response alternatives in the runtime."
+    },
+    {
+      "id": "MB-GENERIC",
+      "layer": "generic",
+      "description": "Published generic_wire.json remains a two-message FC03 one-register online subset; it does not execute this26-message reviewed model.",
+      "resolution": "Extend generic grammar/response transactions for arithmetic size relations, bit packing/padding and normal-versus-exception alternatives, then construct and verify an independent generic description."
+    },
+    {
+      "id": "MB-EVIDENCE",
+      "layer": "evidence",
+      "description": "This directory is reviewed editable source only. No native validator, generated IR, seed planner, unit test or live target was executed for it.",
+      "resolution": "Instantiate this source pair in the full workspace, compile with the real validator, plan a fresh managed corpus, then validate a controlled target session and fixed-budget method comparison."
+    }
+  ],
+  "generic_coverage": {
+    "online": true,
+    "implemented_messages": [
+      "read_holding",
+      "read_response"
+    ],
+    "missing_messages": [
+      "read_coils",
+      "read_discrete",
+      "read_input",
+      "write_coil",
+      "write_register",
+      "write_coils",
+      "write_registers",
+      "exception",
+      "write_coils_partial",
+      "read_coils_response",
+      "read_discrete_response",
+      "read_input_response",
+      "write_coil_response",
+      "write_register_response",
+      "write_coils_response",
+      "write_coils_partial_response",
+      "write_registers_response",
+      "read_coils_exception",
+      "read_discrete_exception",
+      "read_input_exception",
+      "write_coil_exception",
+      "write_register_exception",
+      "write_coils_exception",
+      "write_registers_exception"
+    ]
+  }
+}

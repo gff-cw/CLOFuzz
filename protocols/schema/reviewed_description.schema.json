@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:stateafl:reviewed-description:v1",
+  "title": "Reviewed protocol source constraint inventory",
+  "description": "Authoring metadata alongside a complete legacy YAML input pair. This is not an online grammar, compiled IR or native validation result.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "stateafl.reviewed-description"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+          },
+          "problem": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution": {
+            "type": "string",
+            "minLength": 1
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+            },
+            "uniqueItems": true,
+            "minItems": 1,
+            "maxItems": 128
+          }
+        },
+        "required": [
+          "id",
+          "problem",
+          "resolution",
+          "messages"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 128
+    },
+    "codec_constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+            },
+            "uniqueItems": true,
+            "minItems": 1,
+            "maxItems": 128
+          },
+          "constraint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enforced_by": {
+            "enum": [
+              "codec",
+              "model",
+              "static_only",
+              "codec_and_model",
+              "external"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "messages",
+          "constraint",
+          "enforced_by"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 256
+    },
+    "remaining_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+          },
+          "layer": {
+            "enum": [
+              "standard",
+              "generic",
+              "runtime",
+              "evidence"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "layer",
+          "description",
+          "resolution"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 128
+    },
+    "generic_coverage": {
+      "type": "object",
+      "properties": {
+        "online": {
+          "type": "boolean"
+        },
+        "implemented_messages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+          },
+          "uniqueItems": true,
+          "minItems": 1,
+          "maxItems": 128
+        },
+        "missing_messages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,62}$(?![\\s\\S])"
+          },
+          "uniqueItems": true,
+          "maxItems": 128
+        }
+      },
+      "required": [
+        "online",
+        "implemented_messages",
+        "missing_messages"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "protocol_id",
+    "changes",
+    "codec_constraints",
+    "remaining_gaps",
+    "generic_coverage"
+  ],
+  "additionalProperties": false
+}

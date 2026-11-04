@@ -1,5 +1,7 @@
 # 六协议描述文件完整性与正确性审查
 
+> 本文保留原发布包的范围及历史证据。最新静态发现、六套修订源和仍需执行器扩展的缺口见[2026-11-04完整性复核](protocol-description-completeness-20261104.zh-CN.md)；旧完整fixture统计不作为新源的原生或运行验收。
+
 审查日期：2026-10-25。这里的“完整”是**明确列出的 profile 中，一条报文的所有层和服务体都存在**，且配套请求、响应、动态结构、依赖及状态都有说明。它不代表完整覆盖 ASHRAE 135、IEC 60870/61850、ISO 9506、ODVA 或整个 OPC UA 标准。字段数是声明的字段/投影数量，不是标准覆盖率；嵌套字段由 `structure_model` 树补充。
 
 每种协议目录均含 `protocol_spec.yaml`、`state_transition.yaml`、可重现 JSON IR、`evidence.yaml`、`validation.json` 和完整请求的 replay seeds。`fixture_status=complete` 描述 fixture 完整性；`runtime_encode` 是已有 C 编码能力的断言。静态树、文字条件、状态 guard/actions 不会自动变成解析器或状态执行代码。

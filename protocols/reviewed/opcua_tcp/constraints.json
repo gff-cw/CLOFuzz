@@ -1,0 +1,287 @@
+{
+  "format": "stateafl.reviewed-description",
+  "version": 1,
+  "protocol_id": "opcua_tcp",
+  "changes": [
+    {
+      "id": "ua_transport_bounds",
+      "problem": "HEL/ACK allowed nonzero protocol versions and sub-8192 None buffers; transport String bounds ignored the 4-byte encoded prefix.",
+      "resolution": "Fix protocol_version=0, buffer min=8192 with valid HEAD candidates, and transport String content max=4091.",
+      "messages": [
+        "hello",
+        "ack",
+        "reverse_hello"
+      ]
+    },
+    {
+      "id": "ua_service_identity",
+      "problem": "Variable NodeId fields and shared notes did not name each exact service semantic or its actual encoded range.",
+      "resolution": "Name namespace0 service IDs 446/449/428/431/397/452 and bound numeric encoding length to 4..7 bytes without using forbidden fixed variable-byte fields.",
+      "messages": [
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ]
+    },
+    {
+      "id": "ua_security_and_token_bounds",
+      "problem": "None-policy/certificate and assigned-token bounds were wider than codec acceptance.",
+      "resolution": "Policy content length is exactly47, certificate/thumbprint content length0 with codec-enforced nullness, and assigned channel/token/lifetime are nonzero.",
+      "messages": [
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ]
+    },
+    {
+      "id": "ua_response_status",
+      "problem": "Success and ServiceFault status fields permitted values inconsistent with their declared semantics.",
+      "resolution": "Success models fix service_result=Good(0); ServiceFault requires bit31 set, matching the current bounded codec check rather than claiming full StatusCode enumeration/reserved-bit validation.",
+      "messages": [
+        "open_channel_response",
+        "message_response",
+        "service_fault"
+      ]
+    },
+    {
+      "id": "ua_explicit_execution_scope",
+      "problem": "Resource/security restrictions and nonexecuted negotiation/expiry/sequence semantics were not all disclosed.",
+      "resolution": "List all bounded codec rules, retain full body trees, identify static annotations and separate generic/runtime/evidence gaps.",
+      "messages": [
+        "hello",
+        "ack",
+        "error",
+        "reverse_hello",
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ]
+    }
+  ],
+  "codec_constraints": [
+    {
+      "id": "ua_message_hello",
+      "messages": [
+        "hello"
+      ],
+      "constraint": "UACP HEL final message with protocol version 0, None-profile buffers >=8192, message/chunk limits and non-null EndpointUrl whose complete signed-Int32 encoding is <4096 bytes.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_ack",
+      "messages": [
+        "ack"
+      ],
+      "constraint": "UACP ACK final message, protocol version 0 and buffers >=8192; negotiated receive/send upper bounds relative to HEL are not executed by this description.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_error",
+      "messages": [
+        "error"
+      ],
+      "constraint": "UACP ERR final message containing complete StatusCode and signed-length UTF-8 reason; closes the transport on the declared state edges.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_reverse_hello",
+      "messages": [
+        "reverse_hello"
+      ],
+      "constraint": "Server-to-client UACP RHE in reverse-connect role, containing complete non-null ServerUri and EndpointUrl encodings each <4096 bytes; not a SecureChannel handshake by itself.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_open_channel",
+      "messages": [
+        "open_channel"
+      ],
+      "constraint": "UASC OPN Issue request, namespace0 binary service ID446, zero channel, exact SecurityPolicy None, null certificate/thumbprint/nonce and null discovery authentication token; complete RequestHeader.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_open_channel_response",
+      "messages": [
+        "open_channel_response"
+      ],
+      "constraint": "Successful UASC OPN response, namespace0 binary service ID449, complete ResponseHeader, matching channel/token channel, nonzero assigned channel/token/lifetime and null server nonce.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_message",
+      "messages": [
+        "message"
+      ],
+      "constraint": "UASC MSG GetEndpoints request, namespace0 binary service ID428, bound channel/token and complete RequestHeader/EndpointUrl/LocaleIds/ProfileUris arrays; no Session required.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_message_response",
+      "messages": [
+        "message_response"
+      ],
+      "constraint": "UASC MSG GetEndpoints successful response, namespace0 binary service ID431, complete ResponseHeader and bounded EndpointDescription/ApplicationDescription/anonymous None UserTokenPolicy arrays.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_service_fault",
+      "messages": [
+        "service_fault"
+      ],
+      "constraint": "UASC MSG ServiceFault, namespace0 binary service ID397, complete ResponseHeader with service-result bit31 set, matching the current bounded codec check (not a complete assigned StatusCode validator); tied to the declared GetEndpoints request.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_message_close_channel",
+      "messages": [
+        "close_channel"
+      ],
+      "constraint": "Implementation-profile UASC CLO, namespace0 binary service ID452 and complete RequestHeader, bound channel/token, no reply. Normative Part6 empty-body wording is unresolved.",
+      "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "ua_complete_binary",
+      "messages": [
+        "hello",
+        "ack",
+        "error",
+        "reverse_hello",
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ],
+      "constraint": "The codec consumes the complete final chunk with no trailing bytes, enforces UTF-8 and signed Int32 String/ByteString/array lengths (-1 null), and rejects partial/abort chunks. Native parser budget is 1 MiB; StateAFL replay/request wire limits remain separate.",
+      "enforced_by": "codec"
+    },
+    {
+      "id": "ua_array_and_diagnostic",
+      "messages": [
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault"
+      ],
+      "constraint": "Every parsed array is limited to -1(null)..64 entries; DiagnosticInfo nesting is limited to depth8. Conditional subfields and array traversal are handled by the codec; structure_model is explanatory metadata.",
+      "enforced_by": "codec"
+    },
+    {
+      "id": "ua_header_security",
+      "messages": [
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ],
+      "constraint": "Request authentication token must be namespace0 numeric null NodeId; AdditionalHeader must be null NodeId plus encoding0. SecurityPolicy None requires null certificate/thumbprint/nonce; EndpointDescription is None with null certificate and anonymous UserTokenPolicy only.",
+      "enforced_by": "codec"
+    },
+    {
+      "id": "ua_negotiation_metadata",
+      "messages": [
+        "hello",
+        "ack"
+      ],
+      "constraint": "ACK receive/send limits relative to opposite HEL buffers, maximum message/chunk negotiation and version negotiation procedures are not executed by the YAML guard/actions.",
+      "enforced_by": "static_only"
+    },
+    {
+      "id": "ua_token_sequence_metadata",
+      "messages": [
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ],
+      "constraint": "Declared dependency writers handle supported channel/token binding, request correlation and outgoing sequence updates. Token expiry, revised lifetime timers and peer sequence freshness are not established by state meanings or action strings.",
+      "enforced_by": "static_only"
+    },
+    {
+      "id": "ua_opaque_body_projection",
+      "messages": [
+        "hello",
+        "ack",
+        "error",
+        "reverse_hello",
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ],
+      "constraint": "The body field and structure_model preserve complete examples/shape; opaque whole-body replacement is not a supported codec operation. Supported variable mutation uses located String/ByteString/NodeId leaves.",
+      "enforced_by": "codec"
+    }
+  ],
+  "remaining_gaps": [
+    {
+      "id": "ua_standard_scope",
+      "layer": "standard",
+      "description": "This is a bounded None discovery/Issue profile, not all UA TCP/UASC/UA Binary services, sessions, security modes or data types.",
+      "resolution": "Retain explicit service/security/resource limits; add other services only with concrete schema/codec/state support and primary-source wire examples."
+    },
+    {
+      "id": "ua_clo_wording",
+      "layer": "standard",
+      "description": "The retained implementation-profile CLO includes encoding NodeId452 and RequestHeader, while Part6 section7.1.4 describes an empty body.",
+      "resolution": "Resolve interoperability and normative interpretation with authoritative evidence before claiming normative CLO completeness; preserve the implementation designation meanwhile."
+    },
+    {
+      "id": "ua_generic_migration",
+      "layer": "generic",
+      "description": "The separate generic-wire inventory only implements HEL/ACK (2/10) with online=false, not these complete service bodies.",
+      "resolution": "Add signed length/null handling, NodeId, nested bounded structures/arrays and required binding/session semantics; migrate the eight missing models and graph, then check them natively without opaque payload substitution."
+    },
+    {
+      "id": "ua_live_negotiation",
+      "layer": "runtime",
+      "description": "ACK buffer upper bounds and negotiated max message/chunk limits are not implemented by static guards.",
+      "resolution": "Add checked negotiation state and enforce it for submitted/received frames; test fresh negotiation and boundary cases separately."
+    },
+    {
+      "id": "ua_token_lifecycle_and_peer_sequence",
+      "layer": "runtime",
+      "description": "Token expiry, overlap/renewal and peer sequence freshness are not made executable by the current model.",
+      "resolution": "Implement explicit timers/lifecycle and sequence validation before claiming full channel/session behavior; Renewal and overlap remain outside this profile."
+    },
+    {
+      "id": "ua_native_and_target_evidence",
+      "layer": "evidence",
+      "description": "This reviewed source pair has no new IR, native validator result, model corpus, target exchange or method-effectiveness evidence.",
+      "resolution": "Perform explicit native preparation and corpus generation when execution is authorized, followed by independent controlled target and method comparison evidence."
+    }
+  ],
+  "generic_coverage": {
+    "online": false,
+    "implemented_messages": [
+      "hello",
+      "ack"
+    ],
+    "missing_messages": [
+      "error",
+      "reverse_hello",
+      "open_channel",
+      "open_channel_response",
+      "message",
+      "message_response",
+      "service_fault",
+      "close_channel"
+    ]
+  }
+}
