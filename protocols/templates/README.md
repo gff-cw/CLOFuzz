@@ -10,6 +10,8 @@
 
 完整的三格式十维度能力对比矩阵与边界定义参见 [三种协议描述格式能力矩阵与识别边界](../../docs/format-capability-matrix.md)。
 
+当前模板是否完整统一的逐项静态结论见[2026-11-04模板复核](../../docs/template-unification-review-20261104.zh-CN.md)：六套旧 YAML 的必需结构统一，generic-wire 正式模板、可选语法示例及编辑后语料一致性门控仍需补齐。该记录没有执行编译器、测试或目标。
+
 ### 模板字段与执行语义
 
 模板字段不能只按名称判断是否执行。旧 YAML 中 `role/mutability`、locator、字段范围、支持的依赖和迁移边参与加载或执行；`values` 是 HEAD 候选值，不是封闭解析枚举。状态 `guard/actions`、依赖 `scope/when`、`default`、`structure` 等为说明或静态元数据，不运行表达式，也不会统一因出现而拒绝。runtime=true 的字段 `when` 及一般 `repeat` 则拒绝，只有精确匹配 codec 管理的 Modbus FC0F/10 data/count 描述例外。generic-wire 的严格 JSON 键规则与这套 YAML 不同。详细分类和真实容量见[格式矩阵](../../docs/format-capability-matrix.md)。
