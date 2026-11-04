@@ -25,8 +25,8 @@ See the [template format comparison](../protocols/templates/README.md).
 The diagram shows interfaces, not proof that every StateAFL state reaches
 mutation. The current source adds a cooperative message-boundary provider;
 without valid provider evidence, regions remain UNKNOWN and cannot locate a
-nonzero-state M2. The source changes have not been built or executed in this
-repair round. See [repair status](repair-status-20261102.md).
+nonzero-state M2. Current authoring improvements and compile-only results are
+recorded in [template repair status](template-system-repair-20261104.zh-CN.md).
 
 ```mermaid
 flowchart LR
@@ -49,6 +49,15 @@ as a complete minimal example. The required top-level keys are `format`,
 `version`, `protocol_id`, `transport`, `online`, `framing`, `messages`,
 `states` and `limits`. `limitations` and `unsupported` document migration
 gaps. Unknown executable keys are rejected. `online:false` fails at startup.
+
+The formal editable starter is [generic_wire.template.json](../protocols/templates/generic_wire.template.json).
+The [online JSON Schema](../protocols/schema/generic_wire.schema.json) checks
+structure, branches and numeric budgets. The [authoring catalog](../protocols/templates/generic_wire_examples/README.md)
+adds UDP one-way, UDP request/response and TCP length-framed request/response
+examples, exact request-only replay corpora and source-bound manifests.
+`tools/generic_template_catalog.py` copies, checks and explicitly refreshes
+these managed packages. These static authoring checks do not replace native
+wire, reference and state validation, or certify arbitrary external inputs.
 
 Each message declares an ID, `direction` (`request` or `response`), a positive
 selection `weight`, a complete `example_hex`, and a `grammar`. The runtime

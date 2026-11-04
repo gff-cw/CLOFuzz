@@ -25,6 +25,13 @@ class BundleTests(unittest.TestCase):
                 self.assertTrue(all(p['all_fixtures_complete'] for p in manifest['profiles']))
                 for filename in ('tools/native_protocol_codecs.py','protocol_codecs.h',
                                  'tools/protocol_seed_planner.py',
+                                 'tools/protocol_template_contract.py','tools/protocol_corpus_contract.py',
+                                 'tools/generic_template_catalog.py','protocols/schema/generic_wire.schema.json',
+                                 'protocols/templates/generic_wire.template.json',
+                                 'protocols/templates/legacy_contract/capabilities.json',
+                                 'protocols/templates/minimal_runnable_example/fixture_server.c',
+                                 'docs/template-unification-review-20261104.zh-CN.md',
+                                 'docs/template-system-repair-20261104.zh-CN.md',
                                  'tools/build_generic_wire_profiles.py','tools/check_generic_wire_profiles.py',
                                  'generic_wire.c','generic_wire.h','generic_runtime.c','generic_runtime.h',
                                  'native_json.c','native_json.h','docs/generic-wire-profile-scope.md',

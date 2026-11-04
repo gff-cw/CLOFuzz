@@ -1,0 +1,51 @@
+{
+  "format": "stateafl.generic-template-corpus",
+  "version": 1,
+  "protocol_id": "generic_tcp_request_response",
+  "description_sha256": "8eb41fd6603f4a987b8b11a6d80036b43a352e1efe77064ed6af100a1769c6e4",
+  "proof_scope": "Static fixture/replay composition and declared request state projection; no C loader, response, network or target verification is asserted.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "fixtures": {
+    "fixtures/requests/query.wire": {
+      "message_id": "query",
+      "direction": "request",
+      "wire_bytes": 8,
+      "sha256": "d1d0fdc5105f79d04c3373949f8869b9f51d47ab2e69c7fc0817b15850a57520"
+    },
+    "fixtures/responses/answer.wire": {
+      "message_id": "answer",
+      "direction": "response",
+      "wire_bytes": 8,
+      "sha256": "58877f197dbd9ab13fd5c3ad94cf922057ec363f1865e75ec8ae70aed8ff85ac"
+    }
+  },
+  "seeds": {
+    "seeds/query.replay": {
+      "request_ids": [
+        "query"
+      ],
+      "request_count": 1,
+      "serialized_bytes": 12,
+      "sha256": "04bf52876b103150ae2578659924e1d0b34ba09ef3f751e269fc6732c153bf6f",
+      "projected_states": [
+        "ready",
+        "ready"
+      ]
+    },
+    "seeds/query_twice.replay": {
+      "request_ids": [
+        "query",
+        "query"
+      ],
+      "request_count": 2,
+      "serialized_bytes": 24,
+      "sha256": "498c4bf6c6d396523cd200f35da4c9cbf744032763d6ebf8c3a917b711d68c13",
+      "projected_states": [
+        "ready",
+        "ready",
+        "ready"
+      ]
+    }
+  }
+}

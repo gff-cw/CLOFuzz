@@ -1,0 +1,36 @@
+{
+  "format": "stateafl.static-input-corpus",
+  "version": 1,
+  "protocol_id": "minimal_modbus",
+  "proof_scope": "Static serialization of the declared examples only. No compiler, native codec, server or StateAFL session was executed.",
+  "native_validation_executed": false,
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "source_sha256": {
+    "protocol_spec.yaml": "77b924847be1aaa746b8f4de66b29c3dcbaaf6e029389ada0999ecb706c19122",
+    "state_transition.yaml": "02e6fad4f757ceb87306cc6e4f5b98ecba003d4b8b65597fd95644dabc9742ff",
+    "fixture_server.c": "8e9168553fd8ad2051efca8b83ad82882f78bf4d7c65388e6b57a929f2a1ae51"
+  },
+  "fixtures": {
+    "request": "fixtures/requests/read_holding.replay",
+    "response_example": "fixtures/responses/read_response.wire"
+  },
+  "seeds": {
+    "seeds/read_holding.replay": {
+      "request_ids": [
+        "read_holding"
+      ],
+      "records": 1,
+      "serialized_bytes": 16
+    },
+    "seeds/read_twice.replay": {
+      "request_ids": [
+        "read_holding",
+        "read_holding"
+      ],
+      "records": 2,
+      "serialized_bytes": 32
+    }
+  },
+  "preparation": "Instantiate this source directory with tools/init_protocol_spec.py --source-dir to validate current YAML and generate the authoritative IR, template_contract.json and seed_manifest.json. This static file is not that validation result."
+}

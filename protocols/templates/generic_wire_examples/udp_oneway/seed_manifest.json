@@ -1,0 +1,45 @@
+{
+  "format": "stateafl.generic-template-corpus",
+  "version": 1,
+  "protocol_id": "generic_udp_oneway",
+  "description_sha256": "f14a2b2074330f0dd58f46a9dfa614769007e0b5696f2edae6f9cad73fdb64dc",
+  "proof_scope": "Static fixture/replay composition and declared request state projection; no C loader, response, network or target verification is asserted.",
+  "actual_target_session_verified": false,
+  "responses_written_to_seeds": false,
+  "fixtures": {
+    "fixtures/requests/pulse.wire": {
+      "message_id": "pulse",
+      "direction": "request",
+      "wire_bytes": 8,
+      "sha256": "837d1ae57eacc56a11cfc9e91e9e14f1f05936c801dbfe1dae472fbe3a096198"
+    }
+  },
+  "seeds": {
+    "seeds/pulse.replay": {
+      "request_ids": [
+        "pulse"
+      ],
+      "request_count": 1,
+      "serialized_bytes": 12,
+      "sha256": "66c6deb1915b1a4599791407a948854d7b653431cdd142a1d3eac44a245dd9cc",
+      "projected_states": [
+        "ready",
+        "ready"
+      ]
+    },
+    "seeds/pulse_twice.replay": {
+      "request_ids": [
+        "pulse",
+        "pulse"
+      ],
+      "request_count": 2,
+      "serialized_bytes": 24,
+      "sha256": "620f3a832dec7cdf6d0062ae1a545f03b8d9f231169d03265e42fd4e40d1c0e7",
+      "projected_states": [
+        "ready",
+        "ready",
+        "ready"
+      ]
+    }
+  }
+}

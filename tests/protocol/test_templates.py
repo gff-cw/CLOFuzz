@@ -17,6 +17,7 @@ sys.path.insert(0,str(ROOT/'tools'))
 from init_protocol_spec import PROFILES, instantiate
 from proto_spec_compiler import SpecError, compile_spec, load, validate
 from run_protocol_campaign import prepare
+from protocol_seed_planner import write_model_corpus
 
 HARNESS=r'''
 #include "protocol_runtime.h"
@@ -82,6 +83,11 @@ class TemplateTests(unittest.TestCase):
                 self.assertEqual(p['protocol_id'],'local_'+base)
                 validate(p,s)
                 self.assertEqual(json.loads((output/'protocol_ir.json').read_text())['protocol_id'],p['protocol_id'])
+                contract=json.loads((output/'template_contract.json').read_text())
+                self.assertEqual(contract['source']['kind'],'base_profile')
+                self.assertEqual(contract['source']['base_profile'],base)
+                self.assertFalse(contract['new_codec_generated'])
+                self.assertFalse(contract['runtime_tests_executed_by_instantiator'])
                 self.assertTrue(list((output/'seeds').glob('*.replay')))
                 manifest=json.loads((output/'seed_manifest.json').read_text())
                 self.assertFalse(manifest['actual_target_session_verified'])
@@ -96,6 +102,53 @@ class TemplateTests(unittest.TestCase):
                 self.assertNotIn('{{',text)
                 self.assertNotIn('&id',text)
                 self.assertNotIn('*id',text)
+
+    def test_explicit_minimal_source_creates_a_complete_package(self):
+        source=ROOT/'protocols/templates/minimal_runnable_example'
+        with tempfile.TemporaryDirectory() as folder:
+            output=Path(folder)/'minimal-package'
+            result=instantiate(None,output,'local_minimal',True,source_directory=source)
+            self.assertIsNone(result['base_profile'])
+            self.assertEqual(result['protocol_id'],'local_minimal')
+            for name in ('protocol_spec.yaml','state_transition.yaml','protocol_ir.json','state_ir.json',
+                         'spec_bundle.json','validation.json','seed_manifest.json','template_contract.json',
+                         'evidence.yaml','README.md'):
+                self.assertTrue((output/name).is_file(),name)
+            self.assertTrue(list((output/'fixtures/requests').glob('*.replay')))
+            self.assertTrue(list((output/'seeds').glob('*.replay')))
+            contract=json.loads((output/'template_contract.json').read_text())
+            self.assertEqual(contract['source']['kind'],'explicit_directory')
+            self.assertEqual(contract['source']['directory'],str(source.resolve()))
+            self.assertFalse(contract['new_codec_generated'])
+            # Real values and optional annotations survive the copy; only the
+            # explicitly requested protocol ID changes in both documents.
+            for name in ('protocol_spec.yaml','state_transition.yaml'):
+                expected=load(source/name);expected['protocol_id']='local_minimal'
+                self.assertEqual(load(output/name),expected)
+
+    def test_explicit_source_requires_a_matching_pair_and_known_codec(self):
+        source=ROOT/'protocols/templates/minimal_runnable_example'
+        with tempfile.TemporaryDirectory() as folder:
+            directory=Path(folder)/'source';directory.mkdir()
+            protocol=load(source/'protocol_spec.yaml');state=load(source/'state_transition.yaml')
+            state['protocol_id']='different_source'
+            (directory/'protocol_spec.yaml').write_text(yaml.safe_dump(protocol))
+            (directory/'state_transition.yaml').write_text(yaml.safe_dump(state))
+            output=Path(folder)/'not-created'
+            with self.assertRaisesRegex(SpecError,'source protocol/state ID mismatch'):
+                instantiate(None,output,source_directory=directory)
+            self.assertFalse(output.exists())
+            state['protocol_id']=protocol['protocol_id'];protocol['codec']='not_a_new_encoder'
+            (directory/'protocol_spec.yaml').write_text(yaml.safe_dump(protocol))
+            (directory/'state_transition.yaml').write_text(yaml.safe_dump(state))
+            with self.assertRaises(SpecError):instantiate(None,output,source_directory=directory)
+            self.assertFalse(output.exists())
+
+    def test_base_and_explicit_source_are_mutually_exclusive(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(SpecError,'either a base profile or an explicit source'):
+                instantiate('modbus_tcp',Path(folder)/'not-created',
+                            source_directory=ROOT/'protocols/modbus_tcp')
 
     def test_description_changes_real_runtime_mutation(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -197,7 +250,12 @@ class TemplateTests(unittest.TestCase):
             field=next(f for f in p['messages'][1]['fields'] if f['id']=='invoke_id')
             field.update(values=[93],strategies=['enum'])
             (path/'protocol_spec.yaml').write_text(yaml.safe_dump(p,sort_keys=False))
-            result,command=prepare(path,['-i','in','-o','out','--','target','--protocol-spec'])
+            with self.assertRaisesRegex(SpecError,'stale'):
+                prepare(path,['-i',str(path/'seeds'),'-o','out','--','target','--protocol-spec'])
+            state=load(path/'state_transition.yaml')
+            validation=compile_spec(p,state,path)
+            write_model_corpus(path,p,state,validation)
+            result,command=prepare(path,['-i',str(path/'seeds'),'-o','out','--','target','--protocol-spec'])
             self.assertEqual(result['protocol'],'configured_bacnet')
             self.assertEqual(command[1:5],['--protocol-spec',str(path/'protocol_ir.json'),'--state-spec',str(path/'state_ir.json')])
             ir=json.loads((path/'protocol_ir.json').read_text())

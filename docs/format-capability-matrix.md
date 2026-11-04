@@ -30,7 +30,7 @@
 
 旧 `proto_load` 要求 IR 版本正确；若有 format，须与 protocol/state IR 对应，generic-wire/offline-layout 不能代替。`gr_load` 要求正确 format/version 和全部必需键，拒绝 `online:false`。`online:true` 只是描述声明，不能由一个布尔值推导协议实现完整；loader 不会识别任意 profile 的全部缺失标准语义。
 
-[模板目录](../protocols/templates/README.md)的 YAML 是旧 codec 配置骨架，JSON 是被动布局/观察模板；新 generic-wire 的完整参考输入见[语言文档](generic-wire-language.md)。没有一般 YAML→generic-wire 无损翻译器，六 profile 迁移器有固定消息、状态和关联表。
+[模板目录](../protocols/templates/README.md)分别提供旧 codec YAML、在线 generic-wire starter/UDP/TCP 输入包和被动布局/观察 JSON。旧格式新增 schema 驱动的递归形状与来源契约、能力片段及 `--source-dir`；generic-wire 有独立 online schema 和显式语料刷新工具。没有一般 YAML→generic-wire 无损翻译器，六 profile 迁移器仍有固定消息、状态和关联表。最新实现与验证范围见[模板修复记录](template-system-repair-20261104.zh-CN.md)。
 
 所有在线描述都与 StateAFL 的内存边界提供者分开。共享 ABI v3 的 `trace_message_boundary()` 只供受控单进程、单线程目标在应用消息处理完成后按序调用；没有有效提供者时 region 为 UNKNOWN，不能拿协议模型状态替代。实际 wire 的默认确认策略为精确相等，不静默掩码会话字段。
 

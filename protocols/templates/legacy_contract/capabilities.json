@@ -1,0 +1,285 @@
+{
+  "format": "stateafl.legacy-template-capabilities",
+  "version": 1,
+  "schema_authority": [
+    "protocols/schema/protocol_spec.schema.json",
+    "protocols/schema/state_transition.schema.json"
+  ],
+  "value_authority": "Concrete source profile. Skeleton nested examples never override its real fields, defaults or dependencies.",
+  "supported_codecs": [
+    "bacnet",
+    "modbus",
+    "iec104",
+    "mms",
+    "enip",
+    "opcua"
+  ],
+  "explicit_packaging_message_keys": [
+    "fixture_status",
+    "runtime_encode"
+  ],
+  "direction": {
+    "static": [
+      "request",
+      "response",
+      "both"
+    ],
+    "online": [
+      "request",
+      "response"
+    ]
+  },
+  "field_properties": {
+    "executed": [
+      "id",
+      "type",
+      "locator",
+      "width",
+      "endian",
+      "role",
+      "mutability",
+      "min",
+      "max"
+    ],
+    "annotation_with_validation": [
+      "block",
+      "path",
+      "default",
+      "evidence",
+      "confidence",
+      "structure",
+      "structure_model"
+    ],
+    "static_only": [
+      "when"
+    ],
+    "codec_managed_or_static": [
+      "repeat"
+    ],
+    "head_suggestions_only": [
+      "values"
+    ],
+    "head_or_variable_leaf_strategy": [
+      "strategies"
+    ]
+  },
+  "annotation_paths": [
+    "protocol.framing",
+    "message.match",
+    "message.blocks",
+    "message.notes",
+    "field.path",
+    "field.default",
+    "field.structure",
+    "field.structure_model",
+    "dependency.scope",
+    "dependency.when",
+    "state.meaning",
+    "transition.guard",
+    "transition.actions",
+    "state.invalid_strategy"
+  ],
+  "validation_assertion_paths": [
+    "protocol.support.runtime",
+    "message.fixture_status",
+    "message.runtime_encode"
+  ],
+  "dependency_operations": [
+    {
+      "op": "length_of",
+      "classification": "executed",
+      "fragment": "length_of",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "The target must be a scalar derived field with exactly one writer.",
+        "The local source byte length must be divisible by unit; result=(bytes/unit)*multiply+add.",
+        "This real MBAP rule uses add=-6; it does not add a checksum or new service to Modbus."
+      ]
+    },
+    {
+      "op": "count_of",
+      "classification": "executed",
+      "fragment": "count_of",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "This ENIP path_words field counts 2-byte words in its epath source.",
+        "count_of counts encoded source bytes divided by unit, not arbitrary semantic array elements.",
+        "unit and multiply default to 1; add defaults to 0; any result must fit the target range."
+      ]
+    },
+    {
+      "op": "offset_of",
+      "classification": "executed",
+      "fragment": "offset_of",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "No checked-in industrial profile declares this rule; this excerpt is not a runnable protocol package.",
+        "Replace the illustrative locator and target/source declarations only within a real codec-supported message that actually defines this rule.",
+        "Structural sources must be local; the target must be scalar derived with one writer.",
+        "offset_of computes the located source byte offset plus add; unit=multiply=1.",
+        "It does not reorder bytes or add a pointer encoding not implemented by the codec."
+      ]
+    },
+    {
+      "op": "checksum_of",
+      "classification": "executed",
+      "fragment": "checksum_of",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "No checked-in industrial profile declares this rule; this excerpt is not a runnable protocol package.",
+        "Replace the illustrative locator and target/source declarations only within a real codec-supported message that actually defines this rule.",
+        "Structural sources must be local; the target must be scalar derived with one writer.",
+        "Supported algorithms are sum8 and crc32; no algorithm is inferred from protocol name.",
+        "If target lies entirely inside source, its bytes are zeroed before calculation; the result must fit target width/range.",
+        "This does not claim Modbus TCP or any other checked-in profile carries this checksum."
+      ]
+    },
+    {
+      "op": "copy_from_message",
+      "classification": "executed",
+      "fragment": "copy_from_message",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "Target and source must be compatible scalar types and widths.",
+        "The named source message and field must exist; current engine/message/field cache stores latest value.",
+        "scope is an annotation and does not allocate a transaction database."
+      ]
+    },
+    {
+      "op": "bind_from_response",
+      "classification": "executed",
+      "fragment": "bind_from_response",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "The source message must be a response model with a compatible scalar.",
+        "The actual response must arrive and validate in the live session; a fixture cannot invent a session value.",
+        "An unresolved binding rejects preparation; send state commits only after complete submission."
+      ]
+    },
+    {
+      "op": "correlate_request_response",
+      "classification": "executed",
+      "fragment": "correlate_request_response",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "The target belongs to a response and the source to a request.",
+        "The check compares compatible actual scalar values; it does not rewrite an observed response.",
+        "The executor allows one outstanding response-bearing request."
+      ]
+    },
+    {
+      "op": "sequence_number",
+      "classification": "executed",
+      "fragment": "sequence_number",
+      "online_codecs": [
+        "bacnet",
+        "modbus",
+        "iec104",
+        "mms",
+        "enip",
+        "opcua"
+      ],
+      "requirements": [
+        "Sequence generation uses this target own previous value; source must be $message or the target itself.",
+        "The OPC UA codec has its bounded shared UA sequence treatment; other targets use their own cached scalar.",
+        "Non-UA targets increment their cached target by unit. The scoped UA shared sequence path advances by one; retain unit=1 for that path. multiply=1 and add=0 are required."
+      ]
+    },
+    {
+      "op": "conditional_presence",
+      "classification": "static_only",
+      "fragment": "conditional_presence",
+      "online_codecs": [],
+      "requirements": [
+        "Describes static structure only; operation is excluded from RUNTIME_OPS.",
+        "This rule does not make a generic conditional decoder or evaluate an expression."
+      ]
+    },
+    {
+      "op": "tagged_length",
+      "classification": "codec_managed",
+      "fragment": "tagged_length",
+      "online_codecs": [
+        "mms"
+      ],
+      "requirements": [
+        "Only the MMS ber:presentation variable ber_tlv target with local $message source is accepted online.",
+        "The codec re-encodes its scoped BER/presentation lengths; this is not a general ASN.1 compiler."
+      ]
+    }
+  ],
+  "fragment_file": "advanced_fragments.yaml",
+  "additional_fragments": [
+    "repeat",
+    "when",
+    "structure_model",
+    "block_parent",
+    "length_transform",
+    "generic_static_repeat",
+    "dependency_annotations",
+    "state_guard",
+    "state_actions"
+  ],
+  "limitations": [
+    "This catalog does not generate or extend a codec.",
+    "scope/when annotations do not execute conditions or allocate scoped caches.",
+    "Static structure_model and state guard/actions are not scripts.",
+    "Session caches reset each execution/connection; one pending response-bearing request.",
+    "Examples, schema acceptance and compilation do not prove a real target session or comparative method effectiveness."
+  ],
+  "strategy_contract": {
+    "head_scalar": "enum/boundary/bitflip/arithmetic are executable; values is an enum candidate pool, not a closed parser domain",
+    "content_scalar": "AFL projection; values and scalar strategies do not choose CONTENT scalar values",
+    "content_codec_variable_leaf": "resize flag may choose a bounded replacement width, then the codec repairs and validates",
+    "bacnet_who_is_variable_content": "the scoped codec selects legal empty or 8-byte limits; no arbitrary strategy script is evaluated"
+  }
+}

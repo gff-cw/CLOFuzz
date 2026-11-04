@@ -1,0 +1,1007 @@
+format: stateafl.legacy-capability-fragments
+version: 1
+use: Contextual schema fragments; not standalone protocol files and not merge instructions.
+  Source profile excerpts preserve real declarations; synthetic rule-only entries
+  claim no industrial wire semantics.
+runtime_tests_executed: false
+fragments:
+- id: length_of
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: modbus_tcp
+    message: read_coils
+    source_file: protocols/modbus_tcp/protocol_spec.yaml
+    source_sha256: 3e76eecd88f46f08f065f6ed5702ae5a25d689aa3dc638a97cdac0267f21378f
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: length_of
+    target: length
+    source: $message
+    add: -6
+  context:
+    fields:
+      read_coils:
+      - id: length
+        block: HEAD
+        path: abs:4
+        locator: abs:4
+        type: uint16
+        width: 2
+        endian: big
+        role: derived
+        mutability: derived
+        default: 0
+        min: 0
+        max: 65535
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: official
+        confidence: normative
+    message_direction: request
+  requirements:
+  - The target must be a scalar derived field with exactly one writer.
+  - The local source byte length must be divisible by unit; result=(bytes/unit)*multiply+add.
+  - This real MBAP rule uses add=-6; it does not add a checksum or new service to
+    Modbus.
+- id: count_of
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: ethernet_ip_cip_tcp
+    message: send_rr
+    source_file: protocols/ethernet_ip_cip_tcp/protocol_spec.yaml
+    source_sha256: c2552d6655dc5bd4b1b207ff4f122d3db817cd6b1aac09b81a7b46d59451d7b7
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: count_of
+    target: path_words
+    source: epath
+    unit: 2
+  context:
+    fields:
+      send_rr:
+      - id: path_words
+        block: HEAD
+        path: abs:41
+        locator: abs:41
+        type: uint8
+        width: 1
+        endian: big
+        role: derived
+        mutability: derived
+        default: 0
+        min: 0
+        max: 255
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: wire
+        confidence: implementation
+      - id: epath
+        block: CONTENT
+        path: abs:42
+        locator: abs:42
+        type: epath
+        width: 0
+        endian: big
+        role: content
+        mutability: fuzzable
+        default: '200124013001'
+        min: 0
+        max: 128
+        values: []
+        strategies:
+        - afl
+        - resize
+        evidence: wire
+        confidence: implementation
+        structure_model:
+          id: epath
+          kind: repeat
+          children:
+          - id: logical_segment
+            kind: choice
+            children:
+            - id: class8
+              kind: field
+              type: segment-0x20-value8
+            - id: instance8
+              kind: field
+              type: segment-0x24-value8
+            - id: attribute8
+              kind: field
+              type: segment-0x30-value8
+          min: 0
+          max: 64
+          encoding: padded-16-bit-words
+    message_direction: request
+  requirements:
+  - This ENIP path_words field counts 2-byte words in its epath source.
+  - count_of counts encoded source bytes divided by unit, not arbitrary semantic array
+    elements.
+  - unit and multiply default to 1; add defaults to 0; any result must fit the target
+    range.
+- id: copy_from_message
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: modbus_tcp
+    message: read_response
+    source_file: protocols/modbus_tcp/protocol_spec.yaml
+    source_sha256: 3e76eecd88f46f08f065f6ed5702ae5a25d689aa3dc638a97cdac0267f21378f
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: copy_from_message
+    target: unit
+    source: unit
+    message: read_holding
+    scope: transaction
+  context:
+    fields:
+      read_holding:
+      - id: unit
+        block: HEAD
+        path: abs:6
+        locator: abs:6
+        type: uint8
+        width: 1
+        endian: big
+        role: head
+        mutability: fuzzable
+        default: 1
+        min: 0
+        max: 255
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: official
+        confidence: normative
+      read_response:
+      - id: unit
+        block: HEAD
+        path: abs:6
+        locator: abs:6
+        type: uint8
+        width: 1
+        endian: big
+        role: head
+        mutability: fuzzable
+        default: 1
+        min: 0
+        max: 255
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: official
+        confidence: normative
+    message_direction: response
+  requirements:
+  - Target and source must be compatible scalar types and widths.
+  - The named source message and field must exist; current engine/message/field cache
+    stores latest value.
+  - scope is an annotation and does not allocate a transaction database.
+- id: bind_from_response
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: ethernet_ip_cip_tcp
+    message: unregister
+    source_file: protocols/ethernet_ip_cip_tcp/protocol_spec.yaml
+    source_sha256: c2552d6655dc5bd4b1b207ff4f122d3db817cd6b1aac09b81a7b46d59451d7b7
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: bind_from_response
+    target: session
+    source: session
+    message: register_response
+    scope: connection
+  context:
+    fields:
+      unregister:
+      - id: session
+        block: HEAD
+        path: abs:4
+        locator: abs:4
+        type: uint32
+        width: 4
+        endian: little
+        role: head
+        mutability: runtime_bound
+        default: 1
+        min: 0
+        max: 4294967295
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: wire
+        confidence: implementation
+      register_response:
+      - id: session
+        block: HEAD
+        path: abs:4
+        locator: abs:4
+        type: uint32
+        width: 4
+        endian: little
+        role: head
+        mutability: fuzzable
+        default: 1
+        min: 1
+        max: 4294967295
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: wire
+        confidence: implementation
+    message_direction: request
+  requirements:
+  - The source message must be a response model with a compatible scalar.
+  - The actual response must arrive and validate in the live session; a fixture cannot
+    invent a session value.
+  - An unresolved binding rejects preparation; send state commits only after complete
+    submission.
+- id: correlate_request_response
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: modbus_tcp
+    message: read_response
+    source_file: protocols/modbus_tcp/protocol_spec.yaml
+    source_sha256: 3e76eecd88f46f08f065f6ed5702ae5a25d689aa3dc638a97cdac0267f21378f
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: correlate_request_response
+    target: transaction
+    source: transaction
+    message: read_holding
+    scope: transaction
+  context:
+    fields:
+      read_holding:
+      - id: transaction
+        block: HEAD
+        path: abs:0
+        locator: abs:0
+        type: uint16
+        width: 2
+        endian: big
+        role: head
+        mutability: fuzzable
+        default: 1
+        min: 0
+        max: 65535
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: official
+        confidence: normative
+      read_response:
+      - id: transaction
+        block: HEAD
+        path: abs:0
+        locator: abs:0
+        type: uint16
+        width: 2
+        endian: big
+        role: head
+        mutability: fuzzable
+        default: 1
+        min: 0
+        max: 65535
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: official
+        confidence: normative
+    message_direction: response
+  requirements:
+  - The target belongs to a response and the source to a request.
+  - The check compares compatible actual scalar values; it does not rewrite an observed
+    response.
+  - The executor allows one outstanding response-bearing request.
+- id: sequence_number
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: opcua_tcp
+    message: open_channel
+    source_file: protocols/opcua_tcp/protocol_spec.yaml
+    source_sha256: 2bcfcd4c1ac92a4ade9ecb4c39c80e851e2d41833036aaeccb6b08227b39da0d
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: sequence_number
+    target: sequence
+    source: $message
+    scope: connection
+  context:
+    fields:
+      open_channel:
+      - id: sequence
+        block: HEAD
+        path: abs:71
+        locator: abs:71
+        type: uint32
+        width: 4
+        endian: little
+        role: head
+        mutability: fuzzable
+        default: 1
+        min: 0
+        max: 4294967295
+        values: []
+        strategies:
+        - enum
+        - boundary
+        - bitflip
+        - arithmetic
+        evidence: official
+        confidence: normative
+    message_direction: request
+  requirements:
+  - Sequence generation uses this target own previous value; source must be $message
+    or the target itself.
+  - The OPC UA codec has its bounded shared UA sequence treatment; other targets use
+    their own cached scalar.
+  - Non-UA targets increment their cached target by unit. The scoped UA shared sequence
+    path advances by one; retain unit=1 for that path. multiply=1 and add=0 are required.
+- id: tagged_length
+  classification: codec_managed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: iec61850_mms_tcp
+    message: associate
+    source_file: protocols/iec61850_mms_tcp/protocol_spec.yaml
+    source_sha256: 03a0008475f4d704505b5d455fb0088abc9327372c969d4c9266dd8814edce89
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: tagged_length
+    target: pdu
+    source: $message
+  context:
+    fields:
+      associate:
+      - id: pdu
+        block: CONTENT
+        path: ber:presentation
+        locator: ber:presentation
+        type: ber_tlv
+        width: 0
+        endian: big
+        role: content
+        mutability: fuzzable
+        default: 318199a003800101a28191810400000001820400000001a423300f0201010604520100013004060251013010020103060528ca220201300406025101615e305c020101a0576055a107060528ca220203a20706052901876701a30302010ca606060429018767a70302010cbe2f282d020103a028a826800300fde881010582010583010aa416800101810305f100820c03ee1c00000408000079ef18
+        min: 0
+        max: 4096
+        values: []
+        strategies:
+        - afl
+        - resize
+        evidence: wire
+        confidence: implementation
+        structure_model:
+          id: presentation_connect
+          kind: sequence
+          children:
+          - id: mode_selector
+            kind: field
+            type: normal-mode
+          - id: presentation_selectors
+            kind: field
+            type: calling/called-or-responding-octets
+          - id: context_definitions_or_results
+            kind: field
+            type: ACSE-context-1/MMS-context-3-BER-transfer-syntax
+          - id: fully_encoded_data
+            kind: sequence
+            children:
+            - id: context_id
+              kind: field
+              type: INTEGER-1
+            - id: acse
+              kind: tlv
+              children:
+              - id: application_context
+                kind: field
+                type: OID-1.0.9506.2.3
+                tag: 1
+              - id: called_ap_title
+                kind: field
+                type: OID
+                tag: 2
+              - id: called_ae_qualifier
+                kind: field
+                type: INTEGER
+                tag: 3
+              - id: calling_ap_title
+                kind: field
+                type: OID
+                tag: 6
+              - id: calling_ae_qualifier
+                kind: field
+                type: INTEGER
+                tag: 7
+              - id: user_information
+                kind: tlv
+                children:
+                - id: external
+                  kind: tlv
+                  children:
+                  - id: indirect_reference
+                    kind: field
+                    type: INTEGER-3
+                  - id: single_asn1_type
+                    kind: tlv
+                    children:
+                    - id: initiate
+                      kind: tlv
+                      children:
+                      - id: local_detail
+                        kind: field
+                        type: context-Unsigned32
+                        tag: 0
+                      - id: max_outstanding_calling
+                        kind: field
+                        type: context-Unsigned16
+                        tag: 1
+                      - id: max_outstanding_called
+                        kind: field
+                        type: context-Unsigned16
+                        tag: 2
+                      - id: nesting_level
+                        kind: field
+                        type: context-Unsigned8
+                        tag: 3
+                      - id: initiate_detail
+                        kind: tlv
+                        children:
+                        - id: version
+                          kind: field
+                          type: context-Integer
+                          tag: 0
+                        - id: parameter_cbb
+                          kind: field
+                          type: context-BIT-STRING-unused-bits-first
+                          tag: 1
+                        - id: services_supported
+                          kind: field
+                          type: context-BIT-STRING-unused-bits-first
+                          tag: 2
+                        tag: 4
+                      tag: 8
+                    tag: 0
+                  tag: 8
+                tag: 30
+              tag: 0
+          encoding: BER-CP/CPA-SET
+    message_direction: request
+  requirements:
+  - Only the MMS ber:presentation variable ber_tlv target with local $message source
+    is accepted online.
+  - The codec re-encodes its scoped BER/presentation lengths; this is not a general
+    ASN.1 compiler.
+- id: offset_of
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+    wire_example_available: false
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: offset_of
+    target: payload_offset
+    source: payload
+    add: 0
+  context:
+    message_id: synthetic_rule_context
+    fields:
+    - id: payload_offset
+      block: HEAD
+      path: synthetic.payload_offset
+      type: uint32
+      locator: abs:0
+      width: 4
+      endian: big
+      role: derived
+      mutability: derived
+      default: 0
+      min: 0
+      max: 4294967295
+      values: []
+      strategies: []
+      evidence: wire
+      confidence: inferred
+    - id: payload
+      block: CONTENT
+      path: synthetic.payload
+      type: bytes
+      locator: abs:4
+      width: 0
+      endian: big
+      role: content
+      mutability: fuzzable
+      default: ''
+      min: 0
+      max: 16
+      values: []
+      strategies:
+      - afl
+      evidence: wire
+      confidence: inferred
+  requirements:
+  - No checked-in industrial profile declares this rule; this excerpt is not a runnable
+    protocol package.
+  - Replace the illustrative locator and target/source declarations only within a
+    real codec-supported message that actually defines this rule.
+  - Structural sources must be local; the target must be scalar derived with one writer.
+  - offset_of computes the located source byte offset plus add; unit=multiply=1.
+  - It does not reorder bytes or add a pointer encoding not implemented by the codec.
+- id: checksum_of
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+    wire_example_available: false
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: checksum_of
+    target: checksum
+    source: payload
+    algorithm: crc32
+  context:
+    message_id: synthetic_rule_context
+    fields:
+    - id: checksum
+      block: HEAD
+      path: synthetic.checksum
+      type: uint32
+      locator: abs:0
+      width: 4
+      endian: big
+      role: derived
+      mutability: derived
+      default: 0
+      min: 0
+      max: 4294967295
+      values: []
+      strategies: []
+      evidence: wire
+      confidence: inferred
+    - id: payload
+      block: CONTENT
+      path: synthetic.payload
+      type: bytes
+      locator: abs:4
+      width: 0
+      endian: big
+      role: content
+      mutability: fuzzable
+      default: ''
+      min: 0
+      max: 16
+      values: []
+      strategies:
+      - afl
+      evidence: wire
+      confidence: inferred
+  requirements:
+  - No checked-in industrial profile declares this rule; this excerpt is not a runnable
+    protocol package.
+  - Replace the illustrative locator and target/source declarations only within a
+    real codec-supported message that actually defines this rule.
+  - Structural sources must be local; the target must be scalar derived with one writer.
+  - Supported algorithms are sum8 and crc32; no algorithm is inferred from protocol
+    name.
+  - If target lies entirely inside source, its bytes are zeroed before calculation;
+    the result must fit target width/range.
+  - This does not claim Modbus TCP or any other checked-in profile carries this checksum.
+- id: repeat
+  classification: codec_managed
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: modbus_tcp
+    message: write_registers
+    field: data
+    source_file: protocols/modbus_tcp/protocol_spec.yaml
+    source_sha256: 3e76eecd88f46f08f065f6ed5702ae5a25d689aa3dc638a97cdac0267f21378f
+  schema_pointer: '#/properties/messages/items/properties/fields/items'
+  selection:
+    id: data
+    block: CONTENT
+    path: abs:13
+    locator: abs:13
+    type: bytes
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: '0001'
+    min: 2
+    max: 246
+    values: []
+    strategies:
+    - afl
+    - resize
+    evidence: official
+    confidence: normative
+    repeat:
+      count: quantity
+      min: 1
+      max: 123
+      element_width: 2
+    structure: Byte count = 2*quantity, big-endian UInt16 register values.
+    structure_model:
+      id: values
+      kind: repeat
+      children:
+      - id: value
+        kind: field
+        type: uint16-big
+      min: 1
+      max: 123
+      encoding: quantity*2-octets
+  context:
+    count_field:
+      id: quantity
+      block: CONTENT
+      path: abs:10
+      locator: abs:10
+      type: uint16
+      width: 2
+      endian: big
+      role: content
+      mutability: fuzzable
+      default: 1
+      min: 1
+      max: 123
+      values: []
+      strategies:
+      - enum
+      - boundary
+      - bitflip
+      - arithmetic
+      evidence: official
+      confidence: normative
+  requirements:
+  - This exact FC10 abs:13 bytes data/count descriptor is the Modbus codec-managed
+    exception.
+  - FC0F has its own exact byte_count descriptor. General repeat remains static-only.
+  - The enclosing message must retain its real function, length/count fields and complete
+    example.
+- id: when
+  classification: static_only
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/messages/items/properties/fields/items'
+  selection: &id001
+    id: optional_value
+    block: CONTENT
+    path: synthetic.optional_value
+    type: uint8
+    locator: abs:0
+    width: 1
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: 0
+    min: 0
+    max: 255
+    values: []
+    strategies: []
+    evidence: wire
+    confidence: inferred
+    when:
+      field: flags
+      mask: 1
+      equals: 1
+  context:
+    selector:
+      id: flags
+      block: HEAD
+      path: synthetic.flags
+      type: uint8
+      locator: abs:0
+      width: 1
+      endian: big
+      role: head
+      mutability: fuzzable
+      default: 0
+      min: 0
+      max: 255
+      values: []
+      strategies: []
+      evidence: wire
+      confidence: inferred
+  requirements:
+  - Only permitted in a static profile; runtime=true rejects generic field.when.
+  - The selector must exist and be scalar; equals may not set bits outside mask.
+  - 'conditional mutability is different: an existing codec may handle a scoped absent
+    field without evaluating this when object.'
+- id: conditional_presence
+  classification: static_only
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: conditional_presence
+    target: optional_value
+    source: flags
+  context:
+    fields:
+    - *id001
+    - id: flags
+      block: HEAD
+      path: synthetic.flags
+      type: uint8
+      locator: abs:0
+      width: 1
+      endian: big
+      role: head
+      mutability: fuzzable
+      default: 0
+      min: 0
+      max: 255
+      values: []
+      strategies: []
+      evidence: wire
+      confidence: inferred
+  requirements:
+  - Describes static structure only; operation is excluded from RUNTIME_OPS.
+  - This rule does not make a generic conditional decoder or evaluate an expression.
+- id: structure_model
+  classification: annotation
+  scope: legacy-codec
+  source:
+    kind: profile_excerpt
+    profile: opcua_tcp
+    message: hello
+    field: body
+    source_file: protocols/opcua_tcp/protocol_spec.yaml
+    source_sha256: 2bcfcd4c1ac92a4ade9ecb4c39c80e851e2d41833036aaeccb6b08227b39da0d
+  schema_pointer: '#/$defs/structure'
+  selection:
+    id: ua_binary_body
+    kind: sequence
+    children:
+    - id: protocol_version
+      kind: field
+      type: UInt32-little
+    - id: receive_buffer
+      kind: field
+      type: UInt32-little
+    - id: send_buffer
+      kind: field
+      type: UInt32-little
+    - id: max_message_size
+      kind: field
+      type: UInt32-little
+    - id: max_chunk_count
+      kind: field
+      type: UInt32-little
+    - id: endpoint_url
+      kind: field
+      type: String-Int32-length-UTF8
+    encoding: UA-Binary-little-endian; String/ByteString/array use signed-Int32 count;
+      -1 null
+  requirements:
+  - This typed tree is checked as static metadata, not interpreted as a codec or arbitrary
+    condition.
+  - Real encoding and locating remain the scoped UA codec responsibility.
+- id: block_parent
+  classification: annotation
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/messages/items/properties/blocks/items'
+  selection:
+    id: APPLICATION_HEAD
+    fields:
+    - flags
+    parent: HEAD
+  context:
+    parent_block:
+      id: HEAD
+      fields: []
+    field: flags
+  requirements:
+  - The parent block must exist and parent chains must be acyclic.
+  - Each field still belongs to exactly one block; role selects the mutation layer,
+    not block nesting.
+- id: length_transform
+  classification: executed
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: length_of
+    target: encoded_length
+    source: payload
+    unit: 2
+    multiply: 2
+    add: 0
+  context:
+    fields:
+    - id: encoded_length
+      block: HEAD
+      path: synthetic.encoded_length
+      type: uint32
+      locator: abs:0
+      width: 4
+      endian: big
+      role: derived
+      mutability: derived
+      default: 0
+      min: 0
+      max: 4294967295
+      values: []
+      strategies: []
+      evidence: wire
+      confidence: inferred
+    - id: payload
+      block: CONTENT
+      path: synthetic.payload
+      type: bytes
+      locator: abs:4
+      width: 0
+      endian: big
+      role: content
+      mutability: fuzzable
+      default: ''
+      min: 0
+      max: 16
+      values: []
+      strategies:
+      - afl
+      evidence: wire
+      confidence: inferred
+  requirements:
+  - 'Rule syntax only: (source encoded bytes / 2) * 2; source length must be divisible
+    by 2.'
+  - Use multiply only on length_of/count_of, and only when the actual message format
+    requires it.
+- id: generic_static_repeat
+  classification: static_only
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/messages/items/properties/fields/items'
+  selection:
+    id: items
+    block: CONTENT
+    path: synthetic.payload
+    type: bytes
+    locator: abs:4
+    width: 0
+    endian: big
+    role: content
+    mutability: fuzzable
+    default: ''
+    min: 0
+    max: 16
+    values: []
+    strategies:
+    - afl
+    evidence: wire
+    confidence: inferred
+    repeat:
+      count: item_count
+      min: 0
+      max: 16
+      element_width: 1
+  context:
+    count_field:
+      id: item_count
+      block: HEAD
+      path: synthetic.payload_offset
+      type: uint8
+      locator: abs:0
+      width: 1
+      endian: big
+      role: head
+      mutability: fuzzable
+      default: 0
+      min: 0
+      max: 16
+      values: []
+      strategies: []
+      evidence: wire
+      confidence: inferred
+  requirements:
+  - This generic repeat is legal only in a static profile; it is not the exact Modbus
+    exception.
+  - The scalar count field must exist and min/max bound the metadata repetition.
+  - It does not implement a generic online array encoder.
+- id: dependency_annotations
+  classification: annotation
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/messages/items/properties/dependencies/items'
+  selection:
+    op: copy_from_message
+    target: copied_value
+    source: value
+    message: prior_request
+    scope: connection
+    when: describes author intent only
+  context:
+    current_message: current_request
+    source_message: prior_request
+    scalar_type: uint32
+    scalar_width: 4
+  requirements:
+  - Only scope/when are annotations in this selection; the copy operation itself remains
+    executable.
+  - when does not gate copying; scope does not allocate separate caches.
+  - Supply real declared target/source fields and a prior live cached source before
+    using the copy operation.
+- id: state_guard
+  classification: annotation
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/transitions/items/properties/guard'
+  schema_document: state_transition
+  selection: human-readable condition, not an expression
+  requirements:
+  - State transitions still select only by from state and message.
+  - Two edges with the same from/message cannot be disambiguated by this string online.
+- id: state_actions
+  classification: annotation
+  scope: legacy-codec
+  source:
+    kind: rule_syntax_only
+    industrial_profile_claim: false
+  schema_pointer: '#/properties/transitions/items/properties/actions'
+  schema_document: state_transition
+  selection:
+  - describe intended action; no code is invoked
+  requirements:
+  - These strings do not execute reset, allocation or binding actions.
+  - Use supported message dependencies and verified target observations for actual
+    behavior.

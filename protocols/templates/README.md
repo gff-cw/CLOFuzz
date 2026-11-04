@@ -1,16 +1,16 @@
-# 现有 codec 配置模板与离线检查模板
+# 协议描述模板、能力契约与准备流程
 
-本目录包含两套用途不同的模板。下表另列新在线引擎的格式，供区分；当前目录没有该格式的模板。
+本目录按实际加载入口提供旧 codec YAML、在线 generic-wire JSON 和离线检查 JSON 模板。各自语法由对应 schema/loader 约束。
 
 | 格式 | 输入与执行路径 | 能力边界 |
 | --- | --- | --- |
-| ICP-IR v1 YAML | 两份 YAML → `proto_spec_compiler.py` → `protocol_ir.json` / `state_ir.json` → 六种已有 C codec | 统一配置结构；新增编码或服务仍依赖 codec 实现。 |
+| ICP-IR v1 YAML | 两份 YAML → compiler → IR 对 → 已有 C codec | schema 统一结构、profile 提供真实值；递归契约与高级片段见 [legacy_contract](legacy_contract/README.md)。 |
 | `stateafl.offline-layout` / 原生观测 JSON | `native_layout.template.json` / `native_observations.template.json` → 本地检查 | 被动解码与观测检查；没有在线编码、变异或网络执行能力。 |
-| `stateafl.generic-wire` v1 JSON | 独立 JSON 描述 → 通用 C wire 引擎 | 独立格式；YAML 编译器和本目录的离线 JSON 模板均不能作为其前端。能力范围见[语言文档](../../docs/generic-wire-language.md)。 |
+| `stateafl.generic-wire` v1 JSON | [正式模板](generic_wire.template.json) 与 [UDP/TCP 完整输入示例](generic_wire_examples/README.md) → 通用 C 引擎 | 独立 [online schema](../schema/generic_wire.schema.json)、fixture/seed 清单及显式刷新工具；语义仍由 C loader 检查。 |
 
 完整的三格式十维度能力对比矩阵与边界定义参见 [三种协议描述格式能力矩阵与识别边界](../../docs/format-capability-matrix.md)。
 
-当前模板是否完整统一的逐项静态结论见[2026-11-04模板复核](../../docs/template-unification-review-20261104.zh-CN.md)：六套旧 YAML 的必需结构统一，generic-wire 正式模板、可选语法示例及编辑后语料一致性门控仍需补齐。该记录没有执行编译器、测试或目标。
+修复前依据见[模板复核](../../docs/template-unification-review-20261104.zh-CN.md)。五个缺口的实际改进、编译范围及运行验收条件见[模板体系修复记录](../../docs/template-system-repair-20261104.zh-CN.md)。
 
 ### 模板字段与执行语义
 
@@ -22,12 +22,26 @@
 
 旧的独立 Python 布局和编辑计划模板已移除。C 本地检查使用上述两个 JSON 模板；下面的 YAML 模板仍用于现有 ICP-IR 编译流程，不能把两种格式混用。
 
-下面是填写已有 codec 配置的起点。`protocols/schema` 中两份 JSON Schema 检查 ICP-IR YAML 的字段结构，不适用于 `stateafl.generic-wire` 或离线布局 JSON。本目录的带注释 YAML 是可复制、填写的配置骨架。
+下面的带注释 YAML 及 `protocol_spec.schema.json/state_transition.schema.json` 属于 ICP-IR 路径；`generic_wire.schema.json` 单独约束在线 generic-wire。离线 JSON 由其原生 loader 检查，不能混用上述 schema。
 
 - [protocol_spec.template.yaml](protocol_spec.template.yaml)：消息、HEAD/CONTENT、字段、取值策略、长度/跨消息依赖、协议来源。
 - [state_transition.template.yaml](state_transition.template.yaml)：独立语义状态、消息边、请求/响应关系、序列上限。
 
 `{{...}}` 必须替换为真实协议内容；模板中的 command/length/payload 是字段形状示例，不是任意工控协议通用的线格式。空白模板不能直接启动测试。两份 YAML 的 protocol_id 必须相同。
+
+### 新通用引擎的填写入口
+
+```sh
+python3 tools/generic_template_catalog.py --base tcp_request_response \
+  --protocol-id my_protocol --output-dir /tmp/my-generic-protocol
+python3 tools/generic_template_catalog.py --check-package /tmp/my-generic-protocol
+```
+
+可选 `udp_oneway/udp_request_response/tcp_request_response`。编辑模型及清单中的请求路径后，显式运行 `--refresh-corpus /tmp/my-generic-protocol` 更新包内受管理 fixture/seed。静态检查不会启动目标或认证其他 `-i` 目录；实际 `--generic-spec` 加载仍检查 wire、引用、framing 与状态语义。完整步骤见[示例目录](generic_wire_examples/README.md)。
+
+### 最小完整源码包
+
+[minimal_runnable_example](minimal_runnable_example/README.md) 提供独立受控 Modbus TCP 夹具、静态输入、只编译 Makefile，以及从具体 YAML 生成正式包的完整步骤。入口为 `--source-dir`；运行验收与源码材料分别记录。
 
 ## 1. 复制已有 profile 的描述包
 
@@ -42,7 +56,7 @@ python3 tools/init_protocol_spec.py \
   --output-dir ./my-specs/bacnet_ip
 ```
 
-工具按模板的顶层结构，复制现有 BACnet profile 的字段、定位器、消息和状态定义，同时生成初始旧版 IR、来源和种子。它不会根据骨架推导新协议；更换 `protocol_id` 也不会增加编码能力。输出目录必须尚不存在；不会覆盖现有描述。生成的字段独立展开，不使用 YAML 引用别名，修改一个消息不会意外修改另一个消息。
+工具依据 schema 递归检查骨架和源 profile 的必需项及额外键，并保留全部允许属性。真实字段、默认值、依赖与状态来自具体 profile，骨架的嵌套演示值不会覆盖它们。输出 `template_contract.json` 记录源文件、schema、模板与能力片段摘要。输出目录必须尚不存在；字段独立展开，不使用 YAML 引用别名。
 
 生成器将原始单包报文保存到 `fixtures/requests/<消息ID>.replay`。`seeds/<消息ID>.replay` 则通过有界图搜索，从 `initial` 开始补上该请求可达所需的请求前缀；每步严格按旧 runtime 的 request edge 与一次 expected-response edge 投影状态，不把响应字节写入种子。例如 MMS Read 前有 COTP CR 与 associate，OPC UA message 前有 HEL 与 OPN。canonical aliases 共用 repeat 预算，LE32 前缀计入 `max_bytes`，同时限制 `max_messages/max_repeat/MAX_FILE`。不可达、片段、缺少可解析响应模型或搜索预算耗尽时，只保留 fixture，并在 `seed_manifest.json` 写明原因。
 
@@ -53,6 +67,8 @@ manifest 记录每个种子的请求 ID 序列、模型状态、响应投影和�
 `--base` 可选六种已有协议配置：bacnet_ip、modbus_tcp、iec60870_5_104、iec61850_mms_tcp、ethernet_ip_cip_tcp、opcua_tcp。它不会自动从标准网页推导协议；真实字段由各协议配置提供。六种参考 profile 均有有界旧版 C runtime codec，`--require-runtime` 可用于任一配置；显式设为 runtime=false 的静态描述仍会被拒绝。这里的 runtime 能力声明属于旧 codec 路径，不是对应 `generic_wire.json` 的在线资格。BACnet 使用 UDP，其余五种使用 TCP。支持的是描述中列出的服务与叶字段，新增服务仍需相应 codec 实现。
 
 ## 2. 按被测实现修改生成的 YAML
+
+其他具体 YAML 输入对可用 `--source-dir <目录>` 代替 `--base`，两者互斥；仍须通过现有 codec 与 compiler 校验，不产生新编码器。新实例化包要求显式声明每条消息的 `fixture_status/runtime_encode`，旧 compiler 的缺省兼容单独保留。
 
 依次填写/检查：
 
@@ -80,6 +96,19 @@ strategies: [enum]
 
 ## 3. 直接选择描述目录启动
 
+编辑生成包后，先重编 IR，再显式刷新受管理语料：
+
+```sh
+python3 tools/proto_spec_compiler.py \
+  --protocol ./my-specs/bacnet_ip/protocol_spec.yaml \
+  --state ./my-specs/bacnet_ip/state_transition.yaml --output-dir ./my-specs/bacnet_ip
+python3 tools/protocol_seed_planner.py --spec-dir ./my-specs/bacnet_ip
+```
+
+包装器先临时编译当前模型，再只读核对 validation、manifest、fixtures 和 seeds；陈旧或缺失时拒绝并保留原 IR 和语料，通过后才发布 IR。包内受管理 `-i` 与该模型关联；外部 `-i` 单独检查分帧和可验证预算，不认证协议语义或改写输入。`-i -` 的恢复快照由宿主在输出锁内核验。
+
+准备期间还会在读取前、加载后和发布前比较 YAML 摘要，拒绝编译期间发生的编辑；这不锁定发布后的外部编辑。旧输出的异常 queue/.state 标记与意外权威快照项也会提前拒绝。
+
 旧 codec 路径的入口每次从所选目录读取两个 YAML，校验并重编译旧版 IR，然后用 `--protocol-spec` / `--state-spec` 启动原 afl-fuzz。它不会改用 `--generic-spec`。无需手工修改 C 代码来切换已有 codec 所支持的描述包：
 
 ```bash
@@ -94,7 +123,7 @@ setarch "$(uname -m)" -R python3 tools/run_protocol_campaign.py \
 
 `--spec-dir` 决定加载哪个描述包，后面的 `--` 将其余参数交给原 afl-fuzz。再后面的 `--` 分隔目标程序参数。输出目录应使用新的路径。上例只连接本机已有 BACnet 测试目标。
 
-预览最终启动参数而不启动目标：
+预览最终启动参数而不启动目标（仍检查模型与所选 `-i` 并编译 IR）：
 
 ```bash
 python3 tools/run_protocol_campaign.py --spec-dir ./my-specs/bacnet_ip \
@@ -102,7 +131,7 @@ python3 tools/run_protocol_campaign.py --spec-dir ./my-specs/bacnet_ip \
   -N udp://127.0.0.1/47818 -- /path/to/server 123
 ```
 
-仅校验/编译（不启动任何目标）：
+仅校验/编译模型（返回 model_only，不检查语料或启动目标）：
 
 ```bash
 python3 tools/run_protocol_campaign.py --spec-dir ./my-specs/modbus_tcp --validate-only
@@ -134,7 +163,7 @@ python3 tools/proto_spec_compiler.py \
 | 配置 | 当前含义 |
 | --- | --- |
 | `support.runtime` | 当前 C codec 是否可用。六种参考 profile 均可用；设为 false 的静态模型不能启动定向变异。 |
-| 消息 `fixture_status` | `complete` 为声明范围内完整消息；`fragment` 为静态片段，不能用于 runtime=true，也不生成 replay seed。省略时兼容旧描述，按 complete 处理。 |
+| 消息 `fixture_status` | `complete` 为声明范围内完整消息；`fragment` 为静态片段，不能用于 runtime=true，也不生成 replay seed。新实例化包要求显式声明；旧 compiler 的缺省兼容按 complete 处理。 |
 | 消息 `runtime_encode` | 能力断言：仅 runtime=true 的 request 为 true。它不是开关，不能靠它开启静态协议或禁用请求。 |
 | `role` / `mutability` | `fixed`、`derived` 必须双向一致；derived 恰有一个依赖写入者；runtime_bound 必须有绑定、关联或序列依赖。 |
 | `locator` / `path` | `locator` 参与执行，`path` 只是说明。各 codec 解析实际结构和精确切片；abs 标量严格取声明宽度，变量字段不吞入相邻字段。 |
@@ -148,6 +177,8 @@ python3 tools/proto_spec_compiler.py \
 | `invalid_strategy` | 描述性说明；当前 invalid/near_valid 在修复后修改一条对应协议长度为原值+1，不解释该字符串。 |
 
 编译器检查引用、完整报文、实际字段范围和消息匹配。非 BACnet runtime 编译通过 native helper 使用同一 C validator；BACnet 保留专用 NPDU/APDU/tag 检查。`validation.json` 的 `execution_contract` 明确列出静态元数据与运行时限制。通过这些检查不等于经过真实目标的成功交换，也不等于覆盖整个协议标准。
+
+高级写法及机器分类见 [legacy_contract/capabilities.json](legacy_contract/capabilities.json) 与 [advanced_fragments.yaml](legacy_contract/advanced_fragments.yaml)。清单覆盖全部 schema 字段属性与十种依赖操作，区分执行字段、HEAD 策略、静态说明和 codec 特例；片段带真实上下文或明确的语法示范范围，不作为自动合并的整个协议包。
 
 非 BACnet 编译需 C11 编译器（`CC` 或 `cc`）、`tools/native_protocol_codecs.py`、`protocol_codecs.h` 和五个 `protocol_codec_*.c`。helper 每进程在临时目录构建一次；StateAFL 在线直接执行 C，不在每次变异运行 Python。标量支持完整 UInt64 范围。
 

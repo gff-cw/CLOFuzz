@@ -1,11 +1,66 @@
 #!/usr/bin/env python3
 """Fail-fast CLI checks; never launch a target or create an output directory."""
 import json
+import re
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'tools'))
+from proto_spec_compiler import SpecError
+from run_protocol_campaign import (LONG_FLAG_OPTIONS, LONG_VALUE_OPTIONS, MODEL_OPTIONS,
+                                   SHORT_FLAG_OPTIONS, SHORT_VALUE_OPTIONS, parse_afl_input)
+
+
+class CorpusArgumentTests(unittest.TestCase):
+    def test_wrapper_option_consumption_tracks_production_getopt_contract(self):
+        source = (ROOT / 'afl-fuzz.c').read_text()
+        match = re.search(r'getopt_long\(argc, argv, "([^"]+)"', source)
+        self.assertIsNotNone(match)
+        options = match.group(1).lstrip('+')
+        values, flags = set(), set()
+        index = 0
+        while index < len(options):
+            option = options[index]
+            if index + 1 < len(options) and options[index + 1] == ':':
+                values.add(option); index += 2
+            else:
+                flags.add(option); index += 1
+        self.assertEqual(SHORT_VALUE_OPTIONS, values)
+        self.assertEqual(SHORT_FLAG_OPTIONS, flags)
+        table = source.split('static const struct option protocol_options[] = {', 1)[1].split('};', 1)[0]
+        long_options = re.findall(r'\{"([a-z-]+)",\s*(required_argument|no_argument)', table)
+        self.assertEqual(LONG_VALUE_OPTIONS | MODEL_OPTIONS,
+                         {'--' + name for name, kind in long_options if kind == 'required_argument'})
+        self.assertEqual(LONG_FLAG_OPTIONS,
+                         {'--' + name for name, kind in long_options if kind == 'no_argument'})
+
+    def test_attached_separate_cluster_and_resume_input(self):
+        for arguments, expected in ((['-i', 'seeds'], 'seeds'), (['-iseeds'], 'seeds'),
+                                    (['-diseeds'], 'seeds'), (['-i-'], '-'), (['-i', '-'], '-')):
+            with self.subTest(arguments=arguments):
+                self.assertEqual(parse_afl_input(arguments), expected)
+
+    def test_option_values_and_target_arguments_are_not_input_options(self):
+        self.assertEqual(parse_afl_input(['-T', '-i-banner', '--mutation-mode', 'valid',
+                                         '-ireal', '--', 'target', '-i', 'not-input']), 'real')
+        self.assertEqual(parse_afl_input(['-ireal', 'target', '--generic-spec', '-iother']), 'real')
+        with self.assertRaisesRegex(SpecError, '-i is required'):
+            parse_afl_input(['--', 'target', '-i', 'not-input'])
+
+    def test_missing_duplicate_and_conflicting_input_options(self):
+        for arguments in ([], ['-i'], ['-i', ''], ['-i', '--', 'target'], ['-ia', '-ib']):
+            with self.subTest(arguments=arguments), self.assertRaises(SpecError):
+                parse_afl_input(arguments)
+        for option in ('--protocol-spec', '--state-spec=x', '--generic-spec=x'):
+            with self.subTest(option=option), self.assertRaisesRegex(SpecError, 'do not also pass'):
+                parse_afl_input([option, '-iseeds', '--', 'target'])
+        for arguments in (None, ['-T', 3, '-iseeds'], ['-iseeds', '--', object()]):
+            with self.subTest(arguments=arguments), self.assertRaisesRegex(SpecError, 'strings'):
+                parse_afl_input(arguments)
+
 class CLITests(unittest.TestCase):
     def rejected(self, flags, expected, transport="udp"):
         command=[str(ROOT/'afl-fuzz'), '-i', '/not-used', '-o', '/not-used-output', '-N', f'{transport}://127.0.0.1/47818']+flags+['--','/not-a-target']

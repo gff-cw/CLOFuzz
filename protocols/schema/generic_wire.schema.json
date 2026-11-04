@@ -1,0 +1,865 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:stateafl:generic-wire:online:v1",
+  "title": "StateAFL generic-wire v1 online package",
+  "description": "Structural authoring contract for the current generic C online loader. This is not a full wire/sequence validator. C loader acceptance is still required. Offline-only migration inventories are deliberately outside this online schema.",
+  "$comment": "JSON syntax (unique keys, Unicode validity, integer lexical form), <=1 MiB file bytes, <=65536 native JSON nodes, depth<=96, UTF-8 text byte limits, field uniqueness, reference ordering, bounds relations, example parsing/ambiguity, grammar/framing equations, state count/reachability, correlation type checks, and request/replay budgets require semantic/native checks. uint/bytes wire grammar has a 1 MiB field budget; online frames and examples remain <=65507 bytes. Annotation payloads limitations/unsupported are intentionally opaque because the C loader does not interpret them. Regex end assertions require full string consumption so constrained field identifier/hex patterns cannot stop before terminal line breaks; schema pattern matching is not implicitly a full match.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "stateafl.generic-wire"
+    },
+    "version": {
+      "const": 1,
+      "type": "integer"
+    },
+    "protocol_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+      "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+    },
+    "transport": {
+      "enum": [
+        "udp",
+        "tcp"
+      ]
+    },
+    "online": {
+      "const": true,
+      "type": "boolean"
+    },
+    "framing": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/udp_framing"
+        },
+        {
+          "$ref": "#/$defs/tcp_framing"
+        }
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/message"
+      },
+      "contains": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "const": "request"
+          }
+        },
+        "required": [
+          "direction"
+        ]
+      }
+    },
+    "states": {
+      "type": "object",
+      "properties": {
+        "initial": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+          "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        },
+        "transitions": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/transition"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "initial",
+        "transitions"
+      ],
+      "additionalProperties": false
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "max_messages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "max_repeat": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 1048576
+        }
+      },
+      "required": [
+        "max_messages",
+        "max_repeat",
+        "max_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "limitations": {},
+    "unsupported": {}
+  },
+  "required": [
+    "format",
+    "version",
+    "protocol_id",
+    "transport",
+    "online",
+    "framing",
+    "messages",
+    "states",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "transport": {
+            "const": "udp"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "framing": {
+            "$ref": "#/$defs/udp_framing"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "framing": {
+            "$ref": "#/$defs/tcp_framing"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uint_field": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+        },
+        "kind": {
+          "const": "uint"
+        },
+        "role": {
+          "enum": [
+            "fixed",
+            "head",
+            "content",
+            "derived"
+          ]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "byte_order": {
+          "enum": [
+            "big",
+            "little"
+          ]
+        },
+        "min": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "expected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "values": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          }
+        },
+        "derived": {
+          "$ref": "#/$defs/derived"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "role",
+        "width",
+        "byte_order"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "fixed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "expected"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "derived"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "derived"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "derived"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 255
+              },
+              "max": {
+                "maximum": 255
+              },
+              "expected": {
+                "maximum": 255
+              },
+              "values": {
+                "items": {
+                  "maximum": 255
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 2
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 65535
+              },
+              "max": {
+                "maximum": 65535
+              },
+              "expected": {
+                "maximum": 65535
+              },
+              "values": {
+                "items": {
+                  "maximum": 65535
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 3
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 16777215
+              },
+              "max": {
+                "maximum": 16777215
+              },
+              "expected": {
+                "maximum": 16777215
+              },
+              "values": {
+                "items": {
+                  "maximum": 16777215
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 4
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 4294967295
+              },
+              "max": {
+                "maximum": 4294967295
+              },
+              "expected": {
+                "maximum": 4294967295
+              },
+              "values": {
+                "items": {
+                  "maximum": 4294967295
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 5
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 1099511627775
+              },
+              "max": {
+                "maximum": 1099511627775
+              },
+              "expected": {
+                "maximum": 1099511627775
+              },
+              "values": {
+                "items": {
+                  "maximum": 1099511627775
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 6
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 281474976710655
+              },
+              "max": {
+                "maximum": 281474976710655
+              },
+              "expected": {
+                "maximum": 281474976710655
+              },
+              "values": {
+                "items": {
+                  "maximum": 281474976710655
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 7
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 72057594037927935
+              },
+              "max": {
+                "maximum": 72057594037927935
+              },
+              "expected": {
+                "maximum": 72057594037927935
+              },
+              "values": {
+                "items": {
+                  "maximum": 72057594037927935
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 8
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "min": {
+                "maximum": 18446744073709551615
+              },
+              "max": {
+                "maximum": 18446744073709551615
+              },
+              "expected": {
+                "maximum": 18446744073709551615
+              },
+              "values": {
+                "items": {
+                  "maximum": 18446744073709551615
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "bytes_field": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+        },
+        "kind": {
+          "const": "bytes"
+        },
+        "role": {
+          "enum": [
+            "fixed",
+            "content"
+          ]
+        },
+        "length": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1048576
+            },
+            {
+              "const": "rest"
+            },
+            {
+              "$ref": "#/$defs/length_ref"
+            }
+          ]
+        },
+        "min": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "expected_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-fA-F]{2})*$(?![\\s\\S])",
+          "maxLength": 2097152
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "role",
+        "length"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "fixed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "expected_hex"
+            ]
+          }
+        }
+      ]
+    },
+    "derived": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "size_of"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+            },
+            {
+              "const": "$message"
+            }
+          ]
+        },
+        "add": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "op",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "length_ref": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+        },
+        "add": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "grammar": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "struct"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/uint_field"
+              },
+              {
+                "$ref": "#/$defs/bytes_field"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+          "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        },
+        "direction": {
+          "enum": [
+            "request",
+            "response"
+          ]
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "example_hex": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 131014,
+          "pattern": "^(?:[0-9a-f]{2})+$(?![\\s\\S])"
+        },
+        "grammar": {
+          "$ref": "#/$defs/grammar"
+        },
+        "correlate": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/correlation"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "weight",
+        "example_hex",
+        "grammar"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "direction": {
+                "const": "request"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "correlate"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "correlation": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+          "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "field",
+        "request",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "transition": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+          "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+          "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+          "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        },
+        "response": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+          "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "udp_framing": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "datagram"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "tcp_framing": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "length_field"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65506
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "byte_order": {
+          "enum": [
+            "big",
+            "little"
+          ]
+        },
+        "add": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "kind",
+        "offset",
+        "width",
+        "byte_order",
+        "add"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "offset": {
+                "maximum": 65506
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 2
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "offset": {
+                "maximum": 65505
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 3
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "offset": {
+                "maximum": 65504
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "width": {
+                "const": 4
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "offset": {
+                "maximum": 65503
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -3,6 +3,9 @@
 # 修改 protocol_id 仅更名配置；不会生成新协议的编码器。
 # {{...}} 是待填写项；本文件不能直接作为某个真实协议的线格式。
 # 推荐用 tools/init_protocol_spec.py 按下述结构填入已有协议配置，避免手填遗漏。
+# 结构规范源是 protocols/schema/protocol_spec.schema.json；本文件的嵌套值仅作形状示例。
+# 生成包会保留具体 profile 的全部 schema 已知属性，不用本文件的默认值覆盖真实字段。
+# 高级合法片段和执行/注释分类见 legacy_contract/README.md 与 capabilities.json。
 format_version: 1
 protocol_id: "{{protocol_id}}"   # 两份文件必须相同，例如 bacnet_ip
 name: "{{name}}"
@@ -22,7 +25,7 @@ sources:
     sections: "{{source_sections}}"
 messages:
   - id: "{{message_id}}"          # 每种请求/响应单独建模，标识符不能重复
-    direction: request             # request / response
+    direction: request             # 在线 request / response；静态描述另允许 both
     weight: 1
     fixture_status: complete       # complete / fragment；后者不能用于runtime=true
     runtime_encode: false          # 能力声明非开关；runtime=true的request必须true，其余false
@@ -82,7 +85,7 @@ messages:
         min: 0
         max: 4096
         values: []
-        strategies: [afl, resize]   # CONTENT策略仅作注释；当前实现用AFL字节投影/专用codec
+        strategies: [afl, resize]   # CONTENT标量用AFL投影；codec变量叶可执行resize标志，不运行任意策略脚本
         evidence: wire
         confidence: implementation
     dependencies:

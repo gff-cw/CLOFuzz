@@ -7,9 +7,12 @@ import json
 from pathlib import Path
 import tempfile
 import zipfile
+import jsonschema
 from init_protocol_spec import PROFILES
 from proto_spec_compiler import compile_spec, load, SpecError
-from protocol_seed_planner import plan_model_corpus
+from protocol_corpus_contract import check_model_corpus
+from protocol_template_contract import checked_profile_copy
+from generic_template_catalog import check_catalog
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -18,27 +21,18 @@ def build_bundle(destination):
     destination=Path(destination)
     packages=[]
     files={}
+    generic_templates = check_catalog(ROOT)
     for name in PROFILES:
         directory=ROOT/'protocols'/name
         protocol=load(directory/'protocol_spec.yaml')
         state=load(directory/'state_transition.yaml')
+        protocol,state=checked_profile_copy(protocol,state)
         with tempfile.TemporaryDirectory(prefix='protocol-export-check-') as temporary:
             result=compile_spec(protocol,state,temporary)
             for filename in ('protocol_ir.json','state_ir.json','spec_bundle.json','validation.json'):
                 if (Path(temporary)/filename).read_bytes()!=(directory/filename).read_bytes():
                     raise SpecError(f'{name}: stale {filename}; regenerate before export')
-        expected,fixtures,seeds=plan_model_corpus(protocol,state,result)
-        recorded=json.loads((directory/'seed_manifest.json').read_text())
-        # Provenance differs for a saved-snapshot file conversion and a fresh
-        # compile; all actual model proofs and resource accounting must agree.
-        if {k:v for k,v in recorded.items() if k!='validation_source'} != {k:v for k,v in expected.items() if k!='validation_source'}:
-            raise SpecError(f'{name}: stale seed_manifest.json; refresh model corpus before export')
-        for relative,contents in (('fixtures/requests',fixtures),('seeds',seeds)):
-            if {path.name for path in (directory/relative).glob('*.replay')} != set(contents):
-                raise SpecError(f'{name}: stale {relative} inventory; refresh model corpus before export')
-            for filename,data in contents.items():
-                if (directory/relative/filename).read_bytes()!=data:
-                    raise SpecError(f'{name}: stale {relative}/{filename}; refresh model corpus before export')
+        check_model_corpus(directory,protocol,state,result,require_seed=False)
         packages.append(dict(protocol_id=protocol['protocol_id'],name=protocol['name'],
             scope=protocol['scope'],runtime=result['runtime'],messages=result['messages'],
             fields=result['fields'],semantic_states=result['semantic_states'],
@@ -64,13 +58,24 @@ def build_bundle(destination):
                  'docs/repair-status-20261102.md','docs/format-capability-matrix.md',
                  'docs/seed-corpus-repair-20261102.md',
                  'docs/usability-repair-20261103.zh-CN.md',
+                 'docs/template-unification-review-20261104.zh-CN.md',
+                 'docs/template-system-repair-20261104.zh-CN.md',
                  'tests/protocol/test_model_completeness.py','tools/proto_spec_compiler.py',
                  'tools/init_protocol_spec.py','tools/protocol_seed_planner.py',
+                 'tools/protocol_template_contract.py','tools/protocol_corpus_contract.py',
+                 'tools/generic_template_catalog.py',
                  'tools/run_protocol_campaign.py','tools/requirements-protocol.txt'):
         files[name]=(ROOT/name).read_bytes()
     files['BUNDLE-README.md']=('''# Industrial protocol description bundle
 
 Six scoped ICP-IR v1 packages, editable templates, schemas, deterministic generators and offline validators.
+The template catalog also includes independent generic-wire UDP/TCP examples
+and its online schema, legacy capability fragments and a minimal Modbus source
+package. tools/init_protocol_spec.py --source-dir accepts an existing codec
+configuration source directory and records its structural/value provenance.
+The minimal source package contains a controlled target source and compile-only
+Makefile; generating native validation outputs still requires the full StateAFL
+workspace and its compiler dependencies. No target execution is implied.
 The generic_wire.json files are a separate description-driven migration with
 14/71 fixture message grammars. Only the one-register Modbus FC03 pair is
 enabled online; see docs/generic-wire-profile-scope.md for the missing rules.
@@ -93,6 +98,7 @@ repository; the archive does not claim to preserve those external references.
         completeness='Complete messages within each explicitly declared profile; not whole-standard coverage.',
         runtime_scope='Six bounded C codecs; see each profile for supported services and external prerequisites.',
         generic_scope='Description-driven C grammar; 14 fixture messages, five offline-only profiles and one scoped online Modbus FC03 pair.',
+        generic_template_catalog=generic_templates,
         runtime_tests_executed_by_exporter=False,
         historical_validation_scope='Original recorded sources only; not an acceptance result for this bundle.',
         external_references='Source and historical evidence absent from files require the original repository.',
@@ -115,4 +121,5 @@ if __name__=='__main__':
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     try:print(json.dumps(build_bundle(args.output),ensure_ascii=False,indent=2))
-    except (OSError,SpecError,ValueError) as error:parser.exit(1,f'protocol export error: {error}\n')
+    except (OSError,SpecError,ValueError,jsonschema.ValidationError,jsonschema.SchemaError) as error:
+        parser.exit(1,f'protocol export error: {error}\n')

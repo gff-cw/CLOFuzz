@@ -67,6 +67,8 @@ generic_test_run "$generic_test_output/boundary_mapping" > "$generic_test_output
 generic_test_run "$generic_test_output/target_state_m2" > "$generic_test_output/target_state_m2.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_alias_canonical_identity.c "${generic_test_objs[@]}" -o "$generic_test_output/alias_canonical"
 generic_test_run "$generic_test_output/alias_canonical" > "$generic_test_output/alias_canonical.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_generic_template_contract.c "${generic_test_objs[@]}" -o "$generic_test_output/generic_template_contract"
+generic_test_run "$generic_test_output/generic_template_contract" > "$generic_test_output/generic_template_contract.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_ir_loader_contract.c "${generic_test_objs[@]}" -o "$generic_test_output/ir_contract"
 generic_test_run "$generic_test_output/ir_contract" > "$generic_test_output/ir_contract.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_sequence_full_validation.c "${generic_test_objs[@]}" -o "$generic_test_output/sequence_validation"
