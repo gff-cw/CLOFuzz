@@ -515,6 +515,26 @@
           "type": "string",
           "pattern": "^(?:[0-9a-fA-F]{2})*$(?![\\s\\S])",
           "maxLength": 2097152
+        },
+        "bit_length": {
+          "type": "object",
+          "properties": {
+            "ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+            },
+            "order": {
+              "enum": [
+                "lsb0",
+                "msb0"
+              ]
+            }
+          },
+          "required": [
+            "ref",
+            "order"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -562,6 +582,23 @@
           "type": "integer",
           "minimum": -9223372036854775808,
           "maximum": 9223372036854775807
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "multiply": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "round": {
+          "enum": [
+            "exact",
+            "floor",
+            "ceil"
+          ]
         }
       },
       "required": [
@@ -581,6 +618,23 @@
           "type": "integer",
           "minimum": -9223372036854775808,
           "maximum": 9223372036854775807
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "multiply": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "round": {
+          "enum": [
+            "exact",
+            "floor",
+            "ceil"
+          ]
         }
       },
       "required": [
@@ -698,6 +752,47 @@
         "source": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$(?![\\s\\S])"
+        },
+        "unit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "multiply": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "round": {
+          "enum": [
+            "exact",
+            "floor",
+            "ceil"
+          ]
+        },
+        "add": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        },
+        "metric": {
+          "enum": [
+            "value",
+            "size",
+            "bits"
+          ]
+        },
+        "source_metric": {
+          "enum": [
+            "value",
+            "size"
+          ]
+        },
+        "bit_order": {
+          "enum": [
+            "lsb0",
+            "msb0"
+          ]
         }
       },
       "required": [
@@ -705,7 +800,33 @@
         "request",
         "source"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "metric": {
+                "const": "bits"
+              }
+            },
+            "required": [
+              "metric"
+            ]
+          },
+          "then": {
+            "required": [
+              "bit_order"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "bit_order"
+              ]
+            }
+          }
+        }
+      ]
     },
     "transition": {
       "type": "object",
@@ -737,6 +858,19 @@
           "maxLength": 63,
           "pattern": "^[^\\u0000]+$(?![\\s\\S])",
           "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+        },
+        "responses": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[^\\u0000]+$(?![\\s\\S])",
+            "$comment": "C additionally limits UTF-8 byte length to 63; JSON Schema maxLength counts code points."
+          }
         }
       },
       "required": [
@@ -744,7 +878,17 @@
         "to",
         "message"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "response",
+              "responses"
+            ]
+          }
+        }
+      ]
     },
     "udp_framing": {
       "type": "object",

@@ -8,8 +8,8 @@
   "validation_source": "stored validation.json snapshot; source/IR consistency checked; compiler and target not re-executed",
   "runtime_examples_validated": true,
   "model_sha256": {
-    "protocol": "c7ded845a48610cf48a2c22465f4e1391421561b3b6fc84152802701c5378f20",
-    "state": "151798ccb4c6c15910cfbbb147b113cb19ef88a0420c1e046cb0cfa7c15b1804"
+    "protocol": "4b792535497caca5be41cf2e6435182f3ec48ec502cb2f97bd89334d2529a58d",
+    "state": "32bcf07c75a5b3b467878ce014d1351bfd9617cb01b2b51ee86c42e16f1894a3"
   },
   "initial_state": "stopped",
   "canonical_aliases": {},

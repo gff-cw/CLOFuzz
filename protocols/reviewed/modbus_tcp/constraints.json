@@ -53,6 +53,21 @@
         "write_coils_exception",
         "write_registers_exception"
       ]
+    },
+    {
+      "id": "MB04",
+      "problem": "读数量与响应长度、末字节位填充的关系只存在于说明中。",
+      "resolution": "protocol_session_constraints.c 在实际已提交请求与已验证响应之间执行数量方程、位填充、function/transaction/unit 与写回显检查；准备/取消使用会话快照，拒绝响应不消耗 pending。",
+      "messages": [
+        "read_coils",
+        "read_discrete",
+        "read_holding",
+        "read_input",
+        "read_coils_response",
+        "read_discrete_response",
+        "read_response",
+        "read_input_response"
+      ]
     }
   ],
   "codec_constraints": [
@@ -127,7 +142,7 @@
         "read_response",
         "read_input_response"
       ],
-      "constraint": "Normal read responses have native byte_count/data agreement; bits data1..250 and registers data2..250 with even byte count. Response transaction and unit must equal cached live request fields. Quantity-to-response-size equations remain an explicit runtime gap.",
+      "constraint": "Normal read responses have native byte_count/data agreement; bits data1..250 and registers data2..250 with even byte count. Model correlations compare transaction/unit with the cached live request; the separate MB-LIVE-TRANSACTION executor check enforces the quantity equation and final coil padding.",
       "enforced_by": "codec_and_model"
     },
     {
@@ -156,6 +171,39 @@
       ],
       "constraint": "Every exception ADU has9 bytes, one fixed request-specific function|80 field and one codec-accepted exception code in01,02,03,04,05,06,08,0A,0B. Transaction/unit correlation links the declared request; FC0F partial shares write_coils canonical identity.",
       "enforced_by": "codec_and_model"
+    },
+    {
+      "id": "MB-LIVE-TRANSACTION",
+      "messages": [
+        "read_coils",
+        "read_discrete",
+        "read_holding",
+        "read_input",
+        "write_coil",
+        "write_register",
+        "write_coils",
+        "write_registers",
+        "read_response",
+        "exception",
+        "write_coils_partial",
+        "read_coils_response",
+        "read_discrete_response",
+        "read_input_response",
+        "write_coil_response",
+        "write_register_response",
+        "write_coils_response",
+        "write_coils_partial_response",
+        "write_registers_response",
+        "read_coils_exception",
+        "read_discrete_exception",
+        "read_input_exception",
+        "write_coil_exception",
+        "write_register_exception",
+        "write_coils_exception",
+        "write_registers_exception"
+      ],
+      "constraint": "The executor keeps one submitted request. Responses must match transaction, unit and function; exception function is request.function|0x80. FC01/02 length=ceil(quantity/8), with all unused final high bits zero; FC03/04 length=2*quantity. FC05/06 echo address/value and FC0F/10 echo address/quantity. Refused responses preserve pending state; canceled preparation does not advance the live session.",
+      "enforced_by": "executor"
     }
   ],
   "remaining_gaps": [
@@ -164,12 +212,6 @@
       "layer": "standard",
       "description": "This profile covers FC01/02/03/04/05/06/0F/10 only. File records, mask write, combined read/write, FIFO, MEI/device identification and serial-specific services are not described.",
       "resolution": "Add separately sourced field layouts, service semantics, codec support and request/response state contracts before claiming those function families."
-    },
-    {
-      "id": "MB-RESPONSE-QUANTITY",
-      "layer": "runtime",
-      "description": "Live response data length is not compared with ceil(request.quantity/8) or2*request.quantity; final response bit padding is not cross-checked against request quantity.",
-      "resolution": "Extend typed cross-message arithmetic/byte-slice correlation and add actual C contracts; annotations and values cannot enforce this relation."
     },
     {
       "id": "MB-ADDRESS-SPAN",
@@ -186,14 +228,14 @@
     {
       "id": "MB-GENERIC",
       "layer": "generic",
-      "description": "Published generic_wire.json remains a two-message FC03 one-register online subset; it does not execute this26-message reviewed model.",
-      "resolution": "Extend generic grammar/response transactions for arithmetic size relations, bit packing/padding and normal-versus-exception alternatives, then construct and verify an independent generic description."
+      "description": "Published protocols/modbus_tcp/generic_wire.json remains a two-message FC03 one-register online subset. The extended generic executor has a separate 24-grammar full_modbus regression fixture covering the eight function families and normal/exception alternatives; that fixture is not this reviewed 26-message package or its published replacement.",
+      "resolution": "Keep the published coverage inventory exact. Promote a full generic package only after defining its aliases, source mapping and managed corpus, and recording native and controlled-target evidence for that exact package."
     },
     {
       "id": "MB-EVIDENCE",
       "layer": "evidence",
-      "description": "This directory is reviewed editable source only. No native validator, generated IR, seed planner, unit test or live target was executed for it.",
-      "resolution": "Instantiate this source pair in the full workspace, compile with the real validator, plan a fresh managed corpus, then validate a controlled target session and fixed-budget method comparison."
+      "description": "This directory remains editable source and carries no generated validation result. Native preparation, C/sanitizer regressions and controlled local execution were run separately during the executor extension; those results do not establish independent device interoperability or fixed-budget method effectiveness.",
+      "resolution": "Use docs/executor-extension-20261104.zh-CN.md and its exact output paths for current run results. Keep new IR/corpus/results outside this source catalog; add independent target and fixed-budget comparison evidence before making broader effectiveness claims."
     }
   ],
   "generic_coverage": {

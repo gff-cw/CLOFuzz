@@ -48,10 +48,11 @@ sources:
   basis: normative
   sections: Part 6 5.2 UA Binary, 6.7 UASC, 7.1 UACP; SecurityPolicy None, single final chunk
 - id: review_codec
-  url: ../../../protocol_codec_opcua.c
+  url: https://reference.opcfoundation.org/specs/OPC-10000-6/full
   basis: implementation
-  sections: Static review of complete bounded UA Binary reader, null security/header rules, array/depth
-    limits and leaf replacement; no validator or target was executed for this reviewed copy.
+  sections: 'Public wire specification basis; exact local executable bounds are in protocol_codec_opcua.c:
+    bounded UA Binary reader, null security/header rules, array/depth limits and leaf replacement.
+    Local implementation limits are not whole-standard conformance claims.'
 - id: uacp_hello
   url: https://reference.opcfoundation.org/specs/OPC-10000-6/7.1.2.3
   basis: normative

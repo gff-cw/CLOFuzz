@@ -58,8 +58,9 @@ void proto_session_begin(proto_engine *engine);
 /* Prepare on a private wire copy without changing committed session state.
  * At most one prepared send is allowed. The caller must commit only after the
  * complete wire message was submitted, or cancel on any partial/error result.
- * Both engines block new requests while one response-expecting request is
- * pending; no-response request edges do not create a pending entry.
+ * Both engines block new application requests while a response is pending;
+ * IEC104 permits its declared S/TESTFR control traffic during interrogation.
+ * No-response request edges do not create a host pending entry.
  * Response observation must happen after commit/cancel, never while prepared. */
 int proto_prepare_send(proto_engine *engine, uint8_t *wire, size_t length,
                        char *error, size_t cap);

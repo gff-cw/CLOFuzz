@@ -616,7 +616,7 @@ messages:
     width: 2
     endian: little
     role: head
-    mutability: fuzzable
+    mutability: runtime_bound
     default: 0
     min: 0
     max: 65534
@@ -628,14 +628,19 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
-      Each direction has independent N(S); N(R) acknowledges next expected peer I
-      frame. Advance modulo 32768 only for I frames.
+    structure: Bound by the IEC104 executor to the actual connection N(S) or next
+      expected peer N(R), encoded as UInt16 shifted left one; not an independent fuzz
+      knob.
   dependencies:
   - op: length_of
     target: length
     source: $message
     add: -2
+  - op: sequence_number
+    target: receive_seq
+    source: $message
+    unit: 2
+    scope: connection
   notes: ''
   fixture_status: complete
   runtime_encode: true
@@ -709,7 +714,7 @@ messages:
     width: 2
     endian: little
     role: head
-    mutability: fuzzable
+    mutability: runtime_bound
     default: 0
     min: 0
     max: 65534
@@ -721,9 +726,9 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
-      Each direction has independent N(S); N(R) acknowledges next expected peer I
-      frame. Advance modulo 32768 only for I frames.
+    structure: Bound by the IEC104 executor to the actual connection N(S) or next
+      expected peer N(R), encoded as UInt16 shifted left one; not an independent fuzz
+      knob.
   - id: receive_seq
     block: HEAD
     path: abs:4
@@ -732,7 +737,7 @@ messages:
     width: 2
     endian: little
     role: head
-    mutability: fuzzable
+    mutability: runtime_bound
     default: 0
     min: 0
     max: 65534
@@ -744,9 +749,9 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero.
-      Each direction has independent N(S); N(R) acknowledges next expected peer I
-      frame. Advance modulo 32768 only for I frames.
+    structure: Bound by the IEC104 executor to the actual connection N(S) or next
+      expected peer N(R), encoded as UInt16 shifted left one; not an independent fuzz
+      knob.
   - id: type_id
     block: HEAD
     path: abs:6
@@ -775,8 +780,8 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: head
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 1
     min: 1
     max: 1
@@ -784,9 +789,6 @@ messages:
     - 1
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
     structure: Exactly one information object; SQ=0 in this profile.
@@ -840,8 +842,8 @@ messages:
     type: uint24
     width: 3
     endian: little
-    role: content
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 0
     min: 0
     max: 0
@@ -849,9 +851,6 @@ messages:
     - 0
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
   - id: qoi
@@ -898,6 +897,11 @@ messages:
     add: -2
   - op: sequence_number
     target: send_seq
+    source: $message
+    unit: 2
+    scope: connection
+  - op: sequence_number
+    target: receive_seq
     source: $message
     unit: 2
     scope: connection
@@ -1042,8 +1046,8 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: head
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 1
     min: 1
     max: 1
@@ -1051,9 +1055,6 @@ messages:
     - 1
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
     structure: Exactly one information object; SQ=0 in this profile.
@@ -1107,8 +1108,8 @@ messages:
     type: uint24
     width: 3
     endian: little
-    role: content
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 0
     min: 0
     max: 0
@@ -1116,9 +1117,6 @@ messages:
     - 0
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
   - id: qoi
@@ -1163,11 +1161,6 @@ messages:
     target: length
     source: $message
     add: -2
-  - op: sequence_number
-    target: send_seq
-    source: $message
-    unit: 2
-    scope: connection
   - op: copy_from_message
     target: common_address
     source: common_address
@@ -1317,8 +1310,8 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: head
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 1
     min: 1
     max: 1
@@ -1326,9 +1319,6 @@ messages:
     - 1
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
     structure: Exactly one information object; SQ=0 in this profile.
@@ -1382,8 +1372,8 @@ messages:
     type: uint24
     width: 3
     endian: little
-    role: content
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 0
     min: 0
     max: 0
@@ -1391,9 +1381,6 @@ messages:
     - 0
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
   - id: qoi
@@ -1438,11 +1425,6 @@ messages:
     target: length
     source: $message
     add: -2
-  - op: sequence_number
-    target: send_seq
-    source: $message
-    unit: 2
-    scope: connection
   - op: copy_from_message
     target: common_address
     source: common_address
@@ -1592,8 +1574,8 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: head
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 1
     min: 1
     max: 1
@@ -1601,9 +1583,6 @@ messages:
     - 1
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
     structure: Exactly one information object; SQ=0 in this profile.
@@ -1657,8 +1636,8 @@ messages:
     type: uint24
     width: 3
     endian: little
-    role: content
-    mutability: fuzzable
+    role: fixed
+    mutability: fixed
     default: 0
     min: 0
     max: 0
@@ -1666,9 +1645,6 @@ messages:
     - 0
     strategies:
     - enum
-    - boundary
-    - bitflip
-    - arithmetic
     evidence: wire
     confidence: implementation
   - id: qoi
@@ -1713,11 +1689,6 @@ messages:
     target: length
     source: $message
     add: -2
-  - op: sequence_number
-    target: send_seq
-    source: $message
-    unit: 2
-    scope: connection
   - op: copy_from_message
     target: common_address
     source: common_address

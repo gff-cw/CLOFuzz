@@ -82,6 +82,18 @@ transitions:
   response: ''
   guard: matching CA/QOI; all preceding I frames acknowledged
   actions: []
+- from: interrogating
+  to: interrogating
+  message: s_ack
+  response: ''
+  guard: acknowledge received I frames
+  actions: []
+- from: interrogation_data
+  to: interrogation_data
+  message: s_ack
+  response: ''
+  guard: acknowledge received I frames
+  actions: []
 - from: stopped
   to: stopped
   message: test_act

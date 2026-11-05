@@ -317,3 +317,20 @@ flag or renaming a profile does not implement missing primitives or establish
 correctness. The C loader checks the declared flag; it cannot infer all absent
 protocol-standard semantics from a package name. Independent verification is
 required before expanding the supported scope.
+
+Numeric dependencies accept `unit`, `multiply`, `add`, and `round` (defaults
+1, 1, 0, and `exact`): they compute `round(source * multiply / unit) + add`.
+`exact` rejects a nonintegral quotient; `floor` and `ceil` select its integer
+rounding. Overflow and negative results are rejected; lengths also must fit the wire budget. These options apply to referenced byte lengths, `size_of`, and
+response correlation rules.
+
+A bytes field can declare `bit_length: {"ref":"quantity","order":"lsb0"}`
+(or `msb0`) referencing an earlier integer. Its length must equal the rounded-up
+byte count and unused bits in the last byte must be zero. Valid mutation repairs
+those padding bits. A transition may use `responses` for one to sixteen distinct
+alternative response IDs instead of `response`; one matching and correlated
+response completes the outstanding request. Correlations support `metric`
+`value` (default), `size`, or `bits`, and `source_metric` `value` (default) or
+`size`. A `bits` target requires `bit_order` and compares the byte count and
+padding to the transformed source bit count. Correlations are checked against
+the committed request, and mismatches leave the request pending.

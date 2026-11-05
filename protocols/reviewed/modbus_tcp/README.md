@@ -11,13 +11,13 @@
 | 响应关联目标仍标记普通可变 | 对copy/correlate目标明确使用runtime_bound |
 | 异常状态材料不完整 | 每个新增异常均有独立response状态边；正常请求仍声明正常预期响应，异常由实际correlate依赖识别pending请求 |
 
-`write_coils_partial`的数量9与`write_coils`数量8是不同示例值；它们保留相同的执行字段范围、策略、依赖和状态迁移，供当前runtime作为canonical aliases处理。因此FC0F异常只声明一个`write_coils_exception`，共享canonical请求缓存与pending身份。该别名与新增输入的实际native接受情况仍须后续校验。
+`write_coils_partial`的数量9与`write_coils`数量8是不同示例值；它们保留相同的执行字段范围、策略、依赖和状态迁移，供当前runtime作为canonical aliases处理。因此FC0F异常只声明一个`write_coils_exception`，共享canonical请求缓存与pending身份。本轮执行器扩展已对本目录输入另行做native准备；具体结果和产物路径以[扩展报告](../../../docs/executor-extension-20261104.zh-CN.md)为准。
 
-`constraints.json`逐消息列明codec/model约束、修复项、generic覆盖及剩余问题。四类读响应当前只关联transaction/unit，**没有执行请求quantity与响应数据长度的跨消息方程**。FC05候选values也不是接受白名单，其离散有效值由codec检查。
+`constraints.json`逐消息列明codec/model约束、修复项、generic覆盖及剩余问题。会话执行器已按现场已提交请求检查四类读响应的quantity与数据长度方程，位响应的末字节未用高位也必须为零。FC05候选values也不是接受白名单，其离散有效值由codec检查。
 
 ## 使用及验证范围
 
-本目录不包含IR、validation、seeds或声称已验证的派生产物。准备正式包的命令如下，属于后续使用步骤，本轮未执行：
+本目录不包含IR、validation、seeds或声称已验证的派生产物。准备正式包的命令如下；本轮已在独立输出目录执行native准备，避免把派生产物写回源目录：
 
 ```sh
 python3 tools/init_protocol_spec.py --source-dir protocols/reviewed/modbus_tcp \
@@ -28,11 +28,11 @@ python3 tools/init_protocol_spec.py --source-dir protocols/reviewed/modbus_tcp \
 
 ## 剩余执行限制
 
-- 读位响应的`ceil(quantity/8)`、寄存器响应的`2*quantity`，以及响应末字节位填充未与现场请求联合核对；需要运行时算术关联。
+- `protocol_session_constraints.c`已执行读位`ceil(quantity/8)`、读寄存器`2*quantity`、位填充和写回显检查；拒绝响应保留pending，prepare取消回滚会话。该能力仍限定为上述八类服务。
 - address+quantity的范围及设备实际映射不是执行约束；完整服务布局不保证设备接受所有地址。
 - 运行时仅允许一个pending请求，未实现并发transaction数据库。
-- 原`generic_wire.json`仍是FC03单寄存器两消息online子集，不等于本目录的26消息描述；generic语言仍缺完整数量方程、位打包、正常/异常选择等能力。
-- 本轮仅静态文件/schema/引用检查；未运行项目工具、native validator、测试或目标。未获得现场会话与方法收益证据。
+- 原`generic_wire.json`仍是FC03单寄存器两消息online子集，不等于本目录的26消息描述。generic语言已增加数量算术、位长度/填充和响应备选；独立`tests/generic-wire/full_modbus.json`以24条canonical grammar验证八类功能，尚未作为本发布包替换。
+- 本轮已另行做native准备、C/sanitizer回归和受控本地运行。每项结果及路径见[执行器扩展报告](../../../docs/executor-extension-20261104.zh-CN.md)；这些测试不等于独立设备互通或固定预算的方法收益证明。本目录仍只保存可编辑源。
 
 ## 来源
 

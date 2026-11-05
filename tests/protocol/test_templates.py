@@ -12,7 +12,8 @@ import yaml
 ROOT=Path(__file__).resolve().parents[2]
 CODEC_SOURCES=[str(ROOT/f'protocol_codec_{codec}.c')
                for codec in ('modbus','iec104','mms','enip','opcua')]
-GENERIC_SOURCES=[str(ROOT/name) for name in ('generic_runtime.c','generic_wire.c','native_json.c')]
+GENERIC_SOURCES=[str(ROOT/name) for name in ('generic_runtime.c','generic_wire.c','native_json.c',
+                                           'protocol_session_constraints.c','protocol_iec104_session.c')]
 sys.path.insert(0,str(ROOT/'tools'))
 from init_protocol_spec import PROFILES, instantiate
 from proto_spec_compiler import SpecError, compile_spec, load, validate

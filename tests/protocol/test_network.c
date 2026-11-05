@@ -14,7 +14,7 @@ int main(void) {
   socklen_t n=sizeof(x);
   assert(!getsockname(a,(void*)&x,&n) && !getsockname(b,(void*)&y,&n));
   assert(!connect(a,(void*)&y,sizeof(y)) && !connect(b,(void*)&x,sizeof(x)));
-  struct timeval timeout={.tv_usec=1000};
+  struct timeval timeout={.tv_sec=1, .tv_usec=0};
   char data[7000], copy[8000]; for(unsigned i=0;i<sizeof(data);i++) data[i]=i;
   assert(net_send(a,timeout,data,sizeof(data))==sizeof(data));
   assert(recv(b,copy,sizeof(copy),0)==sizeof(data));

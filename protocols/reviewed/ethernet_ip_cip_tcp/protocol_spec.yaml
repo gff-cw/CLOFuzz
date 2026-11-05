@@ -38,10 +38,11 @@ sources:
   basis: inferred
   sections: ODVA catalogue/subscription boundary only; paid volumes not consulted; wire details from OpENer
 - id: review_codec
-  url: ../../../protocol_codec_enip.c
+  url: https://github.com/EIPStackGroup/OpENer/tree/d8820ef41ce30dda06d213438ba81c81de33ffe2/source/src
   basis: implementation
-  sections: Static review of parse/path_ok/pc_enip_replace and current bounded Identity Vendor-ID constraints;
-    no validator or target was executed for this reviewed copy.
+  sections: 'Public wire implementation basis; exact local executable bounds are in protocol_codec_enip.c:
+    parse/path_ok/pc_enip_replace and the bounded Identity Vendor-ID profile. Source URL names the
+    public basis, not a claim that the local codec is that implementation.'
 messages:
 - id: register
   example: '65000400000000000000000001000000000000000000000001000000'

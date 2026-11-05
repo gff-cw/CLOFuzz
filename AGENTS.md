@@ -14,11 +14,11 @@ These instructions record the user's version-control preferences for this checko
   Use ordinary pushes, not force pushes.
 - Verify the remote branch tip after pushing and report the commit and any sync
   failure accurately. A stale local tracking reference is not remote confirmation.
-- The user now authorizes compiling StateAFL and its components to find build
-  problems, alongside static review and formatting checks. Compile-only checks
-  may include regression sources; do not execute tests, examples or target
-  services unless a later user instruction authorizes them. Use build-only
-  targets rather than default targets that also execute instrumentation tests.
+- The user authorizes compiling StateAFL and its components, executing local
+  regression suites, and running controlled loopback test services to validate
+  the executor extensions. This supersedes the earlier compile-only limit.
+  Keep generated test output separate from committed historical evidence and
+  describe actual runtime results and remaining limitations accurately.
 
 The offline tools have their own documented scope. Version-control delivery does
 not establish runtime validation or change their integration status.

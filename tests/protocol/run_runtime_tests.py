@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import random
 import subprocess
+import sys
 import tempfile
 import zlib
 
@@ -21,6 +22,7 @@ def main():
     parser.add_argument('--iterations', type=int, default=25000)
     parser.add_argument('--random-models', type=int, default=250)
     parser.add_argument('--compiler', default='clang')
+    parser.add_argument('--output', type=Path, default=ROOT/'tests/protocol/out/runtime-results.json')
     args = parser.parse_args()
     if args.iterations < 1 or args.random_models < 0:
         parser.error('iterations must be positive and random-models nonnegative')
@@ -38,6 +40,7 @@ def main():
         command = [args.compiler, '-std=gnu11', '-Wall', '-Wextra', '-Werror',
                    '-Wno-unused-parameter', '-fsanitize=address,undefined',
                    '-fno-omit-frame-pointer', '-g', '-I.', 'protocol_runtime.c',
+                   'protocol_session_constraints.c', 'protocol_iec104_session.c',
                    *(f'protocol_codec_{codec}.c' for codec in CODECS),
                    'generic_runtime.c', 'generic_wire.c', 'native_json.c',
                    'tests/protocol/test_runtime.c', '-o', str(binary)]
@@ -167,44 +170,21 @@ def main():
                                        'stdout': completed.stdout, 'stderr': completed.stderr})
         else:
             result['runtime_harness'] = json.loads(completed.stdout)
-        # Live session binding must not leak between engines, executions, or simulated mutation.
-        bound = copy.deepcopy(protocol)
-        bound['messages'][1]['dependencies'].append(dict(op='bind_from_response',target='invoke_id',source='invoke_id',message='read_property_ack'))
-        # This synthetic bootstrap tests cache isolation only. It explicitly
-        # declares an uncorrelated reply; real pending-request correlation and
-        # handle binding are covered by test_multicodec_runtime.py.
-        bound['messages'][2]['dependencies'] = [d for d in bound['messages'][2]['dependencies']
-                                               if d['op'] != 'correlate_request_response']
-        pp.write_text(json.dumps(bound));sp.write_text(json.dumps(state))
-        completed = subprocess.run([str(binary), 'session', str(pp), str(sp)], env=env, capture_output=True, text=True, timeout=20)
-        if completed.returncode:
-            result['failures'].append({'name': 'session isolation', 'returncode': completed.returncode,
-                                       'stdout': completed.stdout, 'stderr': completed.stderr})
-        else:
-            result['session_harness'] = json.loads(completed.stdout)
-        transactional = copy.deepcopy(bound)
-        transactional['messages'][1]['dependencies'] = [
-            d for d in transactional['messages'][1]['dependencies']
-            if d['op'] != 'bind_from_response']
-        next(field for field in transactional['messages'][1]['fields']
-             if field['id'] == 'property_id')['mutability'] = 'runtime_bound'
-        transactional['messages'][1]['dependencies'].extend([
-            dict(op='sequence_number', target='invoke_id', source='$message'),
-            dict(op='bind_from_response', target='property_id', source='invoke_id',
-                 message='read_property_ack'),
-        ])
-        transactional['messages'][2]['dependencies'] = [
-            d for d in transactional['messages'][2]['dependencies']
-            if d['op'] != 'correlate_request_response']
-        pp.write_text(json.dumps(transactional))
-        completed = subprocess.run([str(binary), 'binding_transaction', str(pp), str(sp)],
-                                   env=env, capture_output=True, text=True, timeout=20)
-        if completed.returncode:
-            result['failures'].append({'name': 'atomic live binding',
-                                       'returncode': completed.returncode,
-                                       'stdout': completed.stdout, 'stderr': completed.stderr})
-        else:
-            result['binding_transaction_harness'] = json.loads(completed.stdout)
+        # Exercise real pending/correlation and prepare/cancel behavior. An
+        # uncorrelated synthetic ACK cannot bootstrap a session cache.
+        for name, method in (
+                ('session isolation', 'test_session_begin_discards_partial_tcp_response'),
+                ('atomic live binding', 'test_prepare_cancel_preserves_live_sequence_and_pending_state')):
+            completed = subprocess.run(
+                [sys.executable, '-m', 'unittest', 'test_multicodec_runtime.Runtime.' + method, '-v'],
+                cwd=ROOT/'tests/protocol', env=env, capture_output=True, text=True, timeout=90)
+            if completed.returncode:
+                result['failures'].append({'name': name, 'returncode': completed.returncode,
+                                           'stdout': completed.stdout, 'stderr': completed.stderr})
+            else:
+                result[name.replace(' ', '_') + '_harness'] = {
+                    'passed': True, 'implementation': 'production runtime and real wire pairs',
+                    'test': method, 'output': completed.stderr}
         result['dependency_harnesses'] = []
         execution_cases = [
             ('local copy', dict(op='copy_from_message', target='invoke_id', source='property_id'), 'apdu.invoke', 77),
@@ -239,6 +219,8 @@ def main():
                 result['dependency_harnesses'].append({'name': name, **json.loads(completed.stdout)})
     result['source_sha256'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                                for path in [ROOT/'protocol_runtime.c', ROOT/'protocol_runtime.h', ROOT/'protocol_codecs.h',
+                                            ROOT/'protocol_session_constraints.c', ROOT/'protocol_session_constraints.h',
+                                            ROOT/'protocol_iec104_session.c', ROOT/'protocol_iec104_session.h',
                                             ROOT/'generic_runtime.c', ROOT/'generic_runtime.h',
                                             ROOT/'generic_wire.c', ROOT/'generic_wire.h', ROOT/'native_json.c', ROOT/'native_json.h',
                                             *(ROOT/f'protocol_codec_{codec}.c' for codec in CODECS),
@@ -257,7 +239,7 @@ def main():
         'metadata': 'guards/actions/structure descriptions are documentation; dependencies drive runtime binding',
         'evidence_limits': 'Standalone local tests only; randomized runs do not prove protocol conformance or replace live target integration.'}
     result['status'] = 'passed' if not result['failures'] else 'failed'
-    evidence = ROOT/'tests/protocol/evidence/runtime-results.json'
+    evidence = args.output.resolve()
     evidence.parent.mkdir(parents=True, exist_ok=True)
     evidence.write_text(json.dumps(result, indent=2, ensure_ascii=False)+'\n')
     print(json.dumps({'status': result['status'], 'loader_cases': len(result['loader_cases']),

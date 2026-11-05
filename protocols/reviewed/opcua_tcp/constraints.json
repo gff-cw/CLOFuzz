@@ -65,6 +65,21 @@
         "service_fault",
         "close_channel"
       ]
+    },
+    {
+      "id": "ua_executor_session",
+      "problem": "协商限制、token有效期、请求关联和对端序号原先只存在于静态说明。",
+      "resolution": "增加提交/接收侧会话检查：相向HEL/ACK buffer协商、单final chunk与消息体限额、Issue绑定、保守本地token寿命、双向独立连续序号、request ID/handle与无响应CLO清理。Renew/重叠token/序号回卷仍不支持。",
+      "messages": [
+        "hello",
+        "ack",
+        "open_channel",
+        "open_channel_response",
+        "message",
+        "message_response",
+        "service_fault",
+        "close_channel"
+      ]
     }
   ],
   "codec_constraints": [
@@ -81,7 +96,7 @@
       "messages": [
         "ack"
       ],
-      "constraint": "UACP ACK final message, protocol version 0 and buffers >=8192; negotiated receive/send upper bounds relative to HEL are not executed by this description.",
+      "constraint": "UACP ACK final message, protocol version0 and buffers>=8192. The separate executor negotiation constraint checks ACK receive/send limits against opposite HEL send/receive limits.",
       "enforced_by": "codec_and_model"
     },
     {
@@ -190,16 +205,16 @@
       "enforced_by": "codec"
     },
     {
-      "id": "ua_negotiation_metadata",
+      "id": "ua_negotiation_executor",
       "messages": [
         "hello",
         "ack"
       ],
-      "constraint": "ACK receive/send limits relative to opposite HEL buffers, maximum message/chunk negotiation and version negotiation procedures are not executed by the YAML guard/actions.",
-      "enforced_by": "static_only"
+      "constraint": "The executor records HEL/ACK limits and requires ACK ReceiveBufferSize<=HEL SendBufferSize and ACK SendBufferSize<=HEL ReceiveBufferSize. Submitted and received secure final chunks obey negotiated buffer limits; service-body size obeys the receiving peer MaxMessageSize. MaxMessageSize0 and MaxChunkCount0 mean unlimited; this codec admits exactly one final chunk, so every allowed nonzero MaxChunkCount admits it. Protocol version is fixed0 by the profile; there is no general version negotiation or multi-chunk assembly.",
+      "enforced_by": "executor"
     },
     {
-      "id": "ua_token_sequence_metadata",
+      "id": "ua_token_sequence_executor",
       "messages": [
         "open_channel",
         "open_channel_response",
@@ -208,8 +223,8 @@
         "service_fault",
         "close_channel"
       ],
-      "constraint": "Declared dependency writers handle supported channel/token binding, request correlation and outgoing sequence updates. Token expiry, revised lifetime timers and peer sequence freshness are not established by state meanings or action strings.",
-      "enforced_by": "static_only"
+      "constraint": "The bounded executor permits fresh None Issue only, correlates response request ID/handle, binds the assigned channel/token and checks exact-next client and server sequences independently after each direction's first sequence. Token expiration is conservatively measured from the local OPN submission time plus RevisedLifetime; unavailable/backward clocks, overflow, expired bindings, replay and skipped sequences are refused without consuming pending. ServiceFault completes the declared service transaction. CLO closes and clears the local token without response. The profile reconnects at UInt32 sequence exhaustion; Renew, overlap and rollover are not implemented.",
+      "enforced_by": "executor"
     },
     {
       "id": "ua_opaque_body_projection",
@@ -249,22 +264,16 @@
       "resolution": "Add signed length/null handling, NodeId, nested bounded structures/arrays and required binding/session semantics; migrate the eight missing models and graph, then check them natively without opaque payload substitution."
     },
     {
-      "id": "ua_live_negotiation",
-      "layer": "runtime",
-      "description": "ACK buffer upper bounds and negotiated max message/chunk limits are not implemented by static guards.",
-      "resolution": "Add checked negotiation state and enforce it for submitted/received frames; test fresh negotiation and boundary cases separately."
-    },
-    {
       "id": "ua_token_lifecycle_and_peer_sequence",
       "layer": "runtime",
-      "description": "Token expiry, overlap/renewal and peer sequence freshness are not made executable by the current model.",
-      "resolution": "Implement explicit timers/lifecycle and sequence validation before claiming full channel/session behavior; Renewal and overlap remain outside this profile."
+      "description": "Fresh Issue lifetime and independent peer sequence checks are implemented. Renewal, overlapping token acceptance, full UA sequence rollover, encryption/security modes and Session services remain outside this bounded profile; reaching UInt32 sequence exhaustion requires reconnect.",
+      "resolution": "Add separately specified Renew/overlap/rollover and security/session state machines, tests and independent interoperability evidence before claiming complete channel/session behavior."
     },
     {
       "id": "ua_native_and_target_evidence",
       "layer": "evidence",
-      "description": "This reviewed source pair has no new IR, native validator result, model corpus, target exchange or method-effectiveness evidence.",
-      "resolution": "Perform explicit native preparation and corpus generation when execution is authorized, followed by independent controlled target and method comparison evidence."
+      "description": "This source directory contains no derived validation evidence. Native preparation, session sanitizer tests and a controlled local discovery-profile run were performed separately during the executor extension; this is not independent implementation interoperability or method-effectiveness evidence.",
+      "resolution": "Read docs/executor-extension-20261104.zh-CN.md for exact current outputs and limitations; keep source identity separate from runtime records and add independent controlled-target and fixed-budget method comparison evidence."
     }
   ],
   "generic_coverage": {

@@ -17,7 +17,7 @@ generic_test_flags=(-std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,und
 # The legacy host/network translation units predate the strict runtime flags.
 # Keep their instrumentation identical without turning legacy warnings into errors.
 generic_legacy_flags=(-std=gnu11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Wno-pointer-sign -Wno-unused-result -I.)
-generic_test_sources=(protocol_runtime.c generic_runtime.c generic_wire.c native_json.c run_manifest.c protocol_codec_*.c)
+generic_test_sources=(protocol_runtime.c protocol_session_constraints.c protocol_iec104_session.c generic_runtime.c generic_wire.c native_json.c run_manifest.c protocol_codec_*.c)
 export ASAN_OPTIONS="detect_leaks=1:abort_on_error=1"
 export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
 generic_test_objs=()
@@ -69,6 +69,8 @@ generic_test_run "$generic_test_output/target_state_m2" > "$generic_test_output/
 generic_test_run "$generic_test_output/alias_canonical" > "$generic_test_output/alias_canonical.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_generic_template_contract.c "${generic_test_objs[@]}" -o "$generic_test_output/generic_template_contract"
 generic_test_run "$generic_test_output/generic_template_contract" > "$generic_test_output/generic_template_contract.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_full_modbus.c "${generic_test_objs[@]}" -o "$generic_test_output/full_modbus"
+generic_test_run "$generic_test_output/full_modbus" > "$generic_test_output/full_modbus.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_ir_loader_contract.c "${generic_test_objs[@]}" -o "$generic_test_output/ir_contract"
 generic_test_run "$generic_test_output/ir_contract" > "$generic_test_output/ir_contract.log"
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_sequence_full_validation.c "${generic_test_objs[@]}" -o "$generic_test_output/sequence_validation"
@@ -149,6 +151,8 @@ for generic_host_contract in calibration_queue child_wait startup_selection resu
 done
 "$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_transmission_ledger_rejection.c "$generic_test_output/aflnet.o" -o "$generic_test_output/transmission_ledger_rejection"
 generic_test_run "$generic_test_output/transmission_ledger_rejection" > "$generic_test_output/transmission_ledger_rejection.log"
+"$generic_test_cc" "${generic_test_flags[@]}" tests/generic-wire/test_m2_regions_splicing_clamping.c "$generic_test_output/aflnet.o" -o "$generic_test_output/m2_regions_splicing_clamping"
+generic_test_run "$generic_test_output/m2_regions_splicing_clamping" > "$generic_test_output/m2_regions_splicing_clamping.log"
 generic_test_run "$generic_test_output/runtime" tests/generic-wire/fictional_protocol.json > "$generic_test_output/runtime.log"
 generic_test_run "$generic_test_output/modbus" protocols/modbus_tcp/generic_wire.json > "$generic_test_output/modbus.log"
 if [[ "$generic_build_only" == 1 ]]; then

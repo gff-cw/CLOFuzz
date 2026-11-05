@@ -134,8 +134,8 @@ def report_campaign(work, name, command, status, timing):
     structured, raw = int(stats.get("protocol_structured", "0")), int(stats.get("protocol_raw", "0"))
     attempts = protocol.get("attempts", 0) if protocol else 0
     rejects = protocol.get("rejected", 0) if protocol else 0
-    checks = {"ready_reached": "All set and ready to roll!" in fuzz_log,
-              "clean_sigint_stop": timing["sigint_sent"] and status == 0,
+    checks = {"ready_reached": timing["ready_elapsed_seconds"] is not None and not timing.get("startup_timeout", False),
+              "clean_sigint_stop": timing["sigint_sent"] and status == 0 and not timing.get("forced_kill", False),
               "fuzzer_aslr_disabled": "ASLR disabled for this process (ADDR_NO_RANDOMIZE)." in fuzz_log,
               "executions_continue": int(stats.get("execs_done", "0")) > 4,
               "coverage_nonzero": float(stats.get("bitmap_cvg", "0").rstrip("%")) > 0,
@@ -180,8 +180,9 @@ def run_campaign(args, work, corpus, name, env):
     active.update(BACNET_IFACE="lo", BACNET_IP_PORT=str(port))
     command = ["setarch", os.uname().machine, "-R", str(ROOT / "afl-fuzz"), "-d",
                "-i", str(corpus), "-o", str(folder / "out"),
-               "-N", f"udp://127.0.0.1/{port}", "-D", str(args.startup_usecs), "-W", "10", "-w", "1000",
-               "-r", "10", "-E", "-K", "-q", "3", "-s", "3", "-m", "none", "-t", str(args.exec_timeout_ms)]
+               "-N", f"udp://127.0.0.1/{port}", "-D", str(args.startup_usecs),
+               "-W", str(args.poll_wait_ms), "-w", str(args.socket_timeout_us),
+               "-r", str(args.state_poll_wait_ms), "-E", "-K", "-q", "3", "-s", "3", "-m", "none", "-t", str(args.exec_timeout_ms)]
     if MODES[name]:
         mode, layers = MODES[name]
         command = command[:3] + [sys.executable, str(ROOT / "tools/run_protocol_campaign.py"),
@@ -242,6 +243,9 @@ def main():
     parser.add_argument("--exec-timeout-ms", type=int, default=5000,
                         help="total per-execution timeout, including startup, in milliseconds (default: %(default)s)")
     parser.add_argument("--ready-timeout", type=float, default=300)
+    parser.add_argument("--poll-wait-ms", type=int, default=50)
+    parser.add_argument("--socket-timeout-us", type=int, default=50000)
+    parser.add_argument("--state-poll-wait-ms", type=int, default=50)
     parser.add_argument("--server", type=Path, default=WORKSPACE / "bacnet-stack/build-protocol-integration/server")
     parser.add_argument("--modes", default=",".join(MODES))
     parser.add_argument("--spec-dir", type=Path, default=ROOT / "protocols/bacnet_ip")

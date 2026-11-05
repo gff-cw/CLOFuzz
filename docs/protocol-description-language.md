@@ -130,7 +130,7 @@ transitions:
 | `copy_from_message` | 复制明确的消息 ID + 字段 ID 标量；同消息可直接求值 |
 | `bind_from_response` | 从缓存中的 response 消息标量读取；无缓存值时拒绝 |
 | `correlate_request_response` | 实际响应须满足已发 pending 请求对应字段的关联；BACnet live 路径另记录 outstanding invoke 统计 |
-| `sequence_number` | 同消息/字段上次缓存值按 `unit` 递增并按字段位宽回绕；首次为 0 |
+| `sequence_number` | 通常按同消息/字段上次缓存值加 `unit` 并按字段位宽回绕，首次为 0。IEC104 的 `abs:2`/`abs:4` 必须声明 `unit: 2`，由连接执行器分别绑定实际 N(S)/N(R)，按 15 位回绕；UA 序号由连接共享计数器绑定。 |
 | `tagged_length` | 仅 MMS 的 `ber:presentation` 变长目标、当前 `$message` 源，由 codec 修复 BER 祖先长度 |
 | `conditional_presence` | 仅静态描述及引用检查，runtime 拒绝 |
 

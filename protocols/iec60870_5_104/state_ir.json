@@ -1,5 +1,5 @@
 {
-  "bundle_digest": "b3fec6bf823bed91a8dc13c789473c16a898fe67ae3c97dbc8434f6ae431a97a",
+  "bundle_digest": "78f82d21a6ae3db8a774db7be538e8f8f66ccf0a43bc25aba8fb05d62c604f0c",
   "format": "stateafl.state-ir",
   "format_version": 1,
   "initial": "stopped",
@@ -127,6 +127,22 @@
       "message": "interrogation_termination",
       "response": "",
       "to": "active"
+    },
+    {
+      "actions": [],
+      "from": "interrogating",
+      "guard": "acknowledge received I frames",
+      "message": "s_ack",
+      "response": "",
+      "to": "interrogating"
+    },
+    {
+      "actions": [],
+      "from": "interrogation_data",
+      "guard": "acknowledge received I frames",
+      "message": "s_ack",
+      "response": "",
+      "to": "interrogation_data"
     },
     {
       "actions": [],

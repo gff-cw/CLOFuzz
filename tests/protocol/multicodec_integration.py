@@ -185,11 +185,12 @@ def run_campaign(args, work, codec, target, library, env, model):
     seed = b''.join(len(raw).to_bytes(4, 'little') + raw for raw in sequence)
     (corpus / 'session.replay').write_bytes(seed)
     port = free_port(); trace_path = folder / 'wire.jsonl'; log_path = folder / 'fuzz.log'
-    spec = ROOT / 'protocols' / PROFILES[codec][0]
+    spec = args.spec_root.resolve() / PROFILES[codec][0]
     command = ['setarch', os.uname().machine, '-R', str(ROOT / 'afl-fuzz'), '-d',
                '-i', str(corpus), '-o', str(folder / 'out'), '-N', f'tcp://127.0.0.1/{port}',
-               '-D', str(args.startup_usecs), '-W', '5', '-w', '1000', '-r', '5',
-               '-K', '-m', 'none', '-t', '1000',
+               '-D', str(args.startup_usecs), '-W', str(args.poll_wait_ms),
+               '-w', str(args.socket_timeout_us), '-r', str(args.state_poll_wait_ms),
+               '-K', '-m', 'none', '-t', str(args.exec_timeout_ms),
                '--protocol-spec', str(spec / 'protocol_ir.json'), '--state-spec', str(spec / 'state_ir.json'),
                '--mutation-mode', 'valid', '--mutation-layers', args.layers,
                '--protocol-schedule', args.schedule,
@@ -270,9 +271,15 @@ def run_campaign(args, work, codec, target, library, env, model):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--spec-root', type=Path, default=ROOT / 'protocols',
+                        help='parent of prepared native-validated protocol packages')
     parser.add_argument('--seconds', type=float, default=8)
     parser.add_argument('--ready-timeout', type=float, default=120)
     parser.add_argument('--startup-usecs', type=int, default=20000)
+    parser.add_argument('--poll-wait-ms', type=int, default=50)
+    parser.add_argument('--socket-timeout-us', type=int, default=50000)
+    parser.add_argument('--state-poll-wait-ms', type=int, default=50)
+    parser.add_argument('--exec-timeout-ms', type=int, default=5000)
     parser.add_argument('--codecs', default=','.join(PROFILES))
     parser.add_argument('--layers', default='head,content,sequence')
     parser.add_argument('--schedule', choices=('uniform', 'adaptive'), default='uniform')
@@ -289,8 +296,8 @@ def main():
             del env[key]
     models, states = {}, {}
     for codec, (pid, _) in PROFILES.items():
-        models[codec] = json.loads((ROOT / 'protocols' / pid / 'protocol_ir.json').read_text())
-        states[codec] = json.loads((ROOT / 'protocols' / pid / 'state_ir.json').read_text())
+        models[codec] = json.loads((args.spec_root.resolve() / pid / 'protocol_ir.json').read_text())
+        states[codec] = json.loads((args.spec_root.resolve() / pid / 'state_ir.json').read_text())
     target, library = build(work, env, models, states)
     metadata = dict(fixture='captured-record local test double; not an industrial server',
                     afl_fuzz_sha256=hashlib.sha256((ROOT / 'afl-fuzz').read_bytes()).hexdigest(),

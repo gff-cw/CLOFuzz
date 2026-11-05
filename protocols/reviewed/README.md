@@ -1,5 +1,7 @@
 # 六协议修订源描述
 
+> 2026-11-04 后续状态：六套修订源已实际经过 native 生成及 C 加载，执行器也已扩展。最新范围、测试结果和未通过项见[执行器扩展与本地验证](../../docs/executor-extension-20261104.zh-CN.md)。下文保留最初静态交付时的记录。
+
 本目录交付六套独立、可编辑的 `protocol_spec.yaml` / `state_transition.yaml` 输入对。它们补充了本轮静态审查发现的字段域、响应模型、状态边和能力说明问题。每套另有逐消息 `constraints.json` 及具体修复说明；完整分析见[六协议描述完整性复核](../../docs/protocol-description-completeness-20261104.zh-CN.md)。
 
 这里的交付范围是现有 codec 服务子集的修订源文件。**完整报文示例、完整动态语法、完整会话执行、整个协议标准覆盖是四件不同的事。** BACnet 动态响应定位、完整 IEC104 会话、ENIP 外部 Class-3 建连、UA 安全/Session，以及通用引擎未实现的语法，仍在各包剩余清单中。不能把这些文件解释成六部标准或六套 generic-wire 模型已经全部完成。

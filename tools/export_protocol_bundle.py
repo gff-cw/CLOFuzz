@@ -14,8 +14,15 @@ from protocol_corpus_contract import check_model_corpus
 from protocol_template_contract import checked_profile_copy
 from generic_template_catalog import check_catalog
 from check_reviewed_protocol_descriptions import check_catalog as check_reviewed_catalog
+from build_generic_wire_profiles import render as render_generic_profile
 
 ROOT=Path(__file__).resolve().parents[1]
+
+
+def check_generic_profile_current(directory, name):
+    """Refuse an archive whose generic subset drifts from its source IR."""
+    if (Path(directory)/'generic_wire.json').read_bytes() != render_generic_profile(name):
+        raise SpecError(f'{name}: stale generic_wire.json; regenerate before export')
 
 
 def build_bundle(destination):
@@ -26,6 +33,7 @@ def build_bundle(destination):
     reviewed_sources = check_reviewed_catalog(ROOT)
     for name in PROFILES:
         directory=ROOT/'protocols'/name
+        check_generic_profile_current(directory, name)
         protocol=load(directory/'protocol_spec.yaml')
         state=load(directory/'state_transition.yaml')
         protocol,state=checked_profile_copy(protocol,state)
@@ -52,7 +60,12 @@ def build_bundle(destination):
                  'protocol_codec_modbus.c','protocol_codec_iec104.c','protocol_codec_mms.c',
                  'protocol_codec_enip.c','protocol_codec_opcua.c',
                  'generic_wire.c','generic_wire.h','generic_runtime.c','generic_runtime.h',
+                 'protocol_runtime.h','config.h','types.h',
+                 'protocol_session_constraints.c','protocol_session_constraints.h',
+                 'protocol_iec104_session.c','protocol_iec104_session.h',
                  'native_json.c','native_json.h',
+                 'tests/generic-wire/full_modbus.json','tests/generic-wire/test_full_modbus.c',
+                 'tests/protocol/test_session_constraints.c','tests/protocol/test_iec104_session.c',
                  'tools/build_generic_wire_profiles.py','tools/check_generic_wire_profiles.py',
                  'docs/generic-wire-language.md','docs/generic-wire-profile-scope.md',
                  'docs/current-integration-gaps.md','docs/generic-wire-validation-20261027.md',
@@ -63,6 +76,7 @@ def build_bundle(destination):
                  'docs/template-unification-review-20261104.zh-CN.md',
                  'docs/template-system-repair-20261104.zh-CN.md',
                  'docs/protocol-description-completeness-20261104.zh-CN.md',
+                 'docs/executor-extension-20261104.zh-CN.md',
                  'tests/protocol/test_model_completeness.py','tools/proto_spec_compiler.py',
                  'tools/init_protocol_spec.py','tools/protocol_seed_planner.py',
                  'tools/protocol_template_contract.py','tools/protocol_corpus_contract.py',
@@ -78,11 +92,14 @@ and its online schema, legacy capability fragments and a minimal Modbus source
 package. tools/init_protocol_spec.py --source-dir accepts an existing codec
 configuration source directory and records its structural/value provenance.
 The minimal source package contains a controlled target source and compile-only
-Makefile; generating native validation outputs still requires the full StateAFL
-workspace and its compiler dependencies. No target execution is implied.
+Makefile. Offline non-BACnet native validation builds the bundled codecs with
+a C11 compiler; running that target through StateAFL requires the complete
+workspace and its build dependencies. No target execution is implied.
 protocols/reviewed contains six revised source pairs and per-message constraint
-inventories. They have static source/schema checks only; use --source-dir to
-prepare native-validated packages before a campaign. The reviewed catalog does
+inventories. Its catalog checker performs static source/schema checks; use
+--source-dir to prepare native-validated packages before a campaign. The catalog
+does not convert separately recorded workspace runtime results into archive
+acceptance. The reviewed catalog does
 not claim whole-standard coverage or complete generic-wire migration.
 The generic_wire.json files are a separate description-driven migration with
 14/71 fixture message grammars. Only the one-register Modbus FC03 pair is
@@ -92,7 +109,12 @@ See protocols/README.md for the twelve YAML entry files and actual runtime suppo
 
 From the extracted directory: install tools/requirements-protocol.txt, then run
 `python3 tests/protocol/test_model_completeness.py` for independent deep structure checks.
-The StateAFL source/build and BACnet server are not bundled; use the project workspace for live mutation.
+The complete StateAFL host/build and BACnet server are not bundled; use the
+project workspace for live mutation. The archive includes standalone generic
+wire execution and bounded Modbus/OPC UA/IEC104 session-check sources, their
+headers and file-only regression tests. Their inclusion does not assert that
+the exporter executed them. See docs/executor-extension-20261104.zh-CN.md for
+the supported scope and separately recorded workspace validation.
 All six declared profiles have scoped C codecs. Non-BACnet compilation checks
 build the bundled codecs with a C11 compiler (CC or cc) in a private temporary
 directory. This does not run Python inside StateAFL's mutation loop.

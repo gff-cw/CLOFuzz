@@ -70,7 +70,7 @@ static void mutation_tests(const char *p,const char *s){
   CHECK(out[4+7]==8 && proto_records_validate(out,outn,&count,err,sizeof(err))==0 && count==2);
   n=append(input,0,rp,sizeof(rp));n=append(input,n,wi,sizeof(wi));draws(0,1,0,0);CHECK(proto_mutate(e,input,n,candidate,16,PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))==0 && outn==12);
   n=append(input,0,wi,sizeof(wi));draws(0,2,0,0);CHECK(proto_mutate(e,input,n,candidate,16,PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))==0 && outn==24);
-  draws(0,0,1,0);CHECK(proto_mutate(e,input,n,candidate,16,PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))==0 && outn==33 && out[4+9]==12);
+  draws(0,0,2,0);CHECK(proto_mutate(e,input,n,candidate,16,PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))==0 && outn==33 && out[4+9]==12);
   n=0;for(unsigned i=0;i<4;i++)n=append(input,n,wi,sizeof(wi));draws(0,2,0,0);CHECK(proto_mutate(e,input,n,candidate,16,PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))<0);
   n=0;for(unsigned i=0;i<32;i++)n=append(input,n,wi,sizeof(wi));draws(0,0,0,0);CHECK(proto_mutate(e,input,n,candidate,16,PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))<0 && strstr(err,"max_messages"));
   n=0;for(unsigned i=0;i<5;i++)n=append(input,n,wi,sizeof(wi));draws(0,0,0,0);CHECK(proto_mutate(e,input,n,candidate,16,PROTO_VALID,PROTO_HEAD,scripted,&out,&outn,err,sizeof(err))<0);
@@ -124,11 +124,14 @@ static void dependency_tests(const char *p,const char *s,const char *loc,uint64_
 static void limit_tests(const char *p,const char *s){
   proto_engine *e=engine(p,s);uint8_t records[64];size_t n=append(records,0,rp,sizeof(rp)),outn;const uint8_t *out;char err[256];
   draws(0,1,0,0);CHECK(proto_mutate(e,records,n,rp,sizeof(rp),PROTO_VALID,PROTO_HEAD,scripted,&out,&outn,err,sizeof(err))==0 && outn==21);
-  n=append(records,0,wi,sizeof(wi));draws(0,0,1,0);CHECK(proto_mutate(e,records,n,rp,sizeof(rp),PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))<0 && strstr(err,"max_bytes"));proto_free(e);
+  n=append(records,0,wi,sizeof(wi));draws(0,0,2,0);CHECK(proto_mutate(e,records,n,rp,sizeof(rp),PROTO_VALID,PROTO_SEQUENCE,scripted,&out,&outn,err,sizeof(err))<0 && strstr(err,"max_bytes"));proto_free(e);
 }
 static void sequence_number_tests(const char *p,const char *s){
   proto_engine *e=engine(p,s);char err[256];uint8_t b[sizeof(rp)];memcpy(b,rp,sizeof(rp));
   CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))==0 && b[8]==0);
+  uint8_t ack[]={0x81,0x0a,0,20,1,0,0x30,0,12,0x0c,2,0,0,123,0x19,77,0x3e,0x21,1,0x3f};
+  CHECK(proto_prepare_send(e,b,sizeof(b),err,sizeof(err))<0);
+  proto_after_response(e,ack,sizeof(ack));
   CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))==0 && b[8]==1);
   proto_session_begin(e);CHECK(proto_before_send(e,b,sizeof(b),err,sizeof(err))==0 && b[8]==0);proto_free(e);
 }

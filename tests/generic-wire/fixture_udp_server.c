@@ -23,7 +23,7 @@ int main(int argc,char **argv){
   struct sockaddr_in addr={.sin_family=AF_INET,.sin_addr.s_addr=htonl(INADDR_LOOPBACK),
                            .sin_port=htons((uint16_t)port)};
   if(bind(fd,(void*)&addr,sizeof(addr))){close(fd);return 4;}
-  struct timeval timeout={.tv_sec=0,.tv_usec=200000};
+  struct timeval timeout={.tv_sec=2,.tv_usec=0};
   setsockopt(fd,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout));
   unsigned char data[2048];unsigned char *state=malloc(256);if(!state){close(fd);return 5;}
   for(unsigned i=0;i<256;i++)state[i]=(unsigned char)(i*13+7);

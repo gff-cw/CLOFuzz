@@ -13,7 +13,10 @@ enum length_kind { L_CONST, L_REST, L_REF };
 typedef struct {
   char id[64], target_id[64]; enum kind kind; enum role role; enum length_kind length_kind;
   unsigned width, little; size_t length, ref, target;
-  int64_t add, length_add; uint64_t min, max, expected, values[GW_VALUES];
+  int64_t add, length_add; uint64_t unit, multiply, length_unit, length_multiply;
+  enum gw_rounding rounding, length_rounding;
+  size_t bit_ref; int has_bit_length, msb0;
+  uint64_t min, max, expected, values[GW_VALUES];
   size_t value_count; int has_expected, has_derived;
   uint8_t *fixed; size_t fixed_size;
 } field;
@@ -32,6 +35,33 @@ static int fail(char *err,size_t cap,const char *fmt,...){
 static int find(const gw_schema *s,const char *id){
   for(size_t i=0;i<s->count;i++)if(!strcmp(s->fields[i].id,id))return (int)i;
   return -1;
+}
+int gw_transform_u64(uint64_t source,uint64_t unit,uint64_t multiply,
+                     int64_t add,enum gw_rounding rounding,uint64_t *out,
+                     char *err,size_t cap){
+  if(!out||!unit||unit>GW_MAX_WIRE||!multiply||multiply>GW_MAX_WIRE||
+     rounding<GW_EXACT||rounding>GW_CEIL)return fail(err,cap,"invalid numeric transform");
+  __int128 product=(__int128)source*multiply;
+  __int128 value=product/unit,remainder=product%unit;
+  if(remainder&&rounding==GW_EXACT)return fail(err,cap,"inexact numeric transform");
+  if(remainder&&rounding==GW_CEIL)value++;
+  value+=add;
+  if(value<0||value>(__int128)UINT64_MAX)return fail(err,cap,"numeric transform overflow");
+  *out=(uint64_t)value;return 0;
+}
+static int transform_options(const nj_value *v,uint64_t *unit,uint64_t *multiply,
+                              int64_t *add,enum gw_rounding *rounding,char *err,size_t cap){
+  *unit=*multiply=1;*add=0;*rounding=GW_EXACT;
+  if(nj_get(v,"unit")&&(nj_u64(nj_get(v,"unit"),unit,err,cap)<0||!*unit||*unit>GW_MAX_WIRE))
+    return fail(err,cap,"invalid transform unit");
+  if(nj_get(v,"multiply")&&(nj_u64(nj_get(v,"multiply"),multiply,err,cap)<0||!*multiply||*multiply>GW_MAX_WIRE))
+    return fail(err,cap,"invalid transform multiplier");
+  if(nj_get(v,"add")&&nj_i64(nj_get(v,"add"),add,err,cap)<0)return -1;
+  const nj_value *r=nj_get(v,"round");
+  if(r){if(nj_string_equal(r,"floor"))*rounding=GW_FLOOR;
+    else if(nj_string_equal(r,"ceil"))*rounding=GW_CEIL;
+    else if(!nj_string_equal(r,"exact"))return fail(err,cap,"invalid rounding rule");}
+  return 0;
 }
 static uint64_t width_max(unsigned w){return w==8?UINT64_MAX:(UINT64_C(1)<<(w*8))-1;}
 static int digit(char c){
@@ -58,9 +88,9 @@ void gw_free(gw_schema *s){
 static int compile_field(gw_schema *s,const nj_value *v,char *err,size_t cap){
   static const char *req[]={"id","kind","role"};
   static const char *opt[]={"width","byte_order","length","min","max",
-    "expected","expected_hex","values","derived"};
+    "expected","expected_hex","values","derived","bit_length"};
   field *f=&s->fields[s->count];uint64_t x;char name[64];
-  if(nj_keys(v,req,3,opt,9,err,cap)<0||
+  if(nj_keys(v,req,3,opt,10,err,cap)<0||
      nj_string_copy(nj_get(v,"id"),f->id,sizeof(f->id),err,cap)<0)return -1;
   size_t n=strlen(f->id);if(!n||find(s,f->id)>=0)return fail(err,cap,"empty or duplicate field id");
   for(size_t i=0;i<n;i++){unsigned char c=(unsigned char)f->id[i];
@@ -76,7 +106,7 @@ static int compile_field(gw_schema *s,const nj_value *v,char *err,size_t cap){
   else if(nj_string_equal(nj_get(v,"kind"),"bytes"))f->kind=K_BYTES;
   else return fail(err,cap,"invalid kind");
   if(f->kind==K_UINT){
-    if(nj_get(v,"length")||nj_get(v,"expected_hex"))
+    if(nj_get(v,"length")||nj_get(v,"expected_hex")||nj_get(v,"bit_length"))
       return fail(err,cap,"uint with bytes attributes");
     if(nj_u64(nj_get(v,"width"),&x,err,cap)<0||x<1||x>8)
       return fail(err,cap,"uint width must be 1..8");
@@ -94,14 +124,24 @@ static int compile_field(gw_schema *s,const nj_value *v,char *err,size_t cap){
       f->length_kind=L_CONST;f->length=(size_t)x;
     }else if(nj_string_equal(length,"rest"))f->length_kind=L_REST;
     else if(length->type==NJ_OBJECT){
-      static const char *r[]={"ref"},*o[]={"add"};
-      if(nj_keys(length,r,1,o,1,err,cap)<0||
+      static const char *r[]={"ref"},*o[]={"add","unit","multiply","round"};
+      if(nj_keys(length,r,1,o,4,err,cap)<0||
          nj_string_copy(nj_get(length,"ref"),name,sizeof(name),err,cap)<0)return -1;
       int ix=find(s,name);if(ix<0||s->fields[ix].kind!=K_UINT)
         return fail(err,cap,"length ref must name earlier uint");
       f->length_kind=L_REF;f->ref=(size_t)ix;
-      if(nj_get(length,"add")&&nj_i64(nj_get(length,"add"),&f->length_add,err,cap)<0)return -1;
+      if(transform_options(length,&f->length_unit,&f->length_multiply,&f->length_add,&f->length_rounding,err,cap)<0)return -1;
     }else return fail(err,cap,"invalid bytes length");
+    const nj_value *bits=nj_get(v,"bit_length");
+    if(bits){static const char *r[]={"ref","order"};
+      if(nj_keys(bits,r,2,NULL,0,err,cap)<0||
+         nj_string_copy(nj_get(bits,"ref"),name,sizeof(name),err,cap)<0)return -1;
+      int ix=find(s,name);if(ix<0||s->fields[ix].kind!=K_UINT)
+        return fail(err,cap,"bit_length ref must name earlier uint");
+      f->has_bit_length=1;f->bit_ref=(size_t)ix;
+      if(nj_string_equal(nj_get(bits,"order"),"msb0"))f->msb0=1;
+      else if(!nj_string_equal(nj_get(bits,"order"),"lsb0"))return fail(err,cap,"invalid bit order");
+    }
     f->max=GW_MAX_WIRE;
   }
   if(nj_get(v,"min")&&nj_u64(nj_get(v,"min"),&f->min,err,cap)<0)return -1;
@@ -128,13 +168,13 @@ static int compile_field(gw_schema *s,const nj_value *v,char *err,size_t cap){
     if(f->role==R_FIXED&&!expected)return fail(err,cap,"fixed uint needs expected");
     const nj_value *derived=nj_get(v,"derived");
     if(f->role==R_DERIVED){
-      static const char *r[]={"op","target"},*o[]={"add"};
-      if(nj_keys(derived,r,2,o,1,err,cap)<0||
+      static const char *r[]={"op","target"},*o[]={"add","unit","multiply","round"};
+      if(nj_keys(derived,r,2,o,4,err,cap)<0||
          !nj_string_equal(nj_get(derived,"op"),"size_of")||
          nj_string_copy(nj_get(derived,"target"),f->target_id,sizeof(f->target_id),err,cap)<0)
         return fail(err,cap,"size_of rule required");
       f->target=(size_t)-1;
-      if(nj_get(derived,"add")&&nj_i64(nj_get(derived,"add"),&f->add,err,cap)<0)return -1;
+      if(transform_options(derived,&f->unit,&f->multiply,&f->add,&f->rounding,err,cap)<0)return -1;
       f->has_derived=1;
     }else if(derived)return fail(err,cap,"unexpected derived rule");
     const nj_value *values=nj_get(v,"values");
@@ -186,15 +226,22 @@ static int derived_value(const gw_packet *p,size_t i,size_t message_length,
                          uint64_t *out,char *err,size_t cap){
   const field *f=&p->schema->fields[i];
   size_t base=f->target==(size_t)-1?message_length:p->cells[f->target].size;
-  __int128 value=(__int128)base+f->add;
-  if(value<0||value>(__int128)UINT64_MAX)return fail(err,cap,"derived overflow");
-  *out=(uint64_t)value;return 0;
+  return gw_transform_u64((uint64_t)base,f->unit,f->multiply,f->add,f->rounding,out,err,cap);
 }
 static int referenced_size(const field *f,uint64_t number,size_t *out,
                            char *err,size_t cap){
-  __int128 value=(__int128)number+f->length_add;
-  if(value<0||value>GW_MAX_WIRE)return fail(err,cap,"%s length ref outside budget",f->id);
+  uint64_t value;
+  if(gw_transform_u64(number,f->length_unit,f->length_multiply,f->length_add,f->length_rounding,&value,err,cap)<0||value>GW_MAX_WIRE)
+    return fail(err,cap,"%s length ref outside budget",f->id);
   *out=(size_t)value;return 0;
+}
+static int check_bit_length(const field *f,const cell *c,uint64_t bits,char *err,size_t cap){
+  if(bits>(uint64_t)GW_MAX_WIRE*8||c->size!=(size_t)(bits/8+(bits%8!=0)))
+    return fail(err,cap,"%s bit_length differs from bytes",f->id);
+  unsigned used=(unsigned)(bits%8);
+  if(used&&c->size){unsigned mask=f->msb0?((1u<<(8-used))-1u):(255u<<used)&255u;
+    if(c->bytes[c->size-1]&mask)return fail(err,cap,"%s has nonzero unused bits",f->id);}
+  return 0;
 }
 void gw_packet_free(gw_packet *p){
   if(!p)return;for(size_t i=0;i<GW_FIELDS;i++)free(p->cells[i].bytes);
@@ -235,6 +282,8 @@ int gw_parse(const gw_schema *s,const uint8_t *wire,size_t n,gw_packet **out,
     }
   }
   if(off!=n){fail(err,cap,"unconsumed wire tail");goto bad;}
+  for(size_t i=0;i<s->count;i++)if(s->fields[i].has_bit_length&&
+     check_bit_length(&s->fields[i],&p->cells[i],p->cells[s->fields[i].bit_ref].number,err,cap)<0)goto bad;
   for(size_t i=0;i<s->count;i++){
     const field *f=&s->fields[i];if(!f->has_derived)continue;uint64_t expected;
     if(derived_value(p,i,n,&expected,err,cap)<0)goto bad;
@@ -298,6 +347,11 @@ int gw_get_u64(const gw_packet *p,const char *name,uint64_t *value){
     p->schema->fields[i].kind!=K_UINT)return -1;
   *value=p->cells[i].number;return 0;
 }
+int gw_get_bytes(const gw_packet *p,const char *name,const uint8_t **bytes,size_t *length){
+  int i;if(!p||!name||!bytes||!length||(i=find(p->schema,name))<0||
+    p->schema->fields[i].kind!=K_BYTES)return -1;
+  *bytes=p->cells[i].bytes;*length=p->cells[i].size;return 0;
+}
 int gw_set_u64(gw_packet *p,const char *name,uint64_t value,char *err,size_t cap){
   int i;if(!p||!name||(i=find(p->schema,name))<0)return fail(err,cap,"unknown field");
   const field *f=&p->schema->fields[i];
@@ -327,6 +381,38 @@ static gw_packet *clone_packet(const gw_packet *p){
   return q;
 }
 static uint32_t draw(gw_random rng,uint32_t limit){return limit?rng(limit)%limit:0;}
+static int repair_mutated_lengths(gw_packet *p,char *err,size_t cap){
+  const gw_schema *s=p->schema;
+  for(size_t i=0;i<s->count;i++){
+    const field *f=&s->fields[i];cell *c=&p->cells[i];size_t size;
+    if(f->kind!=K_BYTES||f->length_kind!=L_REF||s->fields[f->ref].has_derived)continue;
+    if(referenced_size(f,p->cells[f->ref].number,&size,err,cap)<0)return -1;
+    if(size<f->min||size>f->max)return fail(err,cap,"dependent bytes outside bounds");
+    if(size!=c->size){
+      if(f->role==R_FIXED)return fail(err,cap,"fixed dependent bytes cannot resize");
+      uint8_t *replacement=calloc(size?size:1,1);
+      if(!replacement)return fail(err,cap,"out of memory");
+      size_t keep=size<c->size?size:c->size;if(keep)memcpy(replacement,c->bytes,keep);
+      free(c->bytes);c->bytes=replacement;c->size=size;
+    }
+  }
+  size_t n=0;
+  for(size_t i=0;i<s->count;i++){
+    size_t size=s->fields[i].kind==K_UINT?s->fields[i].width:p->cells[i].size;
+    if(size>GW_MAX_WIRE-n)return fail(err,cap,"dependent wire exceeds budget");n+=size;
+  }
+  for(size_t i=0;i<s->count;i++)if(s->fields[i].has_derived&&
+    derived_value(p,i,n,&p->cells[i].number,err,cap)<0)return -1;
+  for(size_t i=0;i<s->count;i++)if(s->fields[i].has_bit_length){
+    const field *f=&s->fields[i];cell *c=&p->cells[i];uint64_t bits=p->cells[f->bit_ref].number;
+    if(bits>(uint64_t)GW_MAX_WIRE*8||c->size!=(size_t)(bits/8+(bits%8!=0)))
+      return fail(err,cap,"dependent bit length outside bytes");
+    unsigned used=(unsigned)(bits%8);
+    if(used&&c->size){unsigned mask=f->msb0?((1u<<(8-used))-1u):(255u<<used)&255u;
+      c->bytes[c->size-1]&=(uint8_t)~mask;}
+  }
+  return 0;
+}
 int gw_mutate(gw_packet *p,int layer,const uint8_t *candidate,size_t cn,
               gw_random rng,char *err,size_t cap){
   gw_packet *q=NULL,*verified=NULL;uint8_t *wire=NULL;size_t n=0;
@@ -377,6 +463,7 @@ int gw_mutate(gw_packet *p,int layer,const uint8_t *candidate,size_t cn,
     if(z)memcpy(replacement,candidate+c->original_offset,z);
     free(c->bytes);c->bytes=replacement;c->size=z;
   }
+  if(repair_mutated_lengths(q,err,cap)<0)goto bad;
   wire=malloc(GW_MAX_WIRE);if(!wire){fail(err,cap,"out of memory");goto bad;}
   if(gw_encode(q,wire,GW_MAX_WIRE,&n,err,cap)<0||
      gw_parse(q->schema,wire,n,&verified,err,cap)<0)goto bad;

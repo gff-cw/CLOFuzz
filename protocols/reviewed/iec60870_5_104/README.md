@@ -1,6 +1,6 @@
 # IEC 60870-5-104：复核后的完整配置输入
 
-本目录独立复制并修订已有IEC104 codec的源描述。包含11条完整布局消息、6个语义状态、23条状态边，覆盖客户端发起的STARTDT/STOPDT/TESTFR、S确认和单对象C_IC_NA_1的请求、正/负激活确认与结束。它不是整个IEC104标准的完整描述，也没有把数据ASDU、窗口、计时器或异步连接会话声明成已经实现。
+本目录独立复制并修订已有IEC104 codec的源描述。包含11条完整布局消息、6个语义状态、23条状态边，覆盖客户端发起的STARTDT/STOPDT/TESTFR、S确认和单对象C_IC_NA_1的请求、正/负激活确认与结束。本轮已实现有界APCI连接序号、窗口和调用边界计时检查；监测数据ASDU、自动调度和服务器主动控制仍不属于该profile。它不是整个IEC104标准的完整描述。
 
 ## 问题与修复
 
@@ -14,27 +14,27 @@
 
 COT低字节的低6位分别为6/7/10，P/N区分正/负确认；test位是独立标志。当前codec用低7位区分对应消息，允许test位变化，描述保留0..255范围并明确这一执行规则。`values`仅为候选建议，不能用它声称枚举接受校验；旧compiler的fixed标量也只允许单值，不能用fixed+多个values伪装掩码。
 
-`constraints.json`逐消息登记实际约束与剩余缺口。状态guard/action仍是静态说明。新增图边不会解除当前runtime的single-pending发送限制，也不会凭空获得现场N(R)、计时器或数据ASDU解析能力。
+`constraints.json`逐消息登记实际约束与剩余缺口。状态guard/action仍是静态说明。实际N(S)/N(R)、窗口、计时检查来自`protocol_iec104_session.c`及其runtime集成，而不是图中文字。S确认和TESTFR控制可以在应用pending期间发送；应用事务仍为单pending。数据ASDU解析和自动调度未实现。
 
 ## 使用及验证范围
 
-本目录没有IR、validation或seeds。生成正式包的后续使用步骤如下，本轮未执行：
+本目录没有IR、validation或seeds。生成正式包的使用步骤如下；本轮已在独立输出目录进行native准备：
 
 ```sh
 python3 tools/init_protocol_spec.py --source-dir protocols/reviewed/iec60870_5_104 \
   --require-runtime --output-dir /tmp/reviewed-iec104-package
 ```
 
-这会使用当前codec实际校验并规划新包；不要复用原发布包的validation/manifest为新源背书。原发布包、生成器与历史证据保持不变；本目录不是旧生成器的自动输出。
+这会使用当前codec实际校验并规划新包；不要复用原发布包的validation/manifest为新源背书。本轮同步修订了原发布IEC描述及生成器的固定字段、会话绑定和S确认边；历史执行证据保持原状。本目录仍是独立可编辑输入，不是旧生成器的自动输出。
 
-## 剩余执行限制
+## 执行范围与剩余限制
 
-- 线上N(S)/N(R)是各方向独立的15位序号，线上左移1；现有单条request sequence_number不等于完整连接序号机。receive_seq缺少实际对端进度绑定。
-- k/w窗口、t0/t1/t2/t3计时器、重连及复位没有作为执行程序建模。
-- pending期间即便图中存在TESTFR或S确认边，当前runtime仍可能拒绝发送；图完整不等于并发控制通道已经实现。
-- 真正interrogation可能在确认和结束间发送监测数据ASDU；当前codec不解析它们。服务器主动控制流程和独立收到S确认的完整会话也未覆盖。
-- 原generic描述仍是4消息offline-only迁移子集，序号固定，未与本目录的源字段和状态等价；不得仅改online标志开启。
-- 本轮只做静态schema、字节、引用与状态检查，未执行compiler/native validator、测试或目标，未认证现场会话和方法有效性。
+- 发送侧N(S)/N(R)已由连接实际进度绑定，接收侧检查独立15位序号、回卷和累计确认窗口。单值VSQ/IOA固定；会话重绑定序号不作为有效字段变异候选。
+- k/w和t0/t1/t2/t3在发送/接收调用边界检查，默认k=12、w=8，本地k上限128；应用pending与START/STOP/TEST控制pending分别跟踪。会话开始会重置连接状态，prepare/cancel不提前提交序号。
+- 没有自动发送S/TESTFR、deadline轮询或自动重连调度器；长期空闲连接不能仅凭这些检查获得自主保活。应用事务仍为单pending。
+- 真正interrogation可能在确认和结束间发送监测数据ASDU；当前codec不解析它们，也不实现服务器主动U控制流程。独立收到的S确认已接入发送窗口更新。
+- 原generic描述仍是4消息offline-only迁移子集，未与本目录源字段和状态等价；不得仅改online标志开启。
+- 本轮已另行执行native准备及ASan/UBSan会话与runtime回归；受控本地运行、字段采样结果和限制见[执行器扩展报告](../../../docs/executor-extension-20261104.zh-CN.md)。这不认证完整工业设备会话或固定预算的方法有效性。本目录仍不保存生成证据。
 
 ## 来源
 

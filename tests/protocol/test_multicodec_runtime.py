@@ -81,7 +81,7 @@ class Runtime(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory(prefix='stateafl-multicodec-')
         cls.directory = Path(cls.tmp.name)
         binary = cls.directory / 'runtime.so'
-        sources = ['protocol_runtime.c', 'generic_runtime.c', 'generic_wire.c', 'native_json.c'] + [f'protocol_codec_{codec}.c'
+        sources = ['protocol_runtime.c', 'protocol_session_constraints.c', 'protocol_iec104_session.c', 'generic_runtime.c', 'generic_wire.c', 'native_json.c'] + [f'protocol_codec_{codec}.c'
                   for codec in ('modbus', 'iec104', 'mms', 'enip', 'opcua')]
         subprocess.run([os.environ.get('CC', 'clang'), '-shared', '-fPIC', '-std=gnu11',
                         '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter', '-I.',
@@ -94,6 +94,11 @@ class Runtime(unittest.TestCase):
         cls.lib.proto_session_begin.argtypes = [ptr]
         cls.lib.proto_before_send.argtypes = [ptr, ptr, size, ptr, size]
         cls.lib.proto_before_send.restype = integer
+        cls.lib.proto_prepare_send.argtypes = [ptr, ptr, size, ptr, size]
+        cls.lib.proto_prepare_send.restype = integer
+        cls.lib.proto_commit_send.argtypes = [ptr, ptr, size]
+        cls.lib.proto_commit_send.restype = integer
+        cls.lib.proto_cancel_send.argtypes = [ptr]
         cls.lib.proto_after_response.argtypes = [ptr, ptr, size]
         cls.lib.proto_set_prefix.argtypes = [ptr, ptr, size, ptr, size]
         cls.lib.proto_set_prefix.restype = integer
@@ -128,6 +133,34 @@ class Runtime(unittest.TestCase):
 
     def wire(self, codec, message):
         return bytes.fromhex(self.messages(codec)[message]['example'])
+
+    def mutation_fields(self, codec, model, wire, role):
+        """Keep scripted draws aligned with production field eligibility."""
+        overwritten = {dependency['target'] for dependency in model['dependencies']
+                       if dependency['op'] in ('copy_from_message', 'bind_from_response', 'sequence_number')}
+        choices = []
+        for field in model['fields']:
+            if field['role'] != role or field['mutability'] not in ('fuzzable', 'conditional'):
+                continue
+            if field['width'] and field['min'] == field['max']:
+                continue
+            if field['id'] in overwritten:
+                continue
+            if codec == 'iec104' and field['locator'] in ('abs:2', 'abs:4'):
+                continue
+            off, length = ctypes.c_size_t(), ctypes.c_size_t()
+            error = ctypes.create_string_buffer(1024)
+            if codec == 'bacnet':
+                status = self.lib.proto_bacnet_field(ctypes.create_string_buffer(wire), len(wire),
+                    field['locator'].encode(), ctypes.byref(off), ctypes.byref(length), error, len(error))
+            else:
+                status = getattr(self.lib, f'pc_{codec}_field')(
+                    ctypes.create_string_buffer(wire), len(wire), field['locator'].encode(),
+                    TYPES[field['type']], field['width'], ctypes.byref(off), ctypes.byref(length), error, len(error))
+            self.assertGreaterEqual(status, 0, error.value.decode())
+            if status == 1:
+                choices.append(field)
+        return choices
 
     @contextmanager
     def engine(self, codec, protocol=None, state=None):
@@ -312,8 +345,7 @@ class Runtime(unittest.TestCase):
             for message_name, field_name, prefix in cases:
                 self.prefix(engine, [self.wire('mms', name) for name in prefix])
                 model = next(message for message in protocol['messages'] if message['id'] == message_name)
-                choices = [field for field in model['fields']
-                           if field['role'] == 'head' and field['mutability'] in ('fuzzable', 'conditional')]
+                choices = self.mutation_fields('mms', model, self.wire('mms', message_name), 'head')
                 field = next(field for field in choices if field['id'] == field_name)
                 original = self.wire('mms', message_name)
                 for enum_index, value in enumerate((256, 65535)):
@@ -401,9 +433,7 @@ class Runtime(unittest.TestCase):
             with self.subTest(codec=codec), self.engine(codec) as engine:
                 self.prefix(engine, [self.wire(codec, name) for name in prefix])
                 wire = self.wire(codec, message)
-                fields = self.messages(codec)[message]['fields']
-                choices = [f for f in fields if f['role'] == 'content' and f['mutability'] in ('fuzzable', 'conditional')
-                           and f['id'] != 'array_index']
+                choices = self.mutation_fields(codec, self.messages(codec)[message], wire, 'content')
                 field = next(f for f in choices if f['id'] == field_name)
                 offset, width = self.field(codec, wire, field['locator'], field['type'], field['width'])
                 projected = bytes(byte - 32 for byte in value) if field['type'] == 'string' else value
@@ -433,9 +463,7 @@ class Runtime(unittest.TestCase):
         for codec, first, selected, field_name, value in cases:
             with self.subTest(codec=codec), self.engine(codec) as engine:
                 wires = [self.wire(codec, first), self.wire(codec, selected)]
-                fields = [field for field in self.messages(codec)[selected]['fields']
-                          if field['role'] == 'content' and field['mutability'] in ('fuzzable', 'conditional')
-                          and field['id'] != 'array_index']
+                fields = self.mutation_fields(codec, self.messages(codec)[selected], wires[1], 'content')
                 field = next(field for field in fields if field['id'] == field_name)
                 off, width = self.field(codec, wires[1], field['locator'], field['type'], field['width'])
                 candidate = bytearray(b''.join(wires))
@@ -480,6 +508,8 @@ class Runtime(unittest.TestCase):
         response[4:8] = struct.pack('<I', handle)
         response[12:20] = struct.pack('<Q', context)
         rr = self.wire('enip', 'send_rr')
+        rr_response = bytearray(self.wire('enip', 'send_rr_response'))
+        rr_response[4:8] = struct.pack('<I', handle)
         with self.engine('enip') as engine, self.engine('enip') as other:
             self.after(engine, bytes(response))
             self.before(engine, rr, -1)
@@ -494,16 +524,20 @@ class Runtime(unittest.TestCase):
             self.before(other, rr, -1)
             replay = bytearray(response);replay[4:8] = struct.pack('<I', 0x87654321)
             self.after(engine, bytes(replay))
+            self.before(engine, rr, -1)  # Replayed register must not complete SendRRData.
+            self.after(engine, bytes(rr_response))
             self.assertEqual(self.before(engine, rr)[4:8], struct.pack('<I', handle))
             wires = [self.wire('enip', name) for name in PROFILES['enip'][1]]
             self.mutate(engine, wires, b''.join(wires), 1, deterministic(1))
+            self.before(engine, rr, -1)
+            self.after(engine, bytes(rr_response))
             self.assertEqual(self.before(engine, rr)[4:8], struct.pack('<I', handle))
             self.lib.proto_session_begin(engine)
             self.before(engine, rr, -1)
             self.before(engine, bytes(register))
             self.after(engine, bytes(spoof) + bytes(response))
             self.assertEqual(self.before(engine, rr)[4:8], struct.pack('<I', handle))
-            self.assertEqual(self.stats(engine)['correlated_responses'], 2)
+            self.assertEqual(self.stats(engine)['correlated_responses'], 4)
 
     def test_opcua_response_ids_bind_channel_and_token_after_complete_frame(self):
         channel, token = 0x31415926, 0x27182818
@@ -577,9 +611,15 @@ class Runtime(unittest.TestCase):
             response = self.set_field('opcua', self.wire('opcua', 'message_response'),
                                       'uabin:sequence', 'uint32', struct.pack('<I', 0xffffffff))
             self.after(engine, response)
+            self.before(engine, self.wire('opcua', 'message'), -1)
+            response = self.set_field('opcua', response, 'uabin:sequence', 'uint32', struct.pack('<I', 0xfedcba99))
+            self.after(engine, response)
             simulated = [self.wire('opcua', name) for name in PROFILES['opcua'][1]]
             self.mutate(engine, simulated, b''.join(simulated), 1, deterministic(17))
             self.assertEqual(sequence(self.before(engine, self.wire('opcua', 'message'))), 2)
+            self.after(engine, response)  # A duplicate response cannot complete the new request.
+            self.before(engine, self.wire('opcua', 'close_channel'), -1)
+            response = self.set_field('opcua', response, 'uabin:sequence', 'uint32', struct.pack('<I', 0xfedcba9a))
             self.after(engine, response)
             self.assertEqual(sequence(self.before(engine, self.wire('opcua', 'close_channel'))), 3)
             self.lib.proto_session_begin(engine)
@@ -607,6 +647,32 @@ class Runtime(unittest.TestCase):
                 self.before(engine, self.wire(codec, dependent), -1)
                 self.after(engine, response)
                 self.before(engine, self.wire(codec, dependent))
+
+    def test_prepare_cancel_preserves_live_sequence_and_pending_state(self):
+        with self.engine('opcua') as engine:
+            self.before(engine, self.wire('opcua', 'hello'))
+            self.after(engine, self.wire('opcua', 'ack'))
+            self.before(engine, self.wire('opcua', 'open_channel'))
+            opened = self.wire('opcua', 'open_channel_response')
+            self.after(engine, opened)
+            error = ctypes.create_string_buffer(1024)
+            request = self.wire('opcua', 'message')
+            first = ctypes.create_string_buffer(request)
+            self.assertEqual(self.lib.proto_prepare_send(engine, first, len(request), error, len(error)), 0, error.value)
+            prepared = first.raw[:len(request)]
+            self.lib.proto_cancel_send(engine)
+            self.assertLess(self.lib.proto_commit_send(engine, error, len(error)), 0)
+            second = ctypes.create_string_buffer(request)
+            self.assertEqual(self.lib.proto_prepare_send(engine, second, len(request), error, len(error)), 0, error.value)
+            self.assertEqual(second.raw[:len(request)], prepared)
+            self.assertEqual(self.lib.proto_commit_send(engine, error, len(error)), 0, error.value)
+            self.before(engine, request, -1)
+            at, width = self.field('opcua', opened, 'uabin:sequence', 'uint32')
+            sequence = int.from_bytes(opened[at:at+width], 'little') + 1
+            reply = self.set_field('opcua', self.wire('opcua', 'message_response'),
+                                   'uabin:sequence', 'uint32', struct.pack('<I', sequence))
+            self.after(engine, reply)
+            self.assertEqual(self.stats(engine)['completed_responses'], 3)  # HEL, OPN, MSG.
 
 
 if __name__ == '__main__':

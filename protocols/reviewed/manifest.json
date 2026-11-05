@@ -2,7 +2,7 @@
   "format": "stateafl.reviewed-description-catalog",
   "version": 1,
   "source_commit": "ee8e35cfcf98e8931d907e4dec697a829664c713",
-  "proof_scope": "Direct-library static schema, source identity, field/dependency/state references and constraint coverage only; no project module, native validator, test or target execution.",
+  "proof_scope": "Static source schema, identity, field/dependency/state references and constraint coverage only. Separate native/runtime results are recorded in docs/executor-extension-20261104.zh-CN.md; the flags here describe this catalog proof, not the history of the project.",
   "native_validator_executed": false,
   "runtime_tests_executed": false,
   "whole_standard_complete": false,
@@ -10,10 +10,10 @@
     {
       "protocol_id": "bacnet_ip",
       "files_sha256": {
-        "protocol_spec.yaml": "8e93be7ecb9605d1d1fc999fbe163a0131d73c0937fcf1c42f966f95715889f6",
+        "protocol_spec.yaml": "5edb8e8dd9863b335d15b4b2686fd55db060515e416f99c4da2bc97ddc0ef9a6",
         "state_transition.yaml": "12d3eb57bfe1a6161e628c90218cdbaaa1ff041aa58107773f4db871a9fd0797",
-        "constraints.json": "df0aa83fa2c21f21c9dfec2c3b03ccf210a2edc028b10df97d9b01d53810014d",
-        "README.md": "42d5680cc6e59557c3a06fc396a0fb1e66a1ea6a35c263fb2246c968aa387f1c"
+        "constraints.json": "407c8ae3b55c7d50d720f347188d5198b7ed1d546e1327e896693a68ea63c06e",
+        "README.md": "785324fed32a3cce7ca29d1b4363bf09718c63649f781cae6f2b2d6e1871288b"
       },
       "published_source_sha256": {
         "protocol_spec.yaml": "aac3bf90920e30681e9e7987946b8ea6388fa51e7f44f7da07803529ed8f3422",
@@ -23,7 +23,7 @@
       "messages": 7,
       "requests": 2,
       "responses": 5,
-      "fields": 66,
+      "fields": 69,
       "states": 2,
       "transitions": 7,
       "generic_messages": 2,
@@ -34,8 +34,8 @@
       "files_sha256": {
         "protocol_spec.yaml": "3507ebb43bd4f50f276f2368fd9f82c53eb5d2a66e6fdabaf228a511347fabec",
         "state_transition.yaml": "993881b28af37ed00472fc64cc11ce93e94e1acb9a70b73ee3b1f9c589bd866d",
-        "constraints.json": "789024dd0baa50c9775686fc115aecd9700533b01fae0ac84536c6bb3bc24265",
-        "README.md": "b49e93e609c0979082526a3058cf04d0eec46b028737aa49e5affe37ff245940"
+        "constraints.json": "3967a3bbc147cabdeec0a39e77b29b8cb9fc20d0320d35ef1d25b1676c3c106c",
+        "README.md": "460d5ebe6fbf5be0fc3c0aa7228a489d8d550cb3fde006eb0cfa92c882cd7851"
       },
       "published_source_sha256": {
         "protocol_spec.yaml": "3e76eecd88f46f08f065f6ed5702ae5a25d689aa3dc638a97cdac0267f21378f",
@@ -54,15 +54,15 @@
     {
       "protocol_id": "iec60870_5_104",
       "files_sha256": {
-        "protocol_spec.yaml": "99df4799cc67929601eef6c3d103036fa7686d9ab0f1b356cf3a6bda14f4f023",
-        "state_transition.yaml": "927e15c71e33756137db9e678ffd501c91f511c655bfd699ffdec6a91c210c93",
-        "constraints.json": "a37f0ff8a41b858641b2bcd278227b5565befdb6142860081fa844dab01e21c2",
-        "README.md": "9da360338f0c75b8eae870cdbfae65c35b8decb58169e68d31ea80e3a1ce65b9"
+        "protocol_spec.yaml": "c7bcaef695a1d14743d73f265db056807534df873c1c150127c9a2ac5486849a",
+        "state_transition.yaml": "5660f2b84141f02c0764798ad87c123ba4c339d7c1143689b56f1cbe787c5175",
+        "constraints.json": "51ca3fbe3bf5c7cb658018fb9e019f4740dc005c7f495da5a185627ceca53ad0",
+        "README.md": "e7c493320da3f72df1612d21186715f3954235652e93cbebd524e9d7f99267d1"
       },
       "published_source_sha256": {
-        "protocol_spec.yaml": "26088ac74a6f3fd0791d789a8f2ceae3f8cf6108f526e917f0995fce008eb385",
-        "state_transition.yaml": "76ec20669f20d8b7c6e348afe78cb237e698a4985cd09746786703ebb610481d",
-        "generic_wire.json": "3e67bc8e1c9fcc12d48d2608721d0b9b983b08ef58e05d25460cbbed3badb2db"
+        "protocol_spec.yaml": "08b0014043a919690496241c1d77b173d5f4d9ae03c3d516e3a811d41ab36f7e",
+        "state_transition.yaml": "8aab7526246f714643d82be4b789eec3afe09f66a9e9cce82f2d0f8ad5cfd320",
+        "generic_wire.json": "80a4f150058b340358cdf6d5a9d0abcfdcd35d24c781ac97f3f1e0c64a0ce743"
       },
       "messages": 11,
       "requests": 5,
@@ -98,7 +98,7 @@
     {
       "protocol_id": "ethernet_ip_cip_tcp",
       "files_sha256": {
-        "protocol_spec.yaml": "5566877a46d7aea625608767a0dc36aa32be50ad75bfffdd68781e199e0557f3",
+        "protocol_spec.yaml": "34dcd70df88f804a1e9e37401f4c5af3a11e961e79f50c1bd7d7c755dcaccb69",
         "state_transition.yaml": "1426af46566077e1dd6ac496660c8ba4c0a08c4b90902e5903c1df10174d8434",
         "constraints.json": "9f2bef6750bd94f12113fc97b5e0042789016426b8fba5a0d81d9d8323ad9379",
         "README.md": "a8029c57a74dcc381b83a2ee27bc3cd7938ca2721dcb81ab4b88ce1d68392668"
@@ -120,10 +120,10 @@
     {
       "protocol_id": "opcua_tcp",
       "files_sha256": {
-        "protocol_spec.yaml": "02531db9eefaa377a67cc05f3c5d0728bc51096e49033e96782ce595037804f9",
+        "protocol_spec.yaml": "5688d5fbf5dcea2a87aa55e3cbd5a8a5999d5e8750b59a1ae773f7217395aabb",
         "state_transition.yaml": "fb17e564b60b7d64dbd722b372827aff8b065ff7d7be953ad3b1524be13a889a",
-        "constraints.json": "fba063f8d934b7b8c536f1f97f7cad6339f58d7692add2886aac40866277f641",
-        "README.md": "5a32fc42fff834120105d0fadfce1aab94f1a6a18677e8e1bea37a00790e38d4"
+        "constraints.json": "410eb96293a88cde0ce7934f284cc474ca087ad6ff61892fbb912342007aa5ba",
+        "README.md": "072709dcf802faeb233adf5fa713aa294b997531a2a3265d1332a257fe8d72d3"
       },
       "published_source_sha256": {
         "protocol_spec.yaml": "2bcfcd4c1ac92a4ade9ecb4c39c80e851e2d41833036aaeccb6b08227b39da0d",

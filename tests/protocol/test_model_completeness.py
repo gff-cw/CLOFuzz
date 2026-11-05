@@ -312,7 +312,7 @@ def validate_iec104(mid,raw):
     if raw[2]&3==1:need(len(raw)==6 and raw[2:4]==b'\x01\0' and raw[4]&1==0,'S frame');return
     need(raw[2]&1==raw[4]&1==0 and len(raw)==16,'I sequence/ASDU size')
     need(raw[6]==100 and raw[7]==1 and raw[12:15]==b'\0'*3 and 20<=raw[15]<=36,'single C_IC_NA_1 ASDU')
-    need(raw[8] in {6,7,10,71} and raw[9]==0,'interrogation cause')
+    need(raw[8]&0x7f in {6,7,10,71},'interrogation cause/PN')
 
 
 def bacnet_tags(data):

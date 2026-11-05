@@ -9,10 +9,19 @@
 typedef struct gw_schema gw_schema;
 typedef struct gw_packet gw_packet;
 typedef uint32_t (*gw_random)(uint32_t limit);
+enum gw_rounding { GW_EXACT, GW_FLOOR, GW_CEIL };
+/* Bounded integer arithmetic: round(source * multiply / unit) + add.
+ * unit/multiply are 1..GW_MAX_WIRE; overflow and inexact exact division fail. */
+int gw_transform_u64(uint64_t source, uint64_t unit, uint64_t multiply,
+                     int64_t add, enum gw_rounding rounding, uint64_t *out,
+                     char *error, size_t cap);
 
 /* Grammar: struct fields have unique ids. uint widths are 1..8 bytes with
  * explicit big/little byte_order. bytes length is an integer, final "rest", or
- * {"ref":"earlier_uint","add":signed_integer}; add defaults to zero.
+ * {"ref":"earlier_uint","unit":8,"round":"ceil"}; unit/multiply default
+ * to 1, round to exact and add to 0. The transform also applies to size_of.
+ * bytes may specify bit_length:{"ref":"earlier_uint","order":"lsb0"}
+ * (or msb0) to require ceil(bits/8) bytes and zero unused last-byte bits.
  * A derived uint uses {"op":"size_of","target":"field_id"|"$message",
  * "add":signed_integer}. Its target may precede or follow it; size_of counts
  * encoded bytes, not the target integer's value. All bounds are inclusive.
@@ -44,6 +53,9 @@ int gw_encode(gw_packet *packet, uint8_t *out, size_t capacity, size_t *length,
 int gw_mutate(gw_packet *packet, int layer, const uint8_t *candidate,
               size_t candidate_length, gw_random random, char *error, size_t cap);
 int gw_get_u64(const gw_packet *packet, const char *id, uint64_t *value);
+/* Borrowed bytes remain owned by the packet and are invalidated by edits. */
+int gw_get_bytes(const gw_packet *packet, const char *id,
+                  const uint8_t **bytes, size_t *length);
 /* Sets a non-fixed scalar; encoding later checks/recomputes all dependencies.
  * Session-bound fields need no role; fixed constants cannot be changed. */
 int gw_set_u64(gw_packet *packet, const char *id, uint64_t value,

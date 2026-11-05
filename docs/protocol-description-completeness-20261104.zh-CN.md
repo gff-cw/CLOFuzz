@@ -1,5 +1,7 @@
 # 六协议描述文件完整性复核与修订源交付
 
+> 历史快照：本文记述执行器扩展前的静态审查。后续六套修订源已实际执行 native 生成及 C 加载，部分原缺口已扩展；最新实现、运行结果与剩余限制见[执行器扩展与本地验证](executor-extension-20261104.zh-CN.md)。本文中“未运行”等表述仅指原静态交付阶段。
+
 日期：2026-11-04。分支：`feature/description-driven-c-engine-20261027`。源基线：`ee8e35cfcf98e8931d907e4dec697a829664c713`。三个 agent 分别审查 Modbus/IEC104、BACnet/MMS、ENIP/OPC UA，随后分别构造两套修订源输入；主 agent 整合共同 schema、静态契约、来源清单、导出和文档。
 
 ## 判断与交付范围

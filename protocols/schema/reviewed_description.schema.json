@@ -84,7 +84,8 @@
               "model",
               "static_only",
               "codec_and_model",
-              "external"
+              "external",
+              "executor"
             ]
           }
         },

@@ -12,17 +12,22 @@
 #define GR_STATES 64u
 #define GR_TRANSITIONS 256u
 #define GR_CORRELATIONS 16u
+#define GR_RESPONSES 16u
 #define GR_RECORDS 64u
 #define GR_WIRE 65507u
-typedef struct {char field[64],source[64];unsigned request;} gr_correlation;
+enum gr_metric { GR_VALUE, GR_SIZE, GR_BITS };
+typedef struct {char field[64],source[64];unsigned request;enum gr_metric metric,source_metric;
+                uint64_t unit,multiply;int64_t add;enum gw_rounding rounding;int msb0;} gr_correlation;
 typedef struct {char id[64];int response;unsigned weight;uint8_t *example;size_t size;
                 gw_schema *schema;gr_correlation correlations[GR_CORRELATIONS];
                 size_t correlation_count;} gr_message;
-typedef struct {unsigned from,to,message;int response;} gr_transition;
+typedef struct {unsigned from,to,message;int response;
+                unsigned responses[GR_RESPONSES],response_count;} gr_transition;
 typedef struct {uint8_t *wire;size_t size,original_offset;unsigned model;} gr_record;
 typedef struct {
-  unsigned state,pending,pending_request,pending_response,pending_next;
-  uint64_t cache[GR_CORRELATIONS];
+  unsigned state,pending,pending_request,pending_next,pending_response_count;
+  unsigned pending_responses[GR_RESPONSES];
+  uint64_t cache[GR_RESPONSES][GR_CORRELATIONS];
 } gr_session_snapshot;
 struct gr_engine {
   nj_document *document;char protocol_id[64],transport[4],states[GR_STATES][64];
@@ -40,20 +45,23 @@ struct gr_engine {
   uint64_t resp_by_purpose[7];
   unsigned exec_purpose;
   int mutating_mode;
-  unsigned pending,pending_request,pending_response,pending_next;
-  uint64_t cache[GR_CORRELATIONS];
+  unsigned pending,pending_request,pending_next,pending_response_count;
+  unsigned pending_responses[GR_RESPONSES];
+  uint64_t cache[GR_RESPONSES][GR_CORRELATIONS];
   gr_session_snapshot prepared_session;
   unsigned send_prepared;
   FILE *log;
 };
 static void gr_save_session(const gr_engine *e,gr_session_snapshot *s){
   s->state=e->state;s->pending=e->pending;s->pending_request=e->pending_request;
-  s->pending_response=e->pending_response;s->pending_next=e->pending_next;
+  s->pending_next=e->pending_next;s->pending_response_count=e->pending_response_count;
+  memcpy(s->pending_responses,e->pending_responses,sizeof(s->pending_responses));
   memcpy(s->cache,e->cache,sizeof(s->cache));
 }
 static void gr_restore_session(gr_engine *e,const gr_session_snapshot *s){
   e->state=s->state;e->pending=s->pending;e->pending_request=s->pending_request;
-  e->pending_response=s->pending_response;e->pending_next=s->pending_next;
+  e->pending_next=s->pending_next;e->pending_response_count=s->pending_response_count;
+  memcpy(e->pending_responses,s->pending_responses,sizeof(e->pending_responses));
   memcpy(e->cache,s->cache,sizeof(s->cache));
 }
 static int gr_error(char *err,size_t cap,const char *fmt,...){
@@ -109,6 +117,34 @@ static int gr_next(const gr_engine *e,unsigned state,unsigned model,
   for(unsigned i=0;i<e->transition_count;i++){const gr_transition *t=&e->transitions[i];
     if(t->from==state&&t->message==model){*next=t->to;*response=t->response;return 0;}
   }return -1;
+}
+static int gr_transition_response(const gr_transition *t,unsigned response){
+  for(unsigned i=0;i<t->response_count;i++)if(t->responses[i]==response)return 1;
+  return 0;
+}
+static int gr_metric_load(const nj_value *v,enum gr_metric *metric,int bits,char *err,size_t cap){
+  *metric=GR_VALUE;
+  if(!v||nj_string_equal(v,"value"))return 0;
+  if(nj_string_equal(v,"size")){*metric=GR_SIZE;return 0;}
+  if(bits&&nj_string_equal(v,"bits")){*metric=GR_BITS;return 0;}
+  return gr_error(err,cap,"invalid correlation metric");
+}
+static int gr_measure(const gw_packet *p,const char *field,enum gr_metric metric,uint64_t *value){
+  if(metric==GR_VALUE)return gw_get_u64(p,field,value);
+  size_t offset,size;
+  if(gw_field_range(p,field,&offset,&size)<0)return -1;
+  if(metric==GR_BITS){const uint8_t *bytes;*value=0;return gw_get_bytes(p,field,&bytes,&size);}
+  *value=(uint64_t)size;return 0;
+}
+static int gr_check_correlation(const gw_packet *p,const gr_correlation *rule,uint64_t expected){
+  uint64_t observed;
+  if(rule->metric!=GR_BITS)return gr_measure(p,rule->field,rule->metric,&observed)==0&&observed==expected;
+  const uint8_t *bytes;size_t size;
+  if(expected>(uint64_t)GR_WIRE*8||gw_get_bytes(p,rule->field,&bytes,&size)<0||
+     size!=(size_t)(expected/8+(expected%8!=0)))return 0;
+  unsigned used=(unsigned)(expected%8);
+  unsigned mask=rule->msb0?((1u<<(8-used))-1u):(255u<<used)&255u;
+  return !used||!size||!(bytes[size-1]&mask);
 }
 static int gr_sequence(const gr_engine *e,const gr_record *records,size_t count,
                        char *err,size_t cap){
@@ -217,6 +253,11 @@ static int gr_check_framing_grammar_consistency(const gr_engine *e, const nj_val
             return gr_error(err, cap, "message '%s': grammar derived size_of add (%lld) conflicts with TCP framing add (%lld)",
                             mid, (long long)d_add, (long long)e->frame_add);
           }
+          uint64_t unit=1,multiply=1;
+          if((nj_get(derived,"unit")&&nj_u64(nj_get(derived,"unit"),&unit,err,cap)<0)||
+             (nj_get(derived,"multiply")&&nj_u64(nj_get(derived,"multiply"),&multiply,err,cap)<0))return -1;
+          if(unit!=1||multiply!=1||(nj_get(derived,"round")&&!nj_string_equal(nj_get(derived,"round"),"exact")))
+            return gr_error(err,cap,"TCP framing size_of requires an identity scale");
         }
       }
     }
@@ -350,35 +391,70 @@ gr_engine *gr_load(const char *path,char *err,size_t cap){
      trs->count>GR_TRANSITIONS)goto bad;
   char initial[64];if(gr_text(nj_get(states,"initial"),initial,sizeof(initial),err,cap)<0||!initial[0])goto bad;
   for(size_t i=0;i<trs->count;i++){const nj_value *t=trs->items[i];static const char *r[]={"from","to","message"};
-    static const char *o[]={"response"};char from[64],to[64],message[64],response[64];
-    if(nj_keys(t,r,3,o,1,err,cap)<0||gr_text(nj_get(t,"from"),from,sizeof(from),err,cap)<0||
+    static const char *o[]={"response","responses"};char from[64],to[64],message[64],response[64];
+    if(nj_keys(t,r,3,o,2,err,cap)<0||gr_text(nj_get(t,"from"),from,sizeof(from),err,cap)<0||
        gr_text(nj_get(t,"to"),to,sizeof(to),err,cap)<0||
        gr_text(nj_get(t,"message"),message,sizeof(message),err,cap)<0||!from[0]||!to[0])goto bad;
     int mi=gr_find_message(e,message);if(mi<0||e->messages[mi].response)goto bad;
-    int ri=-1;if(nj_get(t,"response")){
-      if(gr_text(nj_get(t,"response"),response,sizeof(response),err,cap)<0)goto bad;
-      ri=gr_find_message(e,response);if(ri<0||!e->messages[ri].response)goto bad;
+    gr_transition transition={.response=-1};
+    if(nj_get(t,"response")&&nj_get(t,"responses")){
+      gr_error(err,cap,"choose response or responses, not both");goto bad;
     }
+    if(nj_get(t,"response")){
+      if(gr_text(nj_get(t,"response"),response,sizeof(response),err,cap)<0)goto bad;
+      int ri=gr_find_message(e,response);if(ri<0||!e->messages[ri].response)goto bad;
+      transition.responses[transition.response_count++]=(unsigned)ri;
+    }
+    const nj_value *alternatives=nj_get(t,"responses");
+    if(alternatives){
+      if(alternatives->type!=NJ_ARRAY||!alternatives->count||alternatives->count>GR_RESPONSES){
+        gr_error(err,cap,"responses must contain 1..16 distinct response IDs");goto bad;
+      }
+      for(size_t a=0;a<alternatives->count;a++){
+        if(gr_text(alternatives->items[a],response,sizeof(response),err,cap)<0)goto bad;
+        int ri=gr_find_message(e,response);if(ri<0||!e->messages[ri].response)goto bad;
+        if(gr_transition_response(&transition,(unsigned)ri)){gr_error(err,cap,"duplicate response alternative");goto bad;}
+        transition.responses[transition.response_count++]=(unsigned)ri;
+      }
+    }
+    if(transition.response_count)transition.response=(int)transition.responses[0];
     int fi=gr_find_state(e,from);if(fi<0){if(e->state_count>=GR_STATES)goto bad;
       fi=(int)e->state_count++;strcpy(e->states[fi],from);}
     int ti=gr_find_state(e,to);if(ti<0){if(e->state_count>=GR_STATES)goto bad;
       ti=(int)e->state_count++;strcpy(e->states[ti],to);}
     for(unsigned j=0;j<e->transition_count;j++)if(e->transitions[j].from==(unsigned)fi&&
       e->transitions[j].message==(unsigned)mi){gr_error(err,cap,"ambiguous transition");goto bad;}
-    e->transitions[e->transition_count++]=(gr_transition){(unsigned)fi,(unsigned)ti,(unsigned)mi,ri};
+    transition.from=(unsigned)fi;transition.to=(unsigned)ti;transition.message=(unsigned)mi;
+    e->transitions[e->transition_count++]=transition;
   }
   int init=gr_find_state(e,initial);if(init<0)goto bad;e->initial=e->state=e->prefix_state=(unsigned)init;e->prefix_valid=1;
   for(unsigned i=0;i<e->count;i++){const nj_value *v=messages->items[i];const nj_value *cors=nj_get(v,"correlate");
     if(!cors)continue;if(!e->messages[i].response||cors->type!=NJ_ARRAY||cors->count>GR_CORRELATIONS)goto bad;
     for(size_t j=0;j<cors->count;j++){const nj_value *c=cors->items[j];static const char *r[]={"field","request","source"};
+      static const char *o[]={"metric","source_metric","unit","multiply","add","round","bit_order"};
       gr_correlation *dst=&e->messages[i].correlations[j];char request[64];
-      if(nj_keys(c,r,3,NULL,0,err,cap)<0||gr_text(nj_get(c,"field"),dst->field,sizeof(dst->field),err,cap)<0||
+      if(nj_keys(c,r,3,o,7,err,cap)<0||gr_text(nj_get(c,"field"),dst->field,sizeof(dst->field),err,cap)<0||
          gr_text(nj_get(c,"request"),request,sizeof(request),err,cap)<0||
          gr_text(nj_get(c,"source"),dst->source,sizeof(dst->source),err,cap)<0)goto bad;
       int mi=gr_find_message(e,request);if(mi<0||e->messages[mi].response)goto bad;dst->request=(unsigned)mi;
+      if(gr_metric_load(nj_get(c,"metric"),&dst->metric,1,err,cap)<0||
+         gr_metric_load(nj_get(c,"source_metric"),&dst->source_metric,0,err,cap)<0)goto bad;
+      dst->unit=dst->multiply=1;
+      if((nj_get(c,"unit")&&(nj_u64(nj_get(c,"unit"),&dst->unit,err,cap)<0||!dst->unit||dst->unit>GW_MAX_WIRE))||
+         (nj_get(c,"multiply")&&(nj_u64(nj_get(c,"multiply"),&dst->multiply,err,cap)<0||!dst->multiply||dst->multiply>GW_MAX_WIRE))||
+         (nj_get(c,"add")&&nj_i64(nj_get(c,"add"),&dst->add,err,cap)<0))goto bad;
+      const nj_value *round=nj_get(c,"round");
+      if(nj_string_equal(round,"floor"))dst->rounding=GW_FLOOR;
+      else if(nj_string_equal(round,"ceil"))dst->rounding=GW_CEIL;
+      else if(round&&!nj_string_equal(round,"exact"))goto bad;
+      const nj_value *order=nj_get(c,"bit_order");
+      if(dst->metric==GR_BITS){
+        if(nj_string_equal(order,"msb0"))dst->msb0=1;
+        else if(!nj_string_equal(order,"lsb0")){gr_error(err,cap,"bits correlation needs bit_order");goto bad;}
+      }else if(order){gr_error(err,cap,"bit_order requires bits correlation");goto bad;}
       gw_packet *rp=NULL,*sp=NULL;int ok=gw_parse(e->messages[i].schema,e->messages[i].example,e->messages[i].size,&rp,err,cap)==0&&
         gw_parse(e->messages[mi].schema,e->messages[mi].example,e->messages[mi].size,&sp,err,cap)==0;
-      uint64_t a,b;if(ok)ok=gw_get_u64(rp,dst->field,&a)==0&&gw_get_u64(sp,dst->source,&b)==0;
+      uint64_t a,b;if(ok)ok=gr_measure(rp,dst->field,dst->metric,&a)==0&&gr_measure(sp,dst->source,dst->source_metric,&b)==0;
       gw_packet_free(rp);gw_packet_free(sp);if(!ok)goto bad;
     }e->messages[i].correlation_count=cors->count;
   }
@@ -386,11 +462,11 @@ gr_engine *gr_load(const char *path,char *err,size_t cap){
    * are shared. Do not silently ignore orphan rules or uncovered pairs. */
   for(unsigned i=0;i<e->count;i++)for(size_t j=0;j<e->messages[i].correlation_count;j++){
     int used=0;for(unsigned k=0;k<e->transition_count;k++)
-      if(e->transitions[k].response==(int)i&&e->transitions[k].message==e->messages[i].correlations[j].request)used=1;
+      if(gr_transition_response(&e->transitions[k],i)&&e->transitions[k].message==e->messages[i].correlations[j].request)used=1;
     if(!used){gr_error(err,cap,"correlation has no request/response transition");goto bad;}
   }
-  for(unsigned i=0;i<e->transition_count;i++)if(e->transitions[i].response>=0){
-    gr_transition *t=&e->transitions[i];gr_message *m=&e->messages[t->response];int found=0;
+  for(unsigned i=0;i<e->transition_count;i++)for(unsigned a=0;a<e->transitions[i].response_count;a++){
+    gr_transition *t=&e->transitions[i];gr_message *m=&e->messages[t->responses[a]];int found=0;
     for(size_t j=0;j<m->correlation_count;j++)if(m->correlations[j].request==t->message)found=1;
     if(m->correlation_count&&!found){gr_error(err,cap,"transition lacks request correlation");goto bad;}
   }
@@ -400,7 +476,7 @@ bad:if(err&&cap&&!err[0])gr_error(err,cap,"invalid generic-wire package or refer
 }
 const char *gr_transport(const gr_engine *e){return e?e->transport:NULL;}
 void gr_set_log(gr_engine *e,FILE *log){if(e)e->log=log;}
-void gr_session_begin(gr_engine *e){if(e){e->state=e->initial;e->receive_size=0;e->pending=0;e->send_prepared=0;memset(e->cache,0,sizeof(e->cache));}}
+void gr_session_begin(gr_engine *e){if(e){e->state=e->initial;e->receive_size=0;e->pending=0;e->pending_response_count=0;e->send_prepared=0;memset(e->cache,0,sizeof(e->cache));}}
 int gr_set_prefix(gr_engine *e,const uint8_t *records,size_t length,char *err,size_t cap){
   if(err&&cap)err[0]=0;
   if(!e)return gr_error(err,cap,"missing generic engine");e->prefix_state=e->initial;e->prefix_valid=0;
@@ -609,18 +685,29 @@ static int gr_apply_send(gr_engine *e,uint8_t *wire,size_t length,char *err,size
   if(gr_next(e,e->state,model,&next,&response)<0)return gr_error(err,cap,"request outside current semantic state");
   if(e->pending)return gr_error(err,cap,"generic-wire permits one outstanding request per session");
   if(response>=0){
-    gr_message *rm=&e->messages[response];gw_packet *packet=NULL;
+    const gr_transition *transition=NULL;
+    for(unsigned i=0;i<e->transition_count;i++)if(e->transitions[i].from==e->state&&e->transitions[i].message==model){
+      transition=&e->transitions[i];break;
+    }
+    if(!transition)return gr_error(err,cap,"missing response transition");
+    gw_packet *packet=NULL;
     if(gw_parse(e->messages[model].schema,wire,length,&packet,err,cap)<0)return -1;
-    uint64_t values[GR_CORRELATIONS]={0};
-    for(size_t i=0;i<rm->correlation_count;i++){
-      if(rm->correlations[i].request!=model)continue;
-      if(gw_get_u64(packet,rm->correlations[i].source,&values[i])<0){
-        gw_packet_free(packet);return gr_error(err,cap,"request correlation field absent");
+    uint64_t values[GR_RESPONSES][GR_CORRELATIONS]={{0}};
+    for(unsigned a=0;a<transition->response_count;a++){
+      gr_message *rm=&e->messages[transition->responses[a]];
+      for(size_t i=0;i<rm->correlation_count;i++){
+        const gr_correlation *rule=&rm->correlations[i];uint64_t source;
+        if(rule->request!=model)continue;
+        if(gr_measure(packet,rule->source,rule->source_metric,&source)<0||
+           gw_transform_u64(source,rule->unit,rule->multiply,rule->add,rule->rounding,&values[a][i],err,cap)<0){
+          gw_packet_free(packet);return gr_error(err,cap,"request correlation field or transform invalid");
+        }
       }
     }
     gw_packet_free(packet);
     memcpy(e->cache,values,sizeof(values));e->pending=1;e->pending_request=model;
-    e->pending_response=(unsigned)response;e->pending_next=next;
+    e->pending_response_count=transition->response_count;
+    memcpy(e->pending_responses,transition->responses,sizeof(e->pending_responses));e->pending_next=next;
   }else e->state=next;
   return 0;
 }
@@ -668,15 +755,16 @@ static void gr_response_frame(gr_engine *e,const uint8_t *wire,size_t length){
   }
   e->responses++;
   if(e->exec_purpose < 7) e->resp_by_purpose[e->exec_purpose]++;
-  if(e->pending&&e->pending_response==model){
+  int alternative=-1;
+  if(e->pending)for(unsigned a=0;a<e->pending_response_count;a++)if(e->pending_responses[a]==model){alternative=(int)a;break;}
+  if(alternative>=0){
     int fits=1,checked=0;for(size_t j=0;j<m->correlation_count;j++){gr_correlation *c=&m->correlations[j];
       if(c->request!=e->pending_request)continue;
       checked=1;
-      uint64_t observed;if(gw_get_u64(packet,c->field,&observed)<0||
-         observed!=e->cache[j]){fits=0;break;}
+      if(!gr_check_correlation(packet,c,e->cache[(unsigned)alternative][j])){fits=0;break;}
     }
     if(fits){
-      e->pending=0;e->state=e->pending_next;
+      e->pending=0;e->pending_response_count=0;e->state=e->pending_next;
       e->completed++;
       e->resp_expected_complete++;
       if(checked)e->correlated++;

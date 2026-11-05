@@ -14,6 +14,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+extern void trace_message_boundary(uint32_t ordinal) __attribute__((weak));
+typedef struct { uint32_t ua_sequence; uint16_t ie_send; } fixture_session;
+
 typedef struct { const char *locator; int type; size_t width; int little; } fixture_field;
 typedef struct { fixture_field request, response; } fixture_copy;
 typedef struct { fixture_field field; uint64_t value; } fixture_assignment;
@@ -70,7 +73,8 @@ static void trace_record(int fd, const fixture *f, const uint8_t *wire, size_t n
 }
 
 static int prepare_response(const fixture_codec *codec, const fixture *f,
-                             const uint8_t *wire, size_t n, uint8_t *out, size_t *out_size) {
+                             const uint8_t *wire, size_t n, uint8_t *out, size_t *out_size,
+                             fixture_session *session) {
   struct patch { size_t at, size; int little; uint64_t value; } patches[64];
   size_t i, patch_count = 0;
   *out_size = f->response_size;
@@ -102,6 +106,35 @@ static int prepare_response(const fixture_codec *codec, const fixture *f,
   }
   for (i = 0; i < patch_count; ++i)
     write_number(out + patches[i].at, patches[i].size, patches[i].little, patches[i].value);
+  /* Functional responses are based on the submitted request, including the
+   * newly enforced quantity and connection-direction constraints. */
+  if (!strcmp(codec->name, "modbus") && n >= 12 && wire[7] >= 1 && wire[7] <= 4) {
+    size_t quantity = read_number(wire + 10, 2, 0);
+    size_t bytes = wire[7] <= 2 ? (quantity + 7) / 8 : quantity * 2;
+    if (!bytes || bytes > 250) return -1;
+    memcpy(out, wire, 8); out[8] = (uint8_t)bytes;
+    memset(out + 9, 0, bytes);
+    if (wire[7] >= 3) for (size_t j = 0; j < quantity; ++j)
+      write_number(out + 9 + 2*j, 2, 0, (read_number(wire + 8, 2, 0) + j + 1) & 65535u);
+    *out_size = 9 + bytes;
+  } else if (!strcmp(codec->name, "modbus") && n >= 12) {
+    memcpy(out, wire, 12); *out_size = 12;
+  } else if (!strcmp(codec->name, "opcua") && !memcmp(out, "ACK", 3)) {
+    uint64_t receive = read_number(wire + 16, 4, 1);
+    uint64_t send = read_number(wire + 12, 4, 1);
+    write_number(out + 12, 4, 1, receive < 65536 ? receive : 65536);
+    write_number(out + 16, 4, 1, send < 65536 ? send : 65536);
+  } else if (!strcmp(codec->name, "opcua") &&
+             (!memcmp(out, "OPN", 3) || !memcmp(out, "MSG", 3))) {
+    size_t at, width;
+    if (codec->field(out, *out_size, "uabin:sequence", PC_UINT32, 4, &at, &width, NULL, 0) != 1) return -1;
+    write_number(out + at, width, 1, ++session->ua_sequence);
+  } else if (!strcmp(codec->name, "iec104") && !(wire[2] & 1) && *out_size == 16) {
+    write_number(out + 2, 2, 1, (uint16_t)(session->ie_send++ << 1));
+    write_number(out + 4, 2, 1, (uint16_t)(read_number(wire + 2, 2, 1) + 2));
+    out[8] = (uint8_t)((wire[8] & 0x80) | 7); out[9] = wire[9];
+    memcpy(out + 10, wire + 10, 6);
+  }
   return codec->repair(out, *out_size, NULL, 0);
 }
 
@@ -109,10 +142,13 @@ int main(int argc, char **argv) {
   const fixture_codec *codec = NULL;
   const fixture *list;
   size_t count, used = 0;
-  uint8_t *buffer, *response, *state;
+  uint8_t *buffer, *response;
+  volatile uint8_t *state;
+  fixture_session session = {0};
+  uint32_t ordinal = 0;
   int listener, connection, log_fd, one = 1;
   struct sockaddr_in address;
-  struct timeval timeout = {.tv_sec = 0, .tv_usec = 200000};
+  struct timeval timeout = {.tv_sec = 2, .tv_usec = 0};
   unsigned c;
   if (argc != 4) return 2;
   for (c = 0; c < sizeof(codecs) / sizeof(codecs[0]); ++c)
@@ -151,7 +187,7 @@ int main(int argc, char **argv) {
         if (!locate(codec, buffer, frame_size, binding.field, &at, &size) || !size || size > 8 ||
             read_number(buffer + at, size, binding.field.little) != binding.value) bound = 0;
       }
-      if (bound && prepare_response(codec, f, buffer, frame_size, response, &response_size)) goto finished;
+      if (bound && prepare_response(codec, f, buffer, frame_size, response, &response_size, &session)) goto finished;
       if (!bound) response_size = 0;
       state[0] = (uint8_t)(i + 1); state[1] = bound; state[7]++;
       if (response_size) {
@@ -160,10 +196,11 @@ int main(int argc, char **argv) {
             send(connection, response + first, response_size - first, 0) != (ssize_t)(response_size - first)) goto finished;
       }
       trace_record(log_fd, f, buffer, frame_size, 1, bound, response, response_size);
+      if (trace_message_boundary) trace_message_boundary(ordinal++);
       memmove(buffer, buffer + frame_size, used - frame_size); used -= frame_size;
     }
   }
 finished:
-  free(buffer); free(response); free(state); close(connection); close(listener); close(log_fd);
+  free(buffer); free(response); free((void *)state); close(connection); close(listener); close(log_fd);
   return 0;
 }

@@ -1,7 +1,5 @@
-"""Static generic template contracts; no compiler, native helper or target.
-
-The current repair writes this regression source but does not execute tests.
-"""
+"""Static generic template contracts; no compiler, native helper or target."""
+import copy
 import json
 import os
 from pathlib import Path
@@ -146,6 +144,48 @@ class GenericTemplateTests(unittest.TestCase):
                 with self.assertRaises(ValueError): refresh_package_corpus(output)
                 self.assertTrue(stray.exists())
                 self.assertEqual((output / "seed_manifest.json").read_bytes(), before)
+
+    def test_response_alternatives_refresh_preserves_request_only_seeds(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "package"
+            instantiate_generic("udp_request_response", output)
+            seeds = {p.name: p.read_bytes() for p in (output / "seeds").iterdir()}
+            path = output / "generic_wire.json"
+            model = json.loads(path.read_text())
+            alternate = copy.deepcopy(model["messages"][1])
+            alternate["id"] = "alternate_answer"
+            alternate["grammar"]["fields"][2].update(min=130, max=130, expected=130)
+            alternate["example_hex"] = "b700058200015566"
+            model["messages"].append(alternate)
+            edge = model["states"]["transitions"][0]
+            edge["responses"] = [edge.pop("response"), alternate["id"]]
+            path.write_text(json.dumps(model, indent=2) + "\n")
+            refresh_package_corpus(output)
+            self.assertEqual(check_package(output)["fixtures"], 3)
+            self.assertEqual({p.name: p.read_bytes() for p in (output / "seeds").iterdir()}, seeds)
+            self.assertEqual((output / "fixtures/responses/alternate_answer.wire").read_bytes(),
+                             bytes.fromhex(alternate["example_hex"]))
+
+    def test_invalid_response_alternative_refuses_refresh_before_writes(self):
+        for invalid in ("missing_answer", "query"):
+            with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary) / "package"
+                instantiate_generic("udp_request_response", output)
+                path = output / "generic_wire.json"
+                model = json.loads(path.read_text())
+                # Keep the valid managed path unchanged: even an unvisited
+                # edge must not hide a bad alternative from static authoring.
+                edge = copy.deepcopy(model["states"]["transitions"][0])
+                edge["from"] = "unvisited"
+                edge["responses"] = [edge.pop("response"), invalid]
+                model["states"]["transitions"].append(edge)
+                path.write_text(json.dumps(model, indent=2) + "\n")
+                before = {p.relative_to(output): p.read_bytes()
+                          for p in output.rglob("*") if p.is_file()}
+                with self.assertRaisesRegex(ValueError, "missing response model"):
+                    refresh_package_corpus(output)
+                self.assertEqual({p.relative_to(output): p.read_bytes()
+                                  for p in output.rglob("*") if p.is_file()}, before)
 
     def test_symlinks_and_oversized_artifacts_are_not_accepted(self):
         for relative in ("seeds/pulse.replay", "fixtures/requests/pulse.wire"):

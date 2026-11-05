@@ -24,8 +24,8 @@ int pc_iec104_validate(const uint8_t *p, size_t n, char *err, size_t cap) {
     if (p[4] & 1) return ie_error(err, cap, "IEC104 receive sequence bit zero must be clear");
     if (n != 16 || p[6] != 100 || p[7] != 1)
       return ie_error(err, cap, "IEC104 supports one C_IC_NA_1 object with SQ=0");
-    cause = p[8] & 0x3f;
-    if (cause != 6 && cause != 7 && cause != 10)
+    cause = p[8] & 0x7f;
+    if (cause != 6 && cause != 7 && cause != 10 && cause != 0x47)
       return ie_error(err, cap, "IEC104 interrogation cause unsupported");
     if (p[12] || p[13] || p[14] || p[15] < 20 || p[15] > 36)
       return ie_error(err, cap, "IEC104 interrogation IOA/QOI invalid");

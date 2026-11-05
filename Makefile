@@ -80,6 +80,8 @@ afl-as: afl-as.c afl-as.h $(COMM_HDR) | test_x86
 	ln -sf afl-as as
 
 PROTOCOL_CODECS = $(wildcard protocol_codec_*.c)
+PROTOCOL_SESSION_SOURCES = protocol_session_constraints.c protocol_iec104_session.c
+PROTOCOL_SESSION_HEADERS = protocol_session_constraints.h protocol_iec104_session.h
 GENERIC_WIRE_SOURCES = generic_wire.c generic_runtime.c run_manifest.c
 GENERIC_WIRE_HEADERS = generic_wire.h generic_runtime.h run_manifest.h
 NATIVE_INSPECT_SOURCES = native_json.c native_layout.c native_observation.c native_inspect.c
@@ -95,8 +97,8 @@ MESSAGE_FILE_TEST_SANITIZED = tests/protocol/test-message-files-sanitized
 MESSAGE_FILE_TEST_HEADERS = aflnet.h klist.h khash.h $(COMM_HDR)
 aflnet.o: aflnet.c aflnet.h klist.h khash.h $(COMM_HDR)
 
-afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(GENERIC_WIRE_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h execution_observation.h llvm_mode/state-tracer.h | test_x86
-	$(CC) $(CFLAGS) $@.c protocol_runtime.c protocol_schedule.c $(PROTOCOL_CODECS) $(GENERIC_WIRE_SOURCES) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
+afl-fuzz: afl-fuzz.c protocol_runtime.c protocol_runtime.h protocol_schedule.c protocol_schedule.h protocol_codecs.h $(PROTOCOL_CODECS) $(PROTOCOL_SESSION_SOURCES) $(PROTOCOL_SESSION_HEADERS) $(GENERIC_WIRE_SOURCES) $(GENERIC_WIRE_HEADERS) $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS) $(COMM_HDR) aflnet.o aflnet.h execution_observation.h llvm_mode/state-tracer.h | test_x86
+	$(CC) $(CFLAGS) $@.c protocol_runtime.c protocol_schedule.c $(PROTOCOL_CODECS) $(PROTOCOL_SESSION_SOURCES) $(GENERIC_WIRE_SOURCES) $(NATIVE_INSPECT_SOURCES) aflnet.o -o $@ $(LDFLAGS)
 
 # Standard-library-only local inspector; no instrumentation or x86 checks needed.
 afl-protocol-inspect: afl-protocol-inspect.c $(NATIVE_INSPECT_SOURCES) $(NATIVE_INSPECT_HEADERS)

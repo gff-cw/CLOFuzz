@@ -1,5 +1,5 @@
 {
-  "bundle_digest": "b3fec6bf823bed91a8dc13c789473c16a898fe67ae3c97dbc8434f6ae431a97a",
+  "bundle_digest": "78f82d21a6ae3db8a774db7be538e8f8f66ccf0a43bc25aba8fb05d62c604f0c",
   "codec": "iec104",
   "format": "stateafl.protocol-ir",
   "format_version": 1,
@@ -670,6 +670,13 @@
           "op": "length_of",
           "source": "$message",
           "target": "length"
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "receive_seq",
+          "unit": 2
         }
       ],
       "direction": "request",
@@ -758,7 +765,7 @@
           "locator": "abs:4",
           "max": 65534,
           "min": 0,
-          "mutability": "fuzzable",
+          "mutability": "runtime_bound",
           "path": "abs:4",
           "role": "head",
           "strategies": [
@@ -767,7 +774,7 @@
             "bitflip",
             "arithmetic"
           ],
-          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "structure": "Bound by the IEC104 executor to the actual connection N(S) or next expected peer N(R), encoded as UInt16 shifted left one; not an independent fuzz knob.",
           "type": "uint16",
           "values": [],
           "width": 2
@@ -815,6 +822,13 @@
           "scope": "connection",
           "source": "$message",
           "target": "send_seq",
+          "unit": 2
+        },
+        {
+          "op": "sequence_number",
+          "scope": "connection",
+          "source": "$message",
+          "target": "receive_seq",
           "unit": 2
         }
       ],
@@ -879,7 +893,7 @@
           "locator": "abs:2",
           "max": 65534,
           "min": 0,
-          "mutability": "fuzzable",
+          "mutability": "runtime_bound",
           "path": "abs:2",
           "role": "head",
           "strategies": [
@@ -888,7 +902,7 @@
             "bitflip",
             "arithmetic"
           ],
-          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "structure": "Bound by the IEC104 executor to the actual connection N(S) or next expected peer N(R), encoded as UInt16 shifted left one; not an independent fuzz knob.",
           "type": "uint16",
           "values": [],
           "width": 2
@@ -903,7 +917,7 @@
           "locator": "abs:4",
           "max": 65534,
           "min": 0,
-          "mutability": "fuzzable",
+          "mutability": "runtime_bound",
           "path": "abs:4",
           "role": "head",
           "strategies": [
@@ -912,7 +926,7 @@
             "bitflip",
             "arithmetic"
           ],
-          "structure": "Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.",
+          "structure": "Bound by the IEC104 executor to the actual connection N(S) or next expected peer N(R), encoded as UInt16 shifted left one; not an independent fuzz knob.",
           "type": "uint16",
           "values": [],
           "width": 2
@@ -952,14 +966,11 @@
           "locator": "abs:7",
           "max": 1,
           "min": 1,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:7",
-          "role": "head",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "structure": "Exactly one information object; SQ=0 in this profile.",
           "type": "uint8",
@@ -1027,14 +1038,11 @@
           "locator": "abs:12",
           "max": 0,
           "min": 0,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:12",
-          "role": "content",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "type": "uint24",
           "values": [
@@ -1120,13 +1128,6 @@
           "op": "length_of",
           "source": "$message",
           "target": "length"
-        },
-        {
-          "op": "sequence_number",
-          "scope": "connection",
-          "source": "$message",
-          "target": "send_seq",
-          "unit": 2
         },
         {
           "message": "interrogation",
@@ -1277,14 +1278,11 @@
           "locator": "abs:7",
           "max": 1,
           "min": 1,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:7",
-          "role": "head",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "structure": "Exactly one information object; SQ=0 in this profile.",
           "type": "uint8",
@@ -1352,14 +1350,11 @@
           "locator": "abs:12",
           "max": 0,
           "min": 0,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:12",
-          "role": "content",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "type": "uint24",
           "values": [
@@ -1445,13 +1440,6 @@
           "op": "length_of",
           "source": "$message",
           "target": "length"
-        },
-        {
-          "op": "sequence_number",
-          "scope": "connection",
-          "source": "$message",
-          "target": "send_seq",
-          "unit": 2
         },
         {
           "message": "interrogation",
@@ -1602,14 +1590,11 @@
           "locator": "abs:7",
           "max": 1,
           "min": 1,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:7",
-          "role": "head",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "structure": "Exactly one information object; SQ=0 in this profile.",
           "type": "uint8",
@@ -1677,14 +1662,11 @@
           "locator": "abs:12",
           "max": 0,
           "min": 0,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:12",
-          "role": "content",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "type": "uint24",
           "values": [
@@ -1770,13 +1752,6 @@
           "op": "length_of",
           "source": "$message",
           "target": "length"
-        },
-        {
-          "op": "sequence_number",
-          "scope": "connection",
-          "source": "$message",
-          "target": "send_seq",
-          "unit": 2
         },
         {
           "message": "interrogation",
@@ -1927,14 +1902,11 @@
           "locator": "abs:7",
           "max": 1,
           "min": 1,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:7",
-          "role": "head",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "structure": "Exactly one information object; SQ=0 in this profile.",
           "type": "uint8",
@@ -2002,14 +1974,11 @@
           "locator": "abs:12",
           "max": 0,
           "min": 0,
-          "mutability": "fuzzable",
+          "mutability": "fixed",
           "path": "abs:12",
-          "role": "content",
+          "role": "fixed",
           "strategies": [
-            "enum",
-            "boundary",
-            "bitflip",
-            "arithmetic"
+            "enum"
           ],
           "type": "uint24",
           "values": [

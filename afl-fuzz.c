@@ -5388,8 +5388,11 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 le
       if (protocol_log)
         fprintf(protocol_log, "{\"event\":\"calibration_rejected\","
                 "\"reason\":\"submitted_input_changed_or_incomplete\","
-                "\"expected_exec_id\":%u,\"exec_id\":%u}\n",
-                expected_wire ? expected_wire->exec_id : 0, state_exec_id);
+                "\"expected_exec_id\":%u,\"exec_id\":%u,"
+                "\"planned\":%u,\"complete\":%u,\"transmission_complete\":%u,"
+                "\"response_complete\":%u,\"response_budget_exceeded\":%u,\"io_status\":%d}\n",
+                expected_wire ? expected_wire->exec_id : 0, state_exec_id, planned_messages, complete_messages,
+                is_transmission_complete, is_response_complete, response_budget_exceeded, net_get_last_io_status());
       fault = FAULT_NOBITS;
       goto abort_calibration;
     }
@@ -8163,21 +8166,31 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   // limit the #messages based on max_seed_region_count to reduce overhead
   for (i = 0; i < region_count; i++) {
-    u32 len;
+    u32 m_len;
     //Identify region size
     if (!protocol_regions && i == max_seed_region_count) {
-      len = regions[region_count - 1].end_byte - regions[i].start_byte + 1;
+      m_len = regions[region_count - 1].end_byte - regions[i].start_byte + 1;
     } else {
-      len = regions[i].end_byte - regions[i].start_byte + 1;
+      m_len = regions[i].end_byte - regions[i].start_byte + 1;
     }
 
     //Create a new message
     message_t *m = (message_t *) ck_alloc(sizeof(message_t));
-    m->mdata = (char *) ck_alloc(len);
-    m->msize = len;
+    m->mdata = (char *) ck_alloc(m_len);
+    m->msize = m_len;
     m->protocol_structured = protocol_regions != NULL;
     if (m->mdata == NULL) PFATAL("Unable to allocate memory region to store new message");
-    memcpy(m->mdata, &out_buf[regions[i].start_byte], len);
+
+    u32 copy_len = m_len;
+    if (regions[i].start_byte >= len) {
+      copy_len = 0;
+    } else if (regions[i].start_byte + copy_len > len) {
+      copy_len = len - regions[i].start_byte;
+    }
+    if (copy_len > 0)
+      memcpy(m->mdata, &out_buf[regions[i].start_byte], copy_len);
+    if (copy_len < m_len)
+      memset(m->mdata + copy_len, 0, m_len - copy_len);
 
     //Insert the message to the linked list
     *kl_pushp(lms, kl_messages) = m;
@@ -8617,6 +8630,7 @@ static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) {
 
 /* Utility functions for keeping track of mutations on regions */
 void regions_add_bytes(region_t* regions, unsigned int region_count, unsigned int position, int added_bytes) {
+  if (!regions || !region_count) return;
 
 #ifdef DEBUG_REGIONS
    FILE * log=fopen("./regions.txt", "a");
@@ -8640,6 +8654,10 @@ void regions_add_bytes(region_t* regions, unsigned int region_count, unsigned in
       cur_region--;
     }
 
+    if (cur_region >= region_count) {
+      cur_region = region_count - 1;
+    }
+
     regions[cur_region].end_byte += added_bytes;
     cur_region++;
 
@@ -8651,6 +8669,7 @@ void regions_add_bytes(region_t* regions, unsigned int region_count, unsigned in
 }
 
 int regions_remove_bytes(region_t* regions, unsigned int region_count, unsigned int position, int removed_bytes) {
+  if (!regions || !region_count) return 0;
 
 #ifdef DEBUG_REGIONS
    FILE * log=fopen("./regions.txt", "a");
@@ -8669,12 +8688,14 @@ int regions_remove_bytes(region_t* regions, unsigned int region_count, unsigned 
       cur_region++;
     }
 
+    if (cur_region >= region_count) return 0;
+
     int to_remove = removed_bytes;
     int removed = 0;
     int removed_regions = 0;
     int modified_regions = 0;
 
-    while(to_remove > 0) {
+    while(to_remove > 0 && cur_region < region_count) {
 
       regions[cur_region].start_byte -= removed;
       regions[cur_region].end_byte -= removed;
@@ -8688,7 +8709,7 @@ int regions_remove_bytes(region_t* regions, unsigned int region_count, unsigned 
 
       } else {
 
-	if(regions[cur_region].start_byte != position) {
+	if(regions[cur_region].start_byte < position) {
 
           to_remove -= regions[cur_region].end_byte - position + 1;
           removed = removed_bytes - to_remove;
@@ -8785,6 +8806,7 @@ static u8 fuzz_one(char** argv) {
 
   s32 len, fd, temp_len, i, j;
   u8  *in_buf = NULL, *out_buf, *orig_in, *ex_tmp, *eff_map = 0;
+  region_t *orig_regions = NULL;
   u64 havoc_queued,  orig_hit_cnt, new_hit_cnt;
   u32 splice_cycle = 0, perf_score = 100, orig_perf, prev_cksum, eff_cnt = 1, M2_len;
 
@@ -8924,11 +8946,21 @@ AFLNET_REGIONS_SELECTION:;
 
   //Update regions to track mutations
   unsigned int orig_region_count = M2_region_count;
-  region_t* orig_regions = &queue_cur->regions[M2_start_region_ID];
+  if (orig_region_count > 0) {
+    orig_regions = ck_alloc(orig_region_count * sizeof(region_t));
+    u32 m2_base_offset = queue_cur->regions[M2_start_region_ID].start_byte;
+    for (u32 r = 0; r < orig_region_count; r++) {
+      orig_regions[r] = queue_cur->regions[M2_start_region_ID + r];
+      orig_regions[r].start_byte -= m2_base_offset;
+      orig_regions[r].end_byte   -= m2_base_offset;
+    }
+  }
 
   mutated_region_count = orig_region_count;
   mutated_regions = ck_alloc(orig_region_count * sizeof(region_t));
-  memcpy(mutated_regions, orig_regions, orig_region_count * sizeof(region_t));
+  if (orig_region_count > 0) {
+    memcpy(mutated_regions, orig_regions, orig_region_count * sizeof(region_t));
+  }
 
 
   /*********************
@@ -10634,15 +10666,22 @@ retry_splicing:
 
 
     /* Update mutated regions */
+    if (!mutated_region_count || !target->regions || !target->region_count)
+      goto retry_splicing;
+
     unsigned int first_region_count = 0;
-    while(mutated_regions[first_region_count].end_byte < split_at) {
+    while(first_region_count < mutated_region_count && mutated_regions[first_region_count].end_byte < split_at) {
         first_region_count++;
     }
+    if (first_region_count >= mutated_region_count)
+      first_region_count = mutated_region_count - 1;
 
     unsigned int second_region_count = 0;
-    while(target->regions[target->region_count - 1 - second_region_count].start_byte > split_at) {
+    while(second_region_count < target->region_count && target->regions[target->region_count - 1 - second_region_count].start_byte > split_at) {
         second_region_count++;
     }
+    if (second_region_count >= target->region_count)
+      second_region_count = target->region_count - 1;
 
     region_t* new_regions = ck_alloc((first_region_count + second_region_count + 1) * sizeof(region_t));
 
@@ -10655,9 +10694,12 @@ retry_splicing:
     }
 
     unsigned int splitted_region = first_region_count;
+    u32 target_idx = target->region_count - second_region_count - 1;
 
     new_regions[splitted_region].start_byte = mutated_regions[first_region_count].start_byte;
-    new_regions[splitted_region].end_byte = target->regions[target->region_count - second_region_count - 1].end_byte;
+    new_regions[splitted_region].end_byte = target->regions[target_idx].end_byte;
+    if (new_regions[splitted_region].end_byte < new_regions[splitted_region].start_byte)
+      new_regions[splitted_region].end_byte = new_regions[splitted_region].start_byte;
     new_regions[splitted_region].state_sequence = NULL;
     new_regions[splitted_region].state_count = 0;
 
@@ -10727,6 +10769,9 @@ abandon_entry:
   ck_free(mutated_regions);
   mutated_regions = NULL;
   mutated_region_count = 0;
+
+  ck_free(orig_regions);
+  orig_regions = NULL;
 
   return ret_val;
 

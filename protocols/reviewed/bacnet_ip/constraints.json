@@ -4,44 +4,13 @@
   "protocol_id": "bacnet_ip",
   "changes": [
     {
-      "id": "BAC-01",
-      "problem": "The original scope mentioned optional routed NPDUs while several response fields use absolute offsets.",
-      "resolution": "Make the reviewed package explicitly un-routed and fix NPDU control to the declared fixture; retain routed support as an unimplemented broader description requirement.",
+      "id": "BAC-DYNAMIC",
+      "problem": "Fixture offsets and UInt8 property/index restricted legal routed/tag-width responses.",
+      "resolution": "Typed semantic locators decode NPDU routing and BACnet tags; UInt32 context serialization and ACK reference correlation replace fixture slices.",
       "messages": [
         "who_is",
         "read_property",
         "read_property_ack",
-        "i_am",
-        "read_property_error",
-        "reject",
-        "abort"
-      ]
-    },
-    {
-      "id": "BAC-02",
-      "problem": "The state graph advertised an additional independent invoke although the host accepts one pending request.",
-      "resolution": "Remove pending-to-pending ReadProperty request edge and explicitly describe single-flight behavior.",
-      "messages": [
-        "read_property",
-        "read_property_ack",
-        "read_property_error",
-        "reject",
-        "abort"
-      ]
-    },
-    {
-      "id": "BAC-03",
-      "problem": "I-Am Device object type and segmentation enum bounds were wider than the named service.",
-      "resolution": "Constrain Device ObjectIdentifier to object type 8 and segmentation to values 0..3; keep absolute-width limitations explicit.",
-      "messages": [
-        "i_am"
-      ]
-    },
-    {
-      "id": "BAC-04",
-      "problem": "Absolute response projections could be mistaken for a dynamic response grammar.",
-      "resolution": "Annotate every affected response and field as fixture-specific; do not invent semantic locators or claim routed/tag-width coverage.",
-      "messages": [
         "i_am",
         "read_property_error",
         "reject",
@@ -55,7 +24,7 @@
       "messages": [
         "who_is"
       ],
-      "constraint": "Un-routed NPDU control=0, APDU UnconfirmedRequest service 8; device limits are both absent or a valid ordered context-tag pair within 0..4194303.",
+      "constraint": "Who-Is ordered optional device limits 0..4194303; routed NPDU headers decoded.",
       "enforced_by": "codec_and_model"
     },
     {
@@ -63,7 +32,7 @@
       "messages": [
         "read_property"
       ],
-      "constraint": "Un-routed NPDU control=4, ConfirmedRequest service 12, fixed max-APDU header=5, dynamic context object/property and optional array index; request field generation retains the existing UInt8 property/index bound.",
+      "constraint": "ReadProperty object identifier and unsigned property/optional index of 1..4 octets; mutation reencodes and repairs length.",
       "enforced_by": "codec_and_model"
     },
     {
@@ -71,7 +40,7 @@
       "messages": [
         "read_property_ack"
       ],
-      "constraint": "Un-routed ComplexACK service12 with current invoke correlation; the supplied apdu.content tree includes object/property/optional array plus opening/closing context3 value. The tree is descriptive; it is not a generic property-value executor.",
+      "constraint": "ComplexACK service12: matching invoke, object, property and optional index; balanced context3 value container.",
       "enforced_by": "codec_and_model"
     },
     {
@@ -79,16 +48,16 @@
       "messages": [
         "i_am"
       ],
-      "constraint": "Complete supplied I-Am fixture with application tags ObjectIdentifier/Unsigned/Enumerated/Unsigned; absolute field slices assume its tag widths. Device type8 and segmentation0..3 are model bounds; dynamic response tag positions are not implemented.",
-      "enforced_by": "static_only"
+      "constraint": "I-Am typed application ObjectIdentifier/Unsigned/Enumerated/Unsigned; Device type8, maxAPDU/vendor <=65535, segmentation0..3.",
+      "enforced_by": "codec_and_model"
     },
     {
       "id": "BAC-C05",
       "messages": [
         "read_property_error"
       ],
-      "constraint": "Complete supplied Error service12 fixture with matching invoke and two application ENUMERATED values; error_class/error_code absolute slices assume one value octet each.",
-      "enforced_by": "static_only"
+      "constraint": "Error service12: matching invoke and two typed ENUMERATED values of 1..4 octets.",
+      "enforced_by": "codec_and_model"
     },
     {
       "id": "BAC-C06",
@@ -96,7 +65,7 @@
         "reject",
         "abort"
       ],
-      "constraint": "Complete supplied un-routed Reject/server-Abort fixtures: invoke then one reason octet, no service-choice payload. Runtime correlation uses the current ReadProperty invoke; reason abs:8 is fixture-specific.",
+      "constraint": "Reject/server-Abort: dynamic invoke/reason after routed NPDU, no service or trailing content.",
       "enforced_by": "codec_and_model"
     },
     {
@@ -110,8 +79,8 @@
         "reject",
         "abort"
       ],
-      "constraint": "One pending request per session is enforced by the host. State guard/actions and structure_model remain annotations; they do not create a transaction table or run conditions.",
-      "enforced_by": "codec"
+      "constraint": "One pending request per session; guards/actions remain metadata.",
+      "enforced_by": "codec_and_model"
     }
   ],
   "remaining_gaps": [
@@ -122,28 +91,16 @@
       "resolution": "Add versioned service models, real reference messages, matching parser/encoder capability and independent conformance checks before broadening the scope."
     },
     {
-      "id": "BAC-G02",
-      "layer": "runtime",
-      "description": "I-Am and Error application fields lack semantic response locators; their absolute slices cannot cover all legal tag widths. Routed responses are excluded by this reviewed NPDU constraint.",
-      "resolution": "Implement typed tag-based I-Am/Error/reason locators in the C/Python mappings, add routed/tag-width variants and verify before removing the restriction."
-    },
-    {
       "id": "BAC-G03",
       "layer": "runtime",
-      "description": "ReadProperty property/index generation remains UInt8 and the runtime has one pending request; generic concurrent invoke handling and arbitrary property-value execution are absent.",
-      "resolution": "Add width-aware scalar serialization and an explicit tested transaction model if those capabilities are required; retain the present restricted profile until then."
+      "description": "Concurrent invokes and arbitrary property-value interpretation remain outside scope.",
+      "resolution": "Retain single-flight profile and opaque balanced tagged values."
     },
     {
       "id": "BAC-G04",
       "layer": "generic",
       "description": "generic_wire.json contains only ReadProperty and one exact ACK; it omits Who-Is/I-Am/Error/Reject/Abort and cannot express dynamic NPDU/LVT/optional-field behavior.",
       "resolution": "Extend the generic language and loader for the needed structures and response alternatives; do not replace missing services with fixed opaque payload or flip online to true."
-    },
-    {
-      "id": "BAC-G05",
-      "layer": "evidence",
-      "description": "The reviewed YAML is a static candidate. No native compiler, runtime test or target was executed for this candidate.",
-      "resolution": "Compile/validate this source pair into a new package, plan its corpus and preserve actual session evidence before release."
     }
   ],
   "generic_coverage": {

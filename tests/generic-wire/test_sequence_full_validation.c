@@ -220,7 +220,7 @@ int main(void) {
   /* 6. Test B10 Intentionally-invalid Mode Compatibility:
      Intentionally corrupt M2 payload bytes (invalid model).
      In PROTO_VALID, sequence validation must fail on M2 model matching.
-     In PROTO_NEAR_VALID / PROTO_INVALID, sequence validation must bypass M2 model matching.
+     Mode flags alone cannot assign model provenance to arbitrary damaged M2.
   */
   const uint8_t corrupted_m2[] = {0x00,0x01,0x00,0x00,0x00,0x06,0x01,0x99,0xde,0xad,0xbe,0xef}; // unknown func 0x99
   m1_len = m2_len = m3_len = 0;
@@ -237,24 +237,28 @@ int main(void) {
   proto_set_mutating_mode(e, PROTO_NEAR_VALID);
   err[0] = '\0';
   rc = proto_validate_sequence(e, m1_buf, m1_len, m2_buf, m2_len, m3_buf, m3_len, err, sizeof(err));
-  assert(rc == 0);
-  printf("[+] PROTO_NEAR_VALID allows intentionally mutated M2\n");
+  assert(rc < 0 && strstr(err, "provenance"));
+  printf("[+] PROTO_NEAR_VALID rejects damaged M2 without mutation provenance\n");
 
   proto_set_mutating_mode(e, PROTO_INVALID);
   err[0] = '\0';
   rc = proto_validate_sequence(e, m1_buf, m1_len, m2_buf, m2_len, m3_buf, m3_len, err, sizeof(err));
-  assert(rc == 0);
-  printf("[+] PROTO_INVALID allows intentionally mutated M2\n");
+  assert(rc < 0 && strstr(err, "provenance"));
+  printf("[+] PROTO_INVALID rejects damaged M2 without mutation provenance\n");
 
-  /* Exceeded message limit in PROTO_INVALID must still fail */
-  pack_record(m2_buf, &m2_len, corrupted_m2, sizeof(corrupted_m2));
-  pack_record(m2_buf, &m2_len, corrupted_m2, sizeof(corrupted_m2));
-  pack_record(m2_buf, &m2_len, corrupted_m2, sizeof(corrupted_m2)); // total 4 + 1 = 5 > max_messages (4)
+  /* Resource limits also apply to an otherwise valid graph path. Properly
+     attributed damaged candidates are covered by test_intentionally_invalid_mode. */
+  proto_set_mutating_mode(e, PROTO_VALID);
+  m2_len = 0;
+  pack_record(m2_buf, &m2_len, raw_msg_b, sizeof(raw_msg_b));
+  pack_record(m2_buf, &m2_len, raw_msg_a, sizeof(raw_msg_a));
+  pack_record(m2_buf, &m2_len, raw_msg_b, sizeof(raw_msg_b));
+  pack_record(m2_buf, &m2_len, raw_msg_a, sizeof(raw_msg_a)); // total 4 + 1 = 5
   err[0] = '\0';
   rc = proto_validate_sequence(e, m1_buf, m1_len, m2_buf, m2_len, m3_buf, m3_len, err, sizeof(err));
   assert(rc < 0);
   assert(strstr(err, "max_messages exceeded") != NULL);
-  printf("[+] PROTO_INVALID still enforces max_messages limit: %s\n", err);
+  printf("[+] Sequence validation enforces max_messages limit: %s\n", err);
 
   proto_set_mutating_mode(e, PROTO_VALID);
 

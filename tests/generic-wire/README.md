@@ -79,3 +79,15 @@ requires a fresh output directory, the built StateAFL binaries/toolchain and
 permission to disable ASLR per process with `setarch -R`. The controller is
 Python; the wire interpreter, executor, three mutation layers and feedback
 consumer all execute in C. See [the language and feedback reference](../../docs/generic-wire-language.md).
+
+The file-only variable Modbus fixture exercises FC01–06, FC0F and FC10,
+including bit padding, normal/exception alternatives, correlation and TCP
+stream framing. It does not start a server or change any production profile.
+Run it under sanitizers from the repository root:
+
+```sh
+clang -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
+  -fno-omit-frame-pointer -I. tests/generic-wire/test_full_modbus.c \
+  generic_runtime.c generic_wire.c native_json.c -o /tmp/test-full-modbus
+/tmp/test-full-modbus
+```

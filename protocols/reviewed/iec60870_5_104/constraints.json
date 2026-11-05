@@ -27,11 +27,29 @@
     {
       "id": "IE03",
       "problem": "TESTFR在starting/stopping缺边；interrogation阶段没有S确认边。",
-      "resolution": "增加starting/stopping的TESTFR请求/确认自环，增加interrogating/interrogation_data的s_ack自环；single-pending发送限制仍明确保留。",
+      "resolution": "增加starting/stopping的TESTFR请求/确认自环和interrogating/interrogation_data的s_ack自环；执行器允许S确认和TESTFR控制绕过应用pending，控制pending单独跟踪。",
       "messages": [
         "test_act",
         "test_con",
         "s_ack"
+      ]
+    },
+    {
+      "id": "IE04",
+      "problem": "N(S)/N(R)、窗口和计时规则曾仅以字段与guard文字描述，fixed字段与现场重绑定字段也进入无效变异采样。",
+      "resolution": "加入 connection-scoped IEC104 session：独立15位序号、累计确认、k/w、边界计时检查和独立START/STOP/TEST pending；请求序号由会话实际绑定，单值VSQ/IOA固定并排除无效采样。",
+      "messages": [
+        "start_act",
+        "start_con",
+        "stop_act",
+        "stop_con",
+        "test_act",
+        "test_con",
+        "s_ack",
+        "interrogation",
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
       ]
     }
   ],
@@ -72,8 +90,8 @@
       "messages": [
         "s_ack"
       ],
-      "constraint": "S frame contains6 bytes, first control word0001(little endian), and a wire receive sequence with bit0 clear. State edges represent active/interrogation-phase acknowledgements; live peer N(R) binding is not implemented.",
-      "enforced_by": "codec_and_model"
+      "constraint": "S frame contains6 bytes, first control word0001(little endian), and a wire receive sequence with bit0 clear. The executor binds outgoing N(R) to the next observed peer I-frame number; incoming S acknowledgements update the independent send window without consuming application pending.",
+      "enforced_by": "executor"
     },
     {
       "id": "IE-I",
@@ -117,10 +135,32 @@
     {
       "id": "IE-SEQUENCE",
       "messages": [
-        "interrogation"
+        "s_ack",
+        "interrogation",
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
       ],
-      "constraint": "The local request send_seq dependency advances its own prior wire value by2; this does not implement peer N(S), cumulative N(R), k/w windows or timers.",
-      "enforced_by": "model"
+      "constraint": "The executor binds outgoing wire N(S)/N(R) from independent 15-bit connection counters, checks exact incoming N(S), and validates cumulative N(R) inside the outstanding send window, including wraparound. The same session is part of prepare/commit/cancel snapshots; received peer sequence fields are not local dependency writers.",
+      "enforced_by": "executor"
+    },
+    {
+      "id": "IE-WINDOW-TIMERS",
+      "messages": [
+        "start_act",
+        "start_con",
+        "stop_act",
+        "stop_con",
+        "test_act",
+        "test_con",
+        "s_ack",
+        "interrogation",
+        "interrogation_confirmation",
+        "interrogation_termination",
+        "interrogation_negative"
+      ],
+      "constraint": "The bounded client session enforces k<=128, w<=k, t0 before initial STARTDT, t1 for pending controls and oldest unacknowledged I-frame, w/t2 receive-acknowledgement requirements and t3 idle TESTFR requirements when processing send/receive calls. START/STOP/TEST pending are independent from the single application pending; S and TESTFR sends are allowed during interrogation pending. Session begin resets connection counters and timers. This module performs no autonomous scheduling or transport I/O.",
+      "enforced_by": "executor"
     }
   ],
   "remaining_gaps": [
@@ -131,21 +171,15 @@
       "resolution": "Add separately sourced ASDU type/quality/time layouts and state/session behavior together with codec/grammar support before claiming full standard coverage."
     },
     {
-      "id": "IE-SEQUENCE-WINDOW",
+      "id": "IE-AUTONOMOUS-TIMERS",
       "layer": "runtime",
-      "description": "Peer receive-sequence binding, independent live sequence spaces, cumulative acknowledgement, k/w windows, t0/t1/t2/t3 timers and reconnect/reset semantics are not fully executed.",
-      "resolution": "Implement explicit connection-scoped state and observed-sequence binding; static guard/action strings cannot enforce it."
-    },
-    {
-      "id": "IE-SINGLE-PENDING",
-      "layer": "runtime",
-      "description": "Added TESTFR/S-acknowledgement graph edges do not bypass the runtime single-outstanding-request rule. STARTDT/STOPDT/interrogation pending may block otherwise legal control sends.",
-      "resolution": "Implement independent APCI control and ASDU pending state or keep experiments within the serial current runtime contract."
+      "description": "Timer and window rules are checked when the host processes send/receive calls. No autonomous scheduler emits S/TESTFR frames, polls deadlines or reconnects an idle connection; k is a bounded local maximum128. Application requests still use one pending transaction.",
+      "resolution": "For continuous sessions, add host scheduling and explicit reconnect policy with deterministic timer tests and controlled transport tests. Retain the existing serial single-interrogation contract until then."
     },
     {
       "id": "IE-DATA-ASDUS",
       "layer": "runtime",
-      "description": "Real interrogation can return monitoring data ASDUs between confirmation and termination. This codec only accepts the declared C_IC_NA_1 forms and does not model those data frames or peer-initiated control conversations.",
+      "description": "Real interrogation can return monitoring data ASDUs between confirmation and termination. The codec only accepts the declared C_IC_NA_1 forms and rejects server-initiated U-control conversations; incoming S acknowledgements are now handled independently.",
       "resolution": "Extend message grammar and asynchronous response handling; do not treat omitted data or an accepted confirmation as full interrogation-session validation."
     },
     {
@@ -157,8 +191,8 @@
     {
       "id": "IE-EVIDENCE",
       "layer": "evidence",
-      "description": "This reviewed source has no native validation, generated IR, managed seed plan, executed regression or controlled target session evidence.",
-      "resolution": "Generate current paired IR/validation and corpus using the real project tools, then verify actual APCI/ASDU exchanges, boundary/state evidence and fixed-budget method results."
+      "description": "This directory remains source-only. Native preparation and sanitizer session/runtime checks were executed separately during the executor extension; controlled local run results and mutation-sampling limits are recorded in the extension report. They do not demonstrate full industrial device sessions or method effectiveness.",
+      "resolution": "Consult docs/executor-extension-20261104.zh-CN.md for exact current run outcomes and output paths. Add independent data-ASDU/control interoperability and fixed-budget comparison evidence before broader claims."
     }
   ],
   "generic_coverage": {

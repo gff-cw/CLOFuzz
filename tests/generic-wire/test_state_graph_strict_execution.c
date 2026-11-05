@@ -115,7 +115,7 @@ int main(void) {
     "  ],\n"
     "  \"initial\": \"ready\",\n"
     "  \"transitions\": [\n"
-    "    {\"from\": \"ready\", \"to\": \"awaiting_resp_a\", \"message\": \"msg_req_a\", \"response\": \"\"},\n"
+    "    {\"from\": \"ready\", \"to\": \"awaiting_resp_a\", \"message\": \"msg_req_a\", \"response\": \"msg_resp_a\"},\n"
     "    {\"from\": \"awaiting_resp_a\", \"to\": \"ready\", \"message\": \"msg_resp_a\", \"response\": \"\"},\n"
     "    {\"from\": \"ready\", \"to\": \"ready\", \"message\": \"msg_req_b\", \"response\": \"\"}\n"
     "  ],\n"

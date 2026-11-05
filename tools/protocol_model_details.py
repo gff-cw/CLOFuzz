@@ -191,6 +191,15 @@ def enrich_iec104(p,st,msgs,field,fixed,length,dep,message):
         for f in m['fields']:
             if f['id'] in {'send_seq','receive_seq'}:
                 f.update(max=65534,structure='Wire UInt16 is logical 15-bit sequence shifted left one; bit0 zero. Each direction has independent N(S); N(R) acknowledges next expected peer I frame. Advance modulo 32768 only for I frames.')
+                if m['direction']=='request':
+                    f['mutability']='runtime_bound'
+                    f['structure']='Bound by the IEC104 executor to the actual connection N(S) or next expected peer N(R), encoded as UInt16 shifted left one; not an independent fuzz knob.'
+                    if not any(d['target']==f['id'] for d in m['dependencies']):
+                        m['dependencies'].append(dep(f['id'],'$message','sequence_number',unit=2,scope='connection'))
+            if f['id'] in {'vsq','ioa'}:
+                f.update(role='fixed',mutability='fixed',min=f['default'],max=f['default'],values=[f['default']],strategies=['enum'])
+        if m['direction']=='response':
+            m['dependencies']=[d for d in m['dependencies'] if d['op']!='sequence_number']
     req['notes']='C_IC_NA_1 request: SQ=0/count=1, IOA=0, QOI 20 global or 21..36 group. Data ASDUs between confirmation/termination are excluded, so completion does not mean an empty remote database.'
     st['states'] += [dict(id='interrogating',meaning='Activation sent; confirmation pending'),dict(id='interrogation_data',meaning='Positive activation confirmation; data/termination pending')]
     st['transitions']=[t for t in st['transitions'] if t['message']!='interrogation']
@@ -198,6 +207,8 @@ def enrich_iec104(p,st,msgs,field,fixed,length,dep,message):
         transition('interrogating','interrogation_data','interrogation_confirmation',guard='positive activation confirmation; matching CA/QOI'),
         transition('interrogating','active','interrogation_negative',guard='negative activation confirmation'),
         transition('interrogation_data','active','interrogation_termination',guard='matching CA/QOI; all preceding I frames acknowledged')]
+    for state in ['interrogating','interrogation_data']:
+        st['transitions'].append(transition(state,state,'s_ack',guard='acknowledge received I frames'))
     for t in st['transitions']:
         if t['message']=='test_act':t['response']='test_con'
     for state in ['stopped','interrogating','interrogation_data']:

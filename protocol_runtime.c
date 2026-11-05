@@ -4,6 +4,8 @@
 #include "protocol_codecs.h"
 #include "generic_runtime.h"
 #include "native_json.h"
+#include "protocol_session_constraints.h"
+#include "protocol_iec104_session.h"
 #include "config.h"
 #include "alloc-inl.h"
 #include <stdlib.h>
@@ -154,6 +156,8 @@ typedef struct {
   uint8_t cached[PMAX][FMAX],outstanding[256],pending[PMAX];
   unsigned state;
   uint32_t ua_sequence;
+  psc_session constraints;
+  ies_session iec104;
 } session_snapshot;
 struct proto_engine {
   gr_engine *generic;
@@ -174,6 +178,8 @@ struct proto_engine {
   int mutating_mode;
   unsigned semantic_state;
   uint32_t ua_sequence;
+  psc_session constraints;
+  ies_session iec104;
   session_snapshot prepared_session;
   unsigned send_prepared;
   uint8_t *validation_projection,*validation_candidate;
@@ -187,6 +193,7 @@ static void save_session(proto_engine *e,session_snapshot *s){
   memcpy(s->outstanding,e->outstanding,sizeof(e->outstanding));
   memcpy(s->pending,e->pending,sizeof(e->pending));
   s->state=e->semantic_state;s->ua_sequence=e->ua_sequence;
+  s->constraints=e->constraints;s->iec104=e->iec104;
 }
 static void restore_session(proto_engine *e,const session_snapshot *s){
   memcpy(e->cache,s->cache,sizeof(s->cache));
@@ -194,6 +201,7 @@ static void restore_session(proto_engine *e,const session_snapshot *s){
   memcpy(e->outstanding,s->outstanding,sizeof(s->outstanding));
   memcpy(e->pending,s->pending,sizeof(s->pending));
   e->semantic_state=s->state;e->ua_sequence=s->ua_sequence;
+  e->constraints=s->constraints;e->iec104=s->iec104;
   e->simulating=0;
 }
 
@@ -214,6 +222,15 @@ static const char *ops[]={"length_of","count_of","offset_of","checksum_of","copy
 static int find_msg(proto_engine *e,const char *id) {for(int i=0;i<e->nm;i++)if(!strcmp(e->m[i].id,id))return i;return -1;}
 static int find_field(pm *m,const char *id) {for(int i=0;i<m->nf;i++)if(!strcmp(m->f[i].id,id))return i;return -1;}
 static int find_state(proto_engine *e,const char *id) {for(int i=0;i<e->ns;i++)if(!strcmp(e->state[i],id))return i;return -1;}
+static int field_mutation_available(const proto_engine *e,const pm *m,int index){
+  const pf *field=&m->f[index];
+  if(field->mut!=1 && field->mut!=3)return 0;
+  if(field->width && field->min==field->max)return 0;
+  for(int d=0;d<m->nd;d++)if(m->d[d].target==index &&
+      (m->d[d].op==4 || m->d[d].op==5 || m->d[d].op==7))return 0;
+  if(e->codec==2 && (!strcmp(field->loc,"abs:2") || !strcmp(field->loc,"abs:4")))return 0;
+  return 1;
+}
 static int hex(const char *s,uint8_t **out,size_t *n,char *err,size_t cap) {
   size_t len=strlen(s);if(!len || len%2 || len>WMAX*2)return fail(err,cap,"invalid message hex size");
   *n=len/2;*out=ck_alloc(*n);
@@ -260,6 +277,41 @@ static int tags_valid(const uint8_t *b,size_t n,size_t p) {
     if(k==2){if(!depth || stack[--depth]!=num)return -1;}
   }return depth?-1:0;
 }
+/* A top-level application parameter is identified by its service position and
+ * tag type, never by a byte offset from one recorded response. */
+static int bacnet_parameter(const uint8_t *b,size_t n,const layout *v,
+                            unsigned index,unsigned expected,size_t *off,size_t *width) {
+  size_t p=v->content,data,len;unsigned num;int ctx,k;
+  for(unsigned i=0;i<=index;i++){
+    if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0 || ctx || k)return -1;
+    if(i==index){if(num!=expected)return -1;*off=data;*width=len;return 1;}
+  }
+  return -1;
+}
+static int bacnet_property_value(const uint8_t *b,size_t n,const layout *v,
+                                 size_t *off,size_t *width) {
+  size_t p=v->content,data,len;unsigned num;int ctx,k;
+  for(unsigned wanted=0;wanted<2;wanted++)
+    if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0 || !ctx || k || num!=wanted ||
+       len<1 || len>4 || (!wanted && len!=4))return -1;
+  if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0)return -1;
+  if(ctx && !k && num==2){
+    if(len<1 || len>4)return -1;
+    if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0)return -1;
+  }
+  if(!ctx || k!=1 || num!=3)return -1;
+  size_t inner=p;unsigned depth=1;
+  while(p<n){
+    size_t header=p;
+    if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0)return -1;
+    if(k==1)depth++;
+    if(k==2 && !--depth){
+      if(num!=3 || p!=n || header==inner)return -1;
+      *off=inner;*width=header-inner;return 1;
+    }
+  }
+  return -1;
+}
 static int content_valid(const uint8_t *b,size_t n,const layout *v) {
   if(tags_valid(b,n,v->content)<0)return -1;
   /* These request services are the only content encoders in this runtime. */
@@ -275,6 +327,24 @@ static int content_valid(const uint8_t *b,size_t n,const layout *v) {
     if(v->kind==0 && p<n)if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0 || !ctx || k || num!=2 || !len || len>4)return -1;
     if(p!=n)return -1;
   }
+  if(v->kind==1 && b[v->service]==0){
+    const unsigned expected[]={12,2,9,2};size_t p=v->content,data,len;unsigned num;int ctx,k;
+    for(unsigned i=0;i<4;i++){
+      if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0 || ctx || k || num!=expected[i] ||
+         !len || len>4 || (!i && len!=4))return -1;
+      uint64_t value=getint(b+data,len,0);
+      if((!i && value>>22!=8) || (i==1 && value>65535) ||
+         (i==2 && value>3) || (i==3 && value>65535))return -1;
+    }
+    if(p!=n)return -1;
+  }
+  if(v->kind==3 && b[v->service]==12){size_t o,w;if(bacnet_property_value(b,n,v,&o,&w)!=1)return -1;}
+  if(v->kind==5 && b[v->service]==12){
+    size_t p=v->content,data,len;unsigned num;int ctx,k;
+    for(unsigned i=0;i<2;i++)if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0 || ctx || k || num!=9 || !len || len>4)return -1;
+    if(p!=n)return -1;
+  }
+  if((v->kind==6 || v->kind==7) && v->content!=n)return -1;
   return 0;
 }
 int proto_bacnet_field(const uint8_t *b,size_t n,const char *loc,size_t *off,size_t *width,char *err,size_t cap) {
@@ -288,19 +358,64 @@ int proto_bacnet_field(const uint8_t *b,size_t n,const char *loc,size_t *off,siz
   else if(!strcmp(loc,"npdu.version"))*off=v.npdu;
   else if(!strcmp(loc,"npdu.control"))*off=v.npdu+1;
   else if(!strcmp(loc,"apdu.type"))*off=v.apdu;
-  else if(!strcmp(loc,"apdu.service"))*off=v.service;
+  else if(!strcmp(loc,"apdu.service")){if(v.kind==6 || v.kind==7)return 0;*off=v.service;}
+  else if(!strcmp(loc,"apdu.reason")){if(v.kind!=6 && v.kind!=7)return 0;*off=v.service;}
   else if(!strcmp(loc,"apdu.invoke")){if(v.invoke==SIZE_MAX)return 0;*off=v.invoke;}
   else if(!strcmp(loc,"apdu.max_apdu")){if(v.max_apdu==SIZE_MAX)return 0;*off=v.max_apdu;}
   else if(!strcmp(loc,"apdu.content")){*off=v.content;*width=n-v.content;}
+  else if(!strcmp(loc,"bacnet.value")){
+    if(v.kind!=3 || b[v.service]!=12)return 0;
+    if(bacnet_property_value(b,n,&v,off,width)!=1)return fail(err,cap,"malformed ReadProperty value container");
+  }
+  else if(!strncmp(loc,"bacnet.iam.",11)){
+    if(v.kind!=1 || b[v.service]!=0)return 0;
+    const char *names[]={"device","max_apdu","segmentation","vendor"};const unsigned types[]={12,2,9,2};
+    unsigned i;for(i=0;i<4;i++)if(!strcmp(loc+11,names[i]))break;
+    if(i==4)return fail(err,cap,"unsupported I-Am locator %s",loc);
+    if(bacnet_parameter(b,n,&v,i,types[i],off,width)!=1)return fail(err,cap,"malformed I-Am parameter");
+  }
+  else if(!strcmp(loc,"bacnet.error.class") || !strcmp(loc,"bacnet.error.code")){
+    if(v.kind!=5 || b[v.service]!=12)return 0;
+    if(bacnet_parameter(b,n,&v,!strcmp(loc,"bacnet.error.code"),9,off,width)!=1)return fail(err,cap,"malformed Error parameter");
+  }
   else if(!strncmp(loc,"abs:",4)){char *end;errno=0;unsigned long a=strtoul(loc+4,&end,10);if(!isdigit((unsigned char)loc[4]) || errno || *end || a>=n)return fail(err,cap,"invalid absolute locator");*off=a;}
   else if(!strcmp(loc,"bacnet.object") || !strcmp(loc,"bacnet.property") || !strcmp(loc,"bacnet.array")) {
+    if((v.kind!=0 && v.kind!=3) || b[v.service]!=12)return 0;
     unsigned wanted=!strcmp(loc,"bacnet.object")?0:!strcmp(loc,"bacnet.property")?1:2;
     size_t p=v.content,data,len;unsigned num;int ctx,k;
     while(p<n){if(tag(b,n,&p,&num,&ctx,&k,&data,&len)<0)return fail(err,cap,"malformed BACnet tag");
+      /* Property-reference leaves precede the ACK value container. Never
+       * mistake a nested value context tag for an optional array index. */
+      if(k)return 0;
       if(ctx && !k && num==wanted){*off=data;*width=len;return 1;}}
     return 0;
   } else return fail(err,cap,"unsupported BACnet locator %s",loc);
   return 1;
+}
+/* Re-encode a variable-width unsigned context leaf. The declared UInt32 width
+ * is its value capacity, not a demand that its wire representation stay four
+ * bytes or retain the width of the source fixture. */
+static int bacnet_context_replace(uint8_t *b,size_t *size,size_t capacity,
+                                  const char *loc,uint64_t value,char *err,size_t cap) {
+  unsigned wanted=!strcmp(loc,"bacnet.property")?1:!strcmp(loc,"bacnet.array")?2:99;
+  if(wanted==99 || value>UINT32_MAX)return fail(err,cap,"unsupported BACnet context scalar replacement");
+  layout v;if(bacnet_layout(b,*size,&v,err,cap)<0 || content_valid(b,*size,&v)<0)return -1;
+  if(v.kind!=0 || b[v.service]!=12)return fail(err,cap,"BACnet scalar replacement requires ReadProperty request");
+  size_t p=v.content,data,len;unsigned num;int ctx,k;
+  while(p<*size){
+    size_t header=p;
+    if(tag(b,*size,&p,&num,&ctx,&k,&data,&len)<0)return fail(err,cap,"malformed context scalar");
+    if(ctx && !k && num==wanted){
+      size_t width=1;while(width<4 && value>=(1ULL<<(width*8)))width++;
+      size_t removed=p-header,inserted=width+1;
+      if(*size-removed>capacity || inserted>capacity-(*size-removed))return fail(err,cap,"BACnet scalar resize exceeds capacity");
+      memmove(b+header+inserted,b+p,*size-p);
+      b[header]=(uint8_t)((wanted<<4)|8|width);putint(b+header+1,width,0,value);
+      *size=*size-removed+inserted;putint(b+2,2,0,*size);
+      return 0;
+    }
+  }
+  return fail(err,cap,"BACnet context scalar is absent");
 }
 static int locate(proto_engine *e,const uint8_t *b,size_t n,pf *f,size_t *o,size_t *w,char *err,size_t cap) {
   int r=e->codec?codecs[e->codec].field(b,n,f->loc,f->type,f->width,o,w,err,cap):proto_bacnet_field(b,n,f->loc,o,w,err,cap);if(r<=0)return r;
@@ -381,6 +496,19 @@ static int equal_field(const pf *a,const pf *b){
     a->min==b->min && a->max==b->max && a->role==b->role && a->mut==b->mut &&
     a->little==b->little && a->strategies==b->strategies && a->nv==b->nv &&
     !memcmp(a->values,b->values,a->nv*sizeof(a->values[0]));
+}
+/* A broad codec service class may contain distinct, non-overlapping model
+ * ranges (for example one fixed exception function per Modbus request).
+ * Prove separation with a shared required field; optional absent fields cannot
+ * prove disjointness. Keep refusing inequivalent models without this proof. */
+static int disjoint_models(const pm *a,const pm *b){
+  for(int f=0;f<a->nf;f++)for(int g=0;g<b->nf;g++){
+    const pf *x=&a->f[f],*y=&b->f[g];
+    if(x->mut==3 || y->mut==3 || strcmp(x->loc,y->loc) ||
+       x->type!=y->type || x->width!=y->width || x->little!=y->little)continue;
+    if(x->max<y->min || y->max<x->min)return 1;
+  }
+  return 0;
 }
 /* Only aliases with identical executed constraints/dependencies share cache
  * values. Fixture bytes and author-chosen IDs are not message identities. */
@@ -554,6 +682,8 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
       if(dst->op==5 && !e->m[dst->message].response)goto malformed;
       if(dst->op==6 && (!msg->response || e->m[dst->message].response))goto malformed;
       if(dst->op==7 && (dst->message!=mi || (dst->source>=0 && dst->source!=dst->target)))goto malformed;
+      if(dst->op==7 && e->codec==2 && (!strcmp(msg->f[dst->target].loc,"abs:2") ||
+          !strcmp(msg->f[dst->target].loc,"abs:4")) && dst->unit!=2)goto malformed;
       if(dst->op==9 && (dst->message!=mi || dst->source!=-1 || strcmp(msg->f[dst->target].loc,"ber:presentation")))goto malformed;
       if(dst->op==3){if(str(&p,key(&p,d,"algorithm"),b,sizeof(b))<0)goto bad;dst->algorithm=!strcmp(b,"sum8")?1:!strcmp(b,"crc32")?2:0;if(!dst->algorithm)goto malformed;}
     }
@@ -614,7 +744,7 @@ proto_engine *proto_load(const char *pp,const char *sp,char *err,size_t cap) {
   }
   for(int mi=0;mi<e->nm;mi++){for(int prior=0;prior<mi;prior++){
     if(e->codec>0 && e->m[mi].response==e->m[prior].response && codecs[e->codec].same(e->m[mi].example,e->m[mi].size,e->m[prior].example,e->m[prior].size)){
-      if(e->canonical[mi]!=e->canonical[prior]){fail(err,cap,"ambiguous wire identity with differing semantics: %s and %s",e->m[prior].id,e->m[mi].id);goto bad;}
+      if(e->canonical[mi]!=e->canonical[prior] && !disjoint_models(&e->m[mi],&e->m[prior])){fail(err,cap,"ambiguous wire identity with differing semantics: %s and %s",e->m[prior].id,e->m[mi].id);goto bad;}
     }
   }}
   json_free(&p);json_free(&s);e->prefix_state=e->initial;e->prefix_valid=1;proto_session_begin(e);return e;
@@ -669,7 +799,9 @@ static int repair_field(proto_engine *e,int mi,int fi,uint8_t *b,size_t n,uint8_
     else if(d->op==7){
       size_t seqoff,seqwidth;int ua=e->codec==5 && pc_opcua_field(b,n,"uabin:sequence",PC_UINT32,4,&seqoff,&seqwidth,err,cap)==1 && seqoff==o && seqwidth==w;
       uint64_t mask=w==8?UINT64_MAX:((1ULL<<(8*w))-1);
-      val=ua?e->ua_sequence:e->cached[mi][fi]?((e->cache[mi][fi]+(uint64_t)d->unit)&mask):0;
+      if(e->codec==2 && (!strcmp(m->f[fi].loc,"abs:2") || !strcmp(m->f[fi].loc,"abs:4")))
+        val=(uint64_t)(!strcmp(m->f[fi].loc,"abs:2")?e->iec104.send_next:e->iec104.receive_next)<<1;
+      else val=ua?e->ua_sequence:e->cached[mi][fi]?((e->cache[mi][fi]+(uint64_t)d->unit)&mask):0;
     }
     else if(d->op==4 && d->message==mi)val=getint(b+so,sw,m->f[d->source].little);
     else {if(!e->cached[d->message][d->source]){if(e->simulating && d->message!=mi)continue;return fail(err,cap,"unresolved session dependency %s.%s",e->m[d->message].id,e->m[d->message].f[d->source].id);}val=e->cache[d->message][d->source];}
@@ -690,10 +822,11 @@ static int repair(proto_engine *e,int mi,uint8_t *b,size_t n,char *err,size_t ca
   if(v.kind==0 && b[v.service]==12){size_t o,w;for(int x=0;x<2;x++){const char *loc=x?"bacnet.property":"bacnet.object";if(proto_bacnet_field(b,n,loc,&o,&w,err,cap)!=1 || (x?(w<1||w>4):w!=4))return fail(err,cap,"ReadProperty required context tag missing");}}
   return 0;
 }
-void proto_session_begin(proto_engine *e){if(!e)return;if(e->generic){gr_session_begin(e->generic);return;}e->send_prepared=0;memset(e->cached,0,sizeof(e->cached));memset(e->cache,0,sizeof(e->cache));memset(e->outstanding,0,sizeof(e->outstanding));memset(e->pending,0,sizeof(e->pending));e->semantic_state=e->initial;e->ua_sequence=0;if(!e->simulating)e->receive_size=0;}
+void proto_session_begin(proto_engine *e){if(!e)return;if(e->generic){gr_session_begin(e->generic);return;}e->send_prepared=0;memset(e->cached,0,sizeof(e->cached));memset(e->cache,0,sizeof(e->cache));memset(e->outstanding,0,sizeof(e->outstanding));memset(e->pending,0,sizeof(e->pending));e->semantic_state=e->initial;e->ua_sequence=0;psc_session_reset(&e->constraints);ies_reset(&e->iec104,psc_monotonic_ms());if(!e->simulating)e->receive_size=0;}
 static void remember(proto_engine *e,int mi,uint8_t *b,size_t n){
   char err[128];for(int model=0;model<e->nm;model++)if(e->canonical[model]==e->canonical[mi]){
     for(int f=0;f<e->m[model].nf;f++){size_t o,w;pf *p=&e->m[model].f[f];
+      e->cached[model][f]=0;
       if(p->width && locate(e,b,n,p,&o,&w,err,sizeof(err))==1){e->cache[model][f]=getint(b+o,w,p->little);e->cached[model][f]=1;}
     }
   }
@@ -708,12 +841,15 @@ static int bind_before_send(proto_engine *e,uint8_t *b,size_t n,char *err,size_t
   int target_tr=-1;
   for(int t=0;t<e->nt;t++)if(e->tr[t].from==(int)e->semantic_state && e->canonical[e->tr[t].message]==e->canonical[mi]){target_tr=t;break;}
   if(target_tr<0)return fail(err,cap,"request outside current semantic state %s",e->state[e->semantic_state]);
-  for(int model=0;model<e->nm;model++)if(e->pending[model])
+  for(int model=0;model<e->nm;model++)if(e->pending[model] &&
+      !(e->codec==2 && ies_is_control_request(b,n)))
     return fail(err,cap,"legacy runtime permits one outstanding request per session");
   /* Only session bindings here. Wire-invalid tests must never be repaired again. */
   pm *m=&e->m[mi];for(int i=0;i<m->nd;i++){pd *d=&m->d[i];if(d->op==4 || d->op==5 || d->op==7){uint8_t done[FMAX]={0};if(repair_field(e,mi,d->target,b,n,done,err,cap)<0)return -1;}}
+  if(e->codec==2 && ies_before_send(&e->iec104,b,n,psc_monotonic_ms(),err,cap)<0)return -1;
   if(e->codec && (codecs[e->codec].validate(b,n,err,cap)<0 || model_for(e,b,n,0)<0))return fail(err,cap,"live binding violates wire structure or model bounds");
   if(proto_validate_message_fields(e,mi,b,n,err,cap)<0)return -1;
+  if(psc_before_send(&e->constraints,codecs[e->codec].name,b,n,psc_monotonic_ms(),err,cap)<0)return -1;
   layout v={0};
   if(!e->codec){
     if(bacnet_layout(b,n,&v,err,cap)<0)return -1;
@@ -777,6 +913,13 @@ void proto_set_mutating_mode(proto_engine *e, int mode){
  * complete validated, correlated response may supply connection bindings. */
 static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
   char err[128];int matched_grammar=0,correlation_failed=0;
+  if(e->codec==2 && ies_is_supervisory(b,n)){
+    if(ies_after_response(&e->iec104,b,n,psc_monotonic_ms(),err,sizeof(err))<0){e->resp_correlation_mismatches++;return;}
+    e->responses++;
+    if(e->exec_purpose<7)e->resp_by_purpose[e->exec_purpose]++;
+    if(e->log)fputs("{\"event\":\"iec104_supervisory\",\"accepted\":true}\n",e->log);
+    return;
+  }
   layout v;
   if(!e->codec && bacnet_layout(b,n,&v,err,sizeof(err))<0){
     e->resp_grammar_mismatches++;
@@ -814,9 +957,17 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
       uint64_t source;
       if(dep->op==4 && e->canonical[dep->message]==e->canonical[m]){
         size_t so,sw;pf *sf=&e->m[dep->message].f[dep->source];
-        if(locate(e,b,n,sf,&so,&sw,err,sizeof(err))!=1){fits=0;break;}source=getint(b+so,sw,sf->little);
+        int found=locate(e,b,n,sf,&so,&sw,err,sizeof(err));
+        if(found==0 && sf->mut==3 && field->mut==3 && locate(e,b,n,field,&o,&w,err,sizeof(err))==0)continue;
+        if(found!=1){fits=0;break;}source=getint(b+so,sw,sf->little);
       }else{
-        if((dep->op==6 && !e->pending[dep->message]) || !e->cached[dep->message][dep->source]){fits=0;break;}
+        if(dep->op==6 && !e->pending[dep->message]){fits=0;break;}
+        if(!e->cached[dep->message][dep->source]){
+          pf *sf=&e->m[dep->message].f[dep->source];
+          if(dep->op==4 && e->pending[dep->message] && sf->mut==3 && field->mut==3 &&
+             locate(e,b,n,field,&o,&w,err,sizeof(err))==0)continue;
+          fits=0;break;
+        }
         source=e->cache[dep->message][dep->source];
       }
       if(locate(e,b,n,field,&o,&w,err,sizeof(err))!=1 || getint(b+o,w,field->little)!=source){fits=0;break;}
@@ -835,6 +986,13 @@ static void response_frame(proto_engine *e,const uint8_t *b,size_t n){
     /* A declared follow-up response can advance the graph after the expected
        first response completed its pending request. Do not invent a second
        completion for that follow-up (for example IEC104 ACT_TERM). */
+    psc_session constraints=e->constraints;
+    ies_session iec104=e->iec104;
+    if(psc_after_response(&constraints,codecs[e->codec].name,b,n,psc_monotonic_ms(),err,sizeof(err))<0 ||
+       (e->codec==2 && ies_after_response(&iec104,b,n,psc_monotonic_ms(),err,sizeof(err))<0)){
+      correlation_failed=1;continue;
+    }
+    e->constraints=constraints;e->iec104=iec104;
     if(linked || declared_pending>=0){
       e->resp_expected_complete++;
       if(linked)e->correlated++;
@@ -914,19 +1072,19 @@ int proto_set_prefix(proto_engine *e,const uint8_t *b,size_t n,char *err,size_t 
   }
   e->prefix_count=count;e->prefix_bytes=n;e->prefix_valid=1;return 0;
 }
-static int sequence_ok(proto_engine *e) {
-  if(!e->prefix_valid)return -1;
-  if(e->prefix_count + e->count > (size_t)e->max_messages)return -1;
+static int sequence_ok(proto_engine *e,char *err,size_t cap) {
+  if(!e->prefix_valid)return fail(err,cap,"M1 prefix outside semantic model");
+  if(e->prefix_count + e->count > (size_t)e->max_messages)return fail(err,cap,"max_messages exceeded across sequence");
   size_t m2_bytes = 0;
   for(size_t i=0;i<e->count;i++) m2_bytes += 4 + e->records[i].size;
-  if(e->prefix_bytes + m2_bytes > e->max_bytes)return -1;
+  if(e->prefix_bytes + m2_bytes > e->max_bytes)return fail(err,cap,"max_bytes exceeded across serialized sequence");
   int state=e->prefix_state;
   size_t repeats[PMAX];
   memcpy(repeats, e->prefix_repeats, sizeof(repeats));
   for(size_t i=0;i<e->count;i++){
-    int model=e->records[i].model;if((state=semantic_step(e,state,model))<0)return -1;
+    int model=e->records[i].model;if((state=semantic_step(e,state,model))<0)return fail(err,cap,"semantic transition rejects sequence");
     int c_model=e->canonical[model];
-    if(++repeats[c_model]>(size_t)e->max_repeat)return -1;
+    if(++repeats[c_model]>(size_t)e->max_repeat)return fail(err,cap,"max_repeat exceeded across sequence");
   }return 0;
 }
 int proto_validate_sequence(proto_engine *e,
@@ -1084,7 +1242,7 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       for (int f = 0; f < m->nf; f++) {
         pf *p = &m->f[f];
         size_t o, w;
-        if (p->role == req_role && (p->mut == 1 || p->mut == 3) && locate(e, b, e->records[i].size, p, &o, &w, NULL, 0) == 1) {
+        if (p->role == req_role && field_mutation_available(e,m,f) && locate(e, b, e->records[i].size, p, &o, &w, NULL, 0) == 1) {
           eligible[i]=1;
           break;
         }
@@ -1146,12 +1304,22 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
     }
   } else {
     int choices[FMAX],nf=0;uint8_t *b=e->work+r->offset;
-    for(int f=0;f<m->nf;f++){pf *p=&m->f[f];size_t o,w;if(p->role==(layer==1?1:2) && (p->mut==1 || p->mut==3) && locate(e,b,r->size,p,&o,&w,err,cap)==1)choices[nf++]=f;}
+    for(int f=0;f<m->nf;f++){pf *p=&m->f[f];size_t o,w;if(p->role==(layer==1?1:2) && field_mutation_available(e,m,f) && locate(e,b,r->size,p,&o,&w,err,cap)==1)choices[nf++]=f;}
     if(!nf){fail(err,cap,"selected message has no mutable field in selected layer");goto bad;}fi=choices[draw(rng,nf)];pf *f=&m->f[fi];size_t o,w;
     if(locate(e,b,r->size,f,&o,&w,err,cap)!=1){fail(err,cap,"selected optional field absent");goto bad;}
     if(f->width){
       uint64_t val=getint(b+o,w,f->little);int operations[4],operation_count=0;for(int j=0;j<4;j++)if(f->strategies&(1<<j))operations[operation_count++]=j;unsigned op=layer==1?operations[draw(rng,operation_count)]:draw(rng,4);strategy=layer==2?"afl_field_projection":op==0?"enum":op==1?"boundary":op==2?"bitflip":"arithmetic";
-      if(layer==2){if(!candidate || r->wire_offset+o>cn || w>cn-r->wire_offset-o){fail(err,cap,"AFL candidate does not contain selected CONTENT field");goto bad;}val=getint(candidate+r->wire_offset+o,w,f->little);}
+      if(layer==2){
+        size_t projected=w;
+        if(!e->codec && (!strcmp(f->loc,"bacnet.property") || !strcmp(f->loc,"bacnet.array"))){
+          size_t base=r->wire_offset+o,available=base<=cn?cn-base:0;
+          if(ri+1<e->count && available>r->size-o)available=r->size-o;
+          projected=available<(size_t)f->width?available:(size_t)f->width;
+          if(!projected){fail(err,cap,"AFL candidate lacks BACnet context scalar");goto bad;}
+        }
+        if(!candidate || r->wire_offset+o>cn || projected>cn-r->wire_offset-o){fail(err,cap,"AFL candidate does not contain selected CONTENT field");goto bad;}
+        val=getint(candidate+r->wire_offset+o,projected,f->little);
+      }
       else if(op==0 && f->nv)val=f->values[draw(rng,f->nv)];
       else if(op==1){uint64_t boundary[]={f->min,f->max,f->min+1,f->max?f->max-1:0,0};val=boundary[draw(rng,5)];}
       else if(op==2)val^=1ULL<<draw(rng,w*8);else val+=draw(rng,2)?1:(uint64_t)-1;
@@ -1173,7 +1341,11 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
         }
         val = candidate_val;
       }
-      if(e->codec==3 && !strncmp(f->loc,"ber:",4)){
+      if(!e->codec && (!strcmp(f->loc,"bacnet.property") || !strcmp(f->loc,"bacnet.array"))){
+        size_t resized=r->size;memcpy(e->output,b,r->size);
+        if(bacnet_context_replace(e->output,&resized,WMAX,f->loc,val,err,cap)<0 || resize_record(e,ri,resized,err,cap)<0)goto bad;
+        b=e->work+r->offset;memcpy(b,e->output,resized);
+      }else if(e->codec==3 && !strncmp(f->loc,"ber:",4)){
         uint8_t integer[5];size_t iw=1;while(iw<4 && val>=(1ULL<<(8*iw)))iw++;
         putint(integer,iw,0,val);if(integer[0]&128){memmove(integer+1,integer,iw);integer[0]=0;iw++;}
         size_t resized=r->size;memcpy(e->output,b,r->size);
@@ -1215,7 +1387,7 @@ int proto_mutate(proto_engine *e,const uint8_t *records,size_t length,const uint
       memcpy(e->work+r->offset,e->output,resized);
     } else {fail(err,cap,"no runtime content encoder for %s.%s",m->id,f->id);goto bad;}
   }
-  if(sequence_ok(e)<0){fail(err,cap,"semantic transition or repeat constraint rejects sequence");goto bad;}
+  if(sequence_ok(e,err,cap)<0)goto bad;
   /* Derive fields, then cache explicit message.field values in sequence order. */
   for(size_t i=0;i<e->count;i++){pr *x=&e->records[i];if(!x->size){fail(err,cap,"zero-length message record produced");goto bad;}uint8_t *b=e->work+x->offset;if(repair(e,x->model,b,x->size,err,cap)<0)goto bad;
     if(e->codec && !codecs[e->codec].same(b,x->size,e->m[x->model].example,e->m[x->model].size)){fail(err,cap,"mutation changed request semantic family");goto bad;}

@@ -115,6 +115,16 @@ def schema_check(document, root=ROOT):
 def _expected_manifest(directory, document, paths):
     messages = {message["id"]: message for message in document["messages"]}
     _require(len(messages) == len(document["messages"]), "duplicate message identity")
+    # Resolve every edge before planning writes, including alternatives on
+    # edges absent from the managed request paths. Schema validation checks
+    # shape; it cannot establish message identity or direction.
+    for edge in document["states"]["transitions"]:
+        _require(edge["message"] in messages
+                 and messages[edge["message"]]["direction"] == "request",
+                 "transition contains unknown request model")
+        responses = edge.get("responses", [edge["response"]] if "response" in edge else [])
+        _require(all(response in messages and messages[response]["direction"] == "response"
+                     for response in responses), "missing response model")
     fixtures = {}
     for mid, message in messages.items():
         _require("/" not in mid and "\\" not in mid and mid not in {".", ".."},
@@ -145,9 +155,6 @@ def _expected_manifest(directory, document, paths):
             edges = [edge for edge in document["states"]["transitions"]
                      if edge["from"] == current and edge["message"] == mid]
             _require(len(edges) == 1, "template seed has no unique request transition")
-            response = edges[0].get("response")
-            _require(response is None or response in messages
-                     and messages[response]["direction"] == "response", "missing response model")
             current = edges[0]["to"]
             states.append(current)
             records.append(_record(bytes.fromhex(messages[mid]["example_hex"])))

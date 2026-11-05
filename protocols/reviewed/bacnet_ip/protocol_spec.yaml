@@ -1,30 +1,22 @@
-# Static reviewed input candidate; no native validation or runtime acceptance is asserted.
-# Creation sources and exact scope are recorded in README.md and constraints.json.
 format_version: 1
 protocol_id: bacnet_ip
 name: BACnet/IP
 version: BACnet Stack 1.5.0 / ASHRAE 135
-scope: 'Reviewed un-routed BVLC Original-Unicast-NPDU profile: unsegmented Who-Is/I-Am
-  and ReadProperty request/ACK/Error/Reject/server-Abort fixture layouts. NPDU control
-  is fixed to each fixture (Who-Is/responses=0, ReadProperty=4). Only Who-Is/ReadProperty
-  have request encoders. I-Am/Error/Reject/Abort absolute response slices describe
-  these fixtures, not arbitrary tag widths or routed responses.'
+scope: Unsegmented Who-Is/I-Am and ReadProperty request/ACK/Error/Reject/server-Abort
+  with dynamic routed NPDU and typed BACnet tag locators; one pending confirmed request.
 transport: udp
 framing: datagram
 codec: bacnet
 support:
   runtime: true
-  level: runtime scoped codec; reviewed candidate, native acceptance pending
+  level: runtime scoped codec; controlled API tests
   excluded:
   - segmented APDUs
   - BACnet/SC
   - other services runtime encoding
   - BBMD/foreign-device lifecycle
-  - routed NPDU generation/recognition by this reviewed model (request parser capability
-    is broader)
-  - general dynamic I-Am/Error parameter tag widths; response absolute slices are
-    fixture-specific
-  - parallel confirmed invokes and executable state guards/actions
+  - parallel confirmed invokes
+  - arbitrary property-value interpretation
 sources:
 - id: wire
   url: https://github.com/bacnet-stack/bacnet-stack/tree/bacnet-stack-1.5.0
@@ -145,25 +137,23 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: fixed
-    mutability: fixed
+    role: head
+    mutability: fuzzable
     default: 0
     min: 0
-    max: 0
+    max: 47
     values:
     - 0
+    - 4
+    - 8
+    - 32
+    - 40
     strategies:
     - enum
     evidence: wire
     confidence: implementation
-    structure: This reviewed model fixes the un-routed NPDU flags to the declared
-      fixture; no DNET/DADR/SNET/SADR or hop count is present. Broader parser support
-      is not a capability of this reviewed package.
-    structure_model:
-      id: unrouted_npdu
-      kind: sequence
-      encoding: BACnet-NPDU-unrouted
-      children: []
+    structure: Destination and source addresses and hop count are parsed from NPDU
+      flags; mutation preserves address-layout bits.
   - id: apdu_type
     block: HEAD
     path: apdu.type
@@ -370,25 +360,23 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: fixed
-    mutability: fixed
+    role: head
+    mutability: fuzzable
     default: 4
-    min: 4
-    max: 4
+    min: 0
+    max: 47
     values:
+    - 0
     - 4
+    - 8
+    - 32
+    - 40
     strategies:
     - enum
     evidence: wire
     confidence: implementation
-    structure: This reviewed model fixes the un-routed NPDU flags to the declared
-      fixture; no DNET/DADR/SNET/SADR or hop count is present. Broader parser support
-      is not a capability of this reviewed package.
-    structure_model:
-      id: unrouted_npdu
-      kind: sequence
-      encoding: BACnet-NPDU-unrouted
-      children: []
+    structure: Destination and source addresses and hop count are parsed from NPDU
+      flags; mutation preserves address-layout bits.
   - id: apdu_type
     block: HEAD
     path: apdu.type
@@ -499,14 +487,14 @@ messages:
     block: CONTENT
     path: bacnet.property
     locator: bacnet.property
-    type: uint8
-    width: 1
+    type: uint32
+    width: 4
     endian: big
     role: content
     mutability: fuzzable
     default: 77
     min: 0
-    max: 255
+    max: 4294967295
     values:
     - 75
     - 76
@@ -523,19 +511,19 @@ messages:
     evidence: wire
     confidence: implementation
     structure: Context tag 1 unsigned property identifier, 1..4 octets on wire; this
-      runtime mutation field is limited to UInt8 values.
+      runtime mutation field reencodes UInt32 values.
   - id: array_index
     block: CONTENT
     path: bacnet.array
     locator: bacnet.array
-    type: uint8
-    width: 1
+    type: uint32
+    width: 4
     endian: big
     role: content
     mutability: conditional
     default: 0
     min: 0
-    max: 255
+    max: 4294967295
     values: []
     strategies:
     - enum
@@ -545,7 +533,7 @@ messages:
     evidence: wire
     confidence: implementation
     structure: Optional context tag 2 unsigned array index, 1..4 octets on wire; this
-      runtime mutation field is limited to UInt8 values. Absence differs from index
+      runtime mutation field reencodes UInt32 values. Absence differs from index
       zero (array length).
   dependencies:
   - op: length_of
@@ -572,6 +560,9 @@ messages:
     - service
   - id: CONTENT
     fields:
+    - object_id
+    - property_id
+    - array_index
     - value
   fields:
   - id: bvlc_type
@@ -664,25 +655,23 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: fixed
-    mutability: fixed
+    role: head
+    mutability: fuzzable
     default: 0
     min: 0
-    max: 0
+    max: 47
     values:
     - 0
+    - 4
+    - 8
+    - 32
+    - 40
     strategies:
     - enum
     evidence: wire
     confidence: implementation
-    structure: This reviewed model fixes the un-routed NPDU flags to the declared
-      fixture; no DNET/DADR/SNET/SADR or hop count is present. Broader parser support
-      is not a capability of this reviewed package.
-    structure_model:
-      id: unrouted_npdu
-      kind: sequence
-      encoding: BACnet-NPDU-unrouted
-      children: []
+    structure: Destination and source addresses and hop count are parsed from NPDU
+      flags; mutation preserves address-layout bits.
   - id: apdu_type
     block: HEAD
     path: apdu.type
@@ -745,10 +734,85 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
+  - id: object_id
+    block: CONTENT
+    path: bacnet.object
+    locator: bacnet.object
+    type: uint32
+    width: 4
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 33554555
+    min: 0
+    max: 4294967295
+    values:
+    - 33554555
+    - 33555666
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: BACnet context tag 0; 10-bit object type and 22-bit instance.
+  - id: property_id
+    block: CONTENT
+    path: bacnet.property
+    locator: bacnet.property
+    type: uint32
+    width: 4
+    endian: big
+    role: content
+    mutability: runtime_bound
+    default: 77
+    min: 0
+    max: 4294967295
+    values:
+    - 75
+    - 76
+    - 77
+    - 79
+    - 112
+    - 120
+    - 121
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Context tag 1 unsigned property identifier, 1..4 octets on wire; this
+      runtime mutation field reencodes UInt32 values.
+  - id: array_index
+    block: CONTENT
+    path: bacnet.array
+    locator: bacnet.array
+    type: uint32
+    width: 4
+    endian: big
+    role: content
+    mutability: conditional
+    default: 0
+    min: 0
+    max: 4294967295
+    values: []
+    strategies:
+    - enum
+    - boundary
+    - bitflip
+    - arithmetic
+    evidence: wire
+    confidence: implementation
+    structure: Optional context tag 2 unsigned array index, 1..4 octets on wire; this
+      runtime mutation field reencodes UInt32 values. Absence differs from index
+      zero (array length).
   - id: value
     block: CONTENT
-    path: apdu.content
-    locator: apdu.content
+    path: bacnet.value
+    locator: bacnet.value
     type: bacnet_tags
     width: 0
     endian: big
@@ -763,33 +827,6 @@ messages:
     - resize
     evidence: wire
     confidence: implementation
-    structure: Context [3] opening/closing tags enclose application tags; BACnet LVT
-      is not ASN.1 BER.
-    structure_model:
-      id: read_property_ack
-      kind: sequence
-      children:
-      - id: object_identifier
-        kind: field
-        type: context-object-id
-        tag: 0
-      - id: property_identifier
-        kind: field
-        type: context-unsigned
-        tag: 1
-      - id: array_index
-        kind: field
-        type: context-unsigned
-        tag: 2
-        condition: optional
-      - id: property_value
-        kind: tlv
-        children:
-        - id: value
-          kind: field
-          type: BACnet-application-value
-        tag: 3
-      encoding: BACnet-LVT-opening-closing
   dependencies:
   - op: length_of
     target: bvlc_length
@@ -799,10 +836,22 @@ messages:
     source: invoke_id
     message: read_property
     scope: transaction
-  notes: Complete unsegmented ReadProperty ACK with object-name CharacterString "Device"
-    (encoding 0). Response encoding is static only. Reviewed response fields are complete
-    for the supplied un-routed fixture; absolute content offsets do not define a general
-    dynamic response decoder.
+  - op: copy_from_message
+    target: object_id
+    source: object_id
+    message: read_property
+    scope: transaction
+  - op: copy_from_message
+    target: property_id
+    source: property_id
+    message: read_property
+    scope: transaction
+  - op: copy_from_message
+    target: array_index
+    source: array_index
+    message: read_property
+    scope: transaction
+  notes: Dynamic NPDU/APDU and typed tag positions; response encoding is not provided.
   fixture_status: complete
   runtime_encode: false
 - id: i_am
@@ -917,25 +966,23 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: fixed
-    mutability: fixed
+    role: head
+    mutability: fuzzable
     default: 0
     min: 0
-    max: 0
+    max: 47
     values:
     - 0
+    - 4
+    - 8
+    - 32
+    - 40
     strategies:
     - enum
     evidence: wire
     confidence: implementation
-    structure: This reviewed model fixes the un-routed NPDU flags to the declared
-      fixture; no DNET/DADR/SNET/SADR or hop count is present. Broader parser support
-      is not a capability of this reviewed package.
-    structure_model:
-      id: unrouted_npdu
-      kind: sequence
-      encoding: BACnet-NPDU-unrouted
-      children: []
+    structure: Destination and source addresses and hop count are parsed from NPDU
+      flags; mutation preserves address-layout bits.
   - id: apdu_type
     block: HEAD
     path: apdu.type
@@ -980,8 +1027,8 @@ messages:
     confidence: implementation
   - id: device_identifier
     block: CONTENT
-    path: abs:9
-    locator: abs:9
+    path: bacnet.iam.device
+    locator: bacnet.iam.device
     type: uint32
     width: 4
     endian: big
@@ -998,13 +1045,10 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: 'Fixed fixture projection at abs:9: application ObjectIdentifier tag
-      12 uses four value octets; object type is Device (8), instance is 0..4194303.
-      Dynamic tag/header positions require a semantic locator.'
   - id: max_apdu_accepted
     block: CONTENT
-    path: abs:14
-    locator: abs:14
+    path: bacnet.iam.max_apdu
+    locator: bacnet.iam.max_apdu
     type: uint16
     width: 2
     endian: big
@@ -1021,12 +1065,10 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Fixed fixture projection using the supplied application tag widths;
-      this absolute locator is not valid for all legal I-Am encodings.
   - id: segmentation
     block: CONTENT
-    path: abs:17
-    locator: abs:17
+    path: bacnet.iam.segmentation
+    locator: bacnet.iam.segmentation
     type: uint8
     width: 1
     endian: big
@@ -1047,20 +1089,18 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: 'Fixed fixture projection at abs:17: application ENUMERATED value 0..3.
-      The one-octet value and preceding tag positions are fixture-specific.'
   - id: vendor_identifier
     block: CONTENT
-    path: abs:19
-    locator: abs:19
-    type: uint8
-    width: 1
+    path: bacnet.iam.vendor
+    locator: bacnet.iam.vendor
+    type: uint16
+    width: 2
     endian: big
     role: content
     mutability: fuzzable
     default: 0
     min: 0
-    max: 255
+    max: 65535
     values: []
     strategies:
     - enum
@@ -1069,16 +1109,11 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Fixed fixture projection using the supplied application tag widths;
-      this absolute locator is not valid for all legal I-Am encodings.
   dependencies:
   - op: length_of
     target: bvlc_length
     source: $message
-  notes: I-Am is an unconfirmed service request on the wire; response denotes its
-    role following Who-Is. It may also be unsolicited; no invoke correlation exists.
-    Reviewed response fields are complete for the supplied un-routed fixture; absolute
-    content offsets do not define a general dynamic response decoder.
+  notes: Dynamic NPDU/APDU and typed tag positions; response encoding is not provided.
   fixture_status: complete
   runtime_encode: false
 - id: read_property_error
@@ -1192,25 +1227,23 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: fixed
-    mutability: fixed
+    role: head
+    mutability: fuzzable
     default: 0
     min: 0
-    max: 0
+    max: 47
     values:
     - 0
+    - 4
+    - 8
+    - 32
+    - 40
     strategies:
     - enum
     evidence: wire
     confidence: implementation
-    structure: This reviewed model fixes the un-routed NPDU flags to the declared
-      fixture; no DNET/DADR/SNET/SADR or hop count is present. Broader parser support
-      is not a capability of this reviewed package.
-    structure_model:
-      id: unrouted_npdu
-      kind: sequence
-      encoding: BACnet-NPDU-unrouted
-      children: []
+    structure: Destination and source addresses and hop count are parsed from NPDU
+      flags; mutation preserves address-layout bits.
   - id: apdu_type
     block: HEAD
     path: apdu.type
@@ -1275,16 +1308,16 @@ messages:
     confidence: implementation
   - id: error_class
     block: HEAD
-    path: abs:10
-    locator: abs:10
-    type: uint8
-    width: 1
+    path: bacnet.error.class
+    locator: bacnet.error.class
+    type: uint32
+    width: 4
     endian: big
     role: head
     mutability: fuzzable
     default: 2
     min: 0
-    max: 255
+    max: 4294967295
     values:
     - 0
     - 1
@@ -1301,21 +1334,18 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Absolute projection of this supplied un-routed response fixture only.
-      Other application tag widths require a semantic response locator; changing an
-      absolute offset cannot provide that behavior.
   - id: error_code
     block: HEAD
-    path: abs:12
-    locator: abs:12
-    type: uint8
-    width: 1
+    path: bacnet.error.code
+    locator: bacnet.error.code
+    type: uint32
+    width: 4
     endian: big
     role: head
     mutability: fuzzable
     default: 32
     min: 0
-    max: 255
+    max: 4294967295
     values:
     - 31
     - 32
@@ -1327,9 +1357,6 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Absolute projection of this supplied un-routed response fixture only.
-      Other application tag widths require a semantic response locator; changing an
-      absolute offset cannot provide that behavior.
   dependencies:
   - op: length_of
     target: bvlc_length
@@ -1339,9 +1366,7 @@ messages:
     source: invoke_id
     message: read_property
     scope: transaction
-  notes: 'BACnet Error: two application ENUMERATED values; class property(2), unknown-property(32).
-    Reviewed response fields are complete for the supplied un-routed fixture; absolute
-    content offsets do not define a general dynamic response decoder.'
+  notes: Dynamic NPDU/APDU and typed tag positions; response encoding is not provided.
   fixture_status: complete
   runtime_encode: false
 - id: reject
@@ -1453,25 +1478,23 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: fixed
-    mutability: fixed
+    role: head
+    mutability: fuzzable
     default: 0
     min: 0
-    max: 0
+    max: 47
     values:
     - 0
+    - 4
+    - 8
+    - 32
+    - 40
     strategies:
     - enum
     evidence: wire
     confidence: implementation
-    structure: This reviewed model fixes the un-routed NPDU flags to the declared
-      fixture; no DNET/DADR/SNET/SADR or hop count is present. Broader parser support
-      is not a capability of this reviewed package.
-    structure_model:
-      id: unrouted_npdu
-      kind: sequence
-      encoding: BACnet-NPDU-unrouted
-      children: []
+    structure: Destination and source addresses and hop count are parsed from NPDU
+      flags; mutation preserves address-layout bits.
   - id: apdu_type
     block: HEAD
     path: apdu.type
@@ -1515,8 +1538,8 @@ messages:
     confidence: implementation
   - id: reason
     block: HEAD
-    path: abs:8
-    locator: abs:8
+    path: apdu.reason
+    locator: apdu.reason
     type: uint8
     width: 1
     endian: big
@@ -1533,9 +1556,6 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Absolute projection of this supplied un-routed response fixture only.
-      Other application tag widths require a semantic response locator; changing an
-      absolute offset cannot provide that behavior.
   dependencies:
   - op: length_of
     target: bvlc_length
@@ -1545,9 +1565,7 @@ messages:
     source: invoke_id
     message: read_property
     scope: transaction
-  notes: Reject has no service choice; its final octet is reason. Reviewed response
-    fields are complete for the supplied un-routed fixture; absolute content offsets
-    do not define a general dynamic response decoder.
+  notes: Dynamic NPDU/APDU and typed tag positions; response encoding is not provided.
   fixture_status: complete
   runtime_encode: false
 - id: abort
@@ -1659,25 +1677,23 @@ messages:
     type: uint8
     width: 1
     endian: big
-    role: fixed
-    mutability: fixed
+    role: head
+    mutability: fuzzable
     default: 0
     min: 0
-    max: 0
+    max: 47
     values:
     - 0
+    - 4
+    - 8
+    - 32
+    - 40
     strategies:
     - enum
     evidence: wire
     confidence: implementation
-    structure: This reviewed model fixes the un-routed NPDU flags to the declared
-      fixture; no DNET/DADR/SNET/SADR or hop count is present. Broader parser support
-      is not a capability of this reviewed package.
-    structure_model:
-      id: unrouted_npdu
-      kind: sequence
-      encoding: BACnet-NPDU-unrouted
-      children: []
+    structure: Destination and source addresses and hop count are parsed from NPDU
+      flags; mutation preserves address-layout bits.
   - id: apdu_type
     block: HEAD
     path: apdu.type
@@ -1721,8 +1737,8 @@ messages:
     confidence: implementation
   - id: reason
     block: HEAD
-    path: abs:8
-    locator: abs:8
+    path: apdu.reason
+    locator: apdu.reason
     type: uint8
     width: 1
     endian: big
@@ -1739,9 +1755,6 @@ messages:
     - arithmetic
     evidence: wire
     confidence: implementation
-    structure: Absolute projection of this supplied un-routed response fixture only.
-      Other application tag widths require a semantic response locator; changing an
-      absolute offset cannot provide that behavior.
   dependencies:
   - op: length_of
     target: bvlc_length
@@ -1751,8 +1764,6 @@ messages:
     source: invoke_id
     message: read_property
     scope: transaction
-  notes: Server Abort has server bit 0 set; final octet is reason (segmentation-not-supported
-    in fixture). Reviewed response fields are complete for the supplied un-routed
-    fixture; absolute content offsets do not define a general dynamic response decoder.
+  notes: Dynamic NPDU/APDU and typed tag positions; response encoding is not provided.
   fixture_status: complete
   runtime_encode: false

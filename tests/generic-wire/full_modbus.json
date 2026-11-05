@@ -1,0 +1,2009 @@
+{
+  "format": "stateafl.generic-wire",
+  "version": 1,
+  "protocol_id": "modbus_full_fixture",
+  "transport": "tcp",
+  "framing": {
+    "offset": 4,
+    "width": 2,
+    "byte_order": "big",
+    "add": 6,
+    "kind": "length_field"
+  },
+  "online": true,
+  "messages": [
+    {
+      "id": "req1",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "000100000006010100000009",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 1
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 2000
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp1",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "0001000000050101020101",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 1
+          },
+          {
+            "id": "byte_count",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "data"
+            }
+          },
+          {
+            "id": "data",
+            "kind": "bytes",
+            "role": "content",
+            "length": {
+              "ref": "byte_count"
+            }
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req1",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req1",
+          "source": "unit"
+        },
+        {
+          "field": "data",
+          "request": "req1",
+          "source": "quantity",
+          "metric": "bits",
+          "bit_order": "lsb0"
+        }
+      ]
+    },
+    {
+      "id": "exc1",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003018102",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 129
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req1",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req1",
+          "source": "unit"
+        }
+      ]
+    },
+    {
+      "id": "req2",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "000100000006010200000009",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 2
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 2000
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp2",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "0001000000050102020101",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 2
+          },
+          {
+            "id": "byte_count",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "data"
+            }
+          },
+          {
+            "id": "data",
+            "kind": "bytes",
+            "role": "content",
+            "length": {
+              "ref": "byte_count"
+            }
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req2",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req2",
+          "source": "unit"
+        },
+        {
+          "field": "data",
+          "request": "req2",
+          "source": "quantity",
+          "metric": "bits",
+          "bit_order": "lsb0"
+        }
+      ]
+    },
+    {
+      "id": "exc2",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003018202",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 130
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req2",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req2",
+          "source": "unit"
+        }
+      ]
+    },
+    {
+      "id": "req3",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "000100000006010300000002",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 3
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 125
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp3",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "00010000000701030400010002",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 3
+          },
+          {
+            "id": "byte_count",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "data"
+            }
+          },
+          {
+            "id": "data",
+            "kind": "bytes",
+            "role": "content",
+            "length": {
+              "ref": "byte_count"
+            }
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req3",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req3",
+          "source": "unit"
+        },
+        {
+          "field": "data",
+          "request": "req3",
+          "source": "quantity",
+          "metric": "size",
+          "multiply": 2
+        }
+      ]
+    },
+    {
+      "id": "exc3",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003018302",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 131
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req3",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req3",
+          "source": "unit"
+        }
+      ]
+    },
+    {
+      "id": "req4",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "000100000006010400000002",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 4
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 125
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp4",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "00010000000701040400010002",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 4
+          },
+          {
+            "id": "byte_count",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "data"
+            }
+          },
+          {
+            "id": "data",
+            "kind": "bytes",
+            "role": "content",
+            "length": {
+              "ref": "byte_count"
+            }
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req4",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req4",
+          "source": "unit"
+        },
+        {
+          "field": "data",
+          "request": "req4",
+          "source": "quantity",
+          "metric": "size",
+          "multiply": 2
+        }
+      ]
+    },
+    {
+      "id": "exc4",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003018402",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 132
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req4",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req4",
+          "source": "unit"
+        }
+      ]
+    },
+    {
+      "id": "req5",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "00010000000601050000ff00",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 5
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "value",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "values": [
+              0,
+              65280
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp5",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "00010000000601050000ff00",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 5
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "value",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req5",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req5",
+          "source": "unit"
+        },
+        {
+          "field": "address",
+          "request": "req5",
+          "source": "address"
+        },
+        {
+          "field": "value",
+          "request": "req5",
+          "source": "value"
+        }
+      ]
+    },
+    {
+      "id": "exc5",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003018502",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 133
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req5",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req5",
+          "source": "unit"
+        }
+      ]
+    },
+    {
+      "id": "req6",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "00010000000601060000ff00",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 6
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "value",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp6",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "00010000000601060000ff00",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 6
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "value",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req6",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req6",
+          "source": "unit"
+        },
+        {
+          "field": "address",
+          "request": "req6",
+          "source": "address"
+        },
+        {
+          "field": "value",
+          "request": "req6",
+          "source": "value"
+        }
+      ]
+    },
+    {
+      "id": "exc6",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003018602",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 134
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req6",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req6",
+          "source": "unit"
+        }
+      ]
+    },
+    {
+      "id": "req15",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "000100000009010f00000009020101",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 15
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 1968
+          },
+          {
+            "id": "byte_count",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "data"
+            }
+          },
+          {
+            "id": "data",
+            "kind": "bytes",
+            "role": "content",
+            "length": {
+              "ref": "quantity",
+              "unit": 8,
+              "round": "ceil"
+            },
+            "bit_length": {
+              "ref": "quantity",
+              "order": "lsb0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp15",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000006010f00000009",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 15
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req15",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req15",
+          "source": "unit"
+        },
+        {
+          "field": "address",
+          "request": "req15",
+          "source": "address"
+        },
+        {
+          "field": "quantity",
+          "request": "req15",
+          "source": "quantity"
+        }
+      ]
+    },
+    {
+      "id": "exc15",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003018f02",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 143
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req15",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req15",
+          "source": "unit"
+        }
+      ]
+    },
+    {
+      "id": "req16",
+      "direction": "request",
+      "weight": 1,
+      "example_hex": "00010000000b0110000000020400010002",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 16
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 123
+          },
+          {
+            "id": "byte_count",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "data"
+            }
+          },
+          {
+            "id": "data",
+            "kind": "bytes",
+            "role": "content",
+            "length": {
+              "ref": "quantity",
+              "multiply": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "resp16",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000006011000000002",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 16
+          },
+          {
+            "id": "address",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          },
+          {
+            "id": "quantity",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "content"
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req16",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req16",
+          "source": "unit"
+        },
+        {
+          "field": "address",
+          "request": "req16",
+          "source": "address"
+        },
+        {
+          "field": "quantity",
+          "request": "req16",
+          "source": "quantity"
+        }
+      ]
+    },
+    {
+      "id": "exc16",
+      "direction": "response",
+      "weight": 1,
+      "example_hex": "000100000003019002",
+      "grammar": {
+        "kind": "struct",
+        "fields": [
+          {
+            "id": "transaction",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "protocol",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 0
+          },
+          {
+            "id": "length",
+            "kind": "uint",
+            "width": 2,
+            "byte_order": "big",
+            "role": "derived",
+            "derived": {
+              "op": "size_of",
+              "target": "$message",
+              "add": -6
+            }
+          },
+          {
+            "id": "unit",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "head"
+          },
+          {
+            "id": "function",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "fixed",
+            "expected": 144
+          },
+          {
+            "id": "exception",
+            "kind": "uint",
+            "width": 1,
+            "byte_order": "big",
+            "role": "content",
+            "min": 1,
+            "max": 11
+          }
+        ]
+      },
+      "correlate": [
+        {
+          "field": "transaction",
+          "request": "req16",
+          "source": "transaction"
+        },
+        {
+          "field": "unit",
+          "request": "req16",
+          "source": "unit"
+        }
+      ]
+    }
+  ],
+  "limits": {
+    "max_messages": 32,
+    "max_repeat": 4,
+    "max_bytes": 1048576
+  },
+  "states": {
+    "initial": "ready",
+    "transitions": [
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req1",
+        "responses": [
+          "resp1",
+          "exc1"
+        ]
+      },
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req2",
+        "responses": [
+          "resp2",
+          "exc2"
+        ]
+      },
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req3",
+        "responses": [
+          "resp3",
+          "exc3"
+        ]
+      },
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req4",
+        "responses": [
+          "resp4",
+          "exc4"
+        ]
+      },
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req5",
+        "responses": [
+          "resp5",
+          "exc5"
+        ]
+      },
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req6",
+        "responses": [
+          "resp6",
+          "exc6"
+        ]
+      },
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req15",
+        "responses": [
+          "resp15",
+          "exc15"
+        ]
+      },
+      {
+        "from": "ready",
+        "to": "ready",
+        "message": "req16",
+        "responses": [
+          "resp16",
+          "exc16"
+        ]
+      }
+    ]
+  },
+  "unsupported": [],
+  "limitations": []
+}

@@ -123,43 +123,43 @@ transitions:
   to: starting
   message: test_act
   response: test_con
-  guard: TESTFR is independent of transfer phase; the current single-pending runtime
-    may still block a send while STARTDT/STOPDT is pending.
+  guard: TESTFR uses independent control pending; the executor permits it while
+    STARTDT/STOPDT is pending.
   actions: []
 - from: starting
   to: starting
   message: test_con
   response: ''
-  guard: TESTFR is independent of transfer phase; the current single-pending runtime
-    may still block a send while STARTDT/STOPDT is pending.
+  guard: TESTFR uses independent control pending; the executor permits it while
+    STARTDT/STOPDT is pending.
   actions: []
 - from: stopping
   to: stopping
   message: test_act
   response: test_con
-  guard: TESTFR is independent of transfer phase; the current single-pending runtime
-    may still block a send while STARTDT/STOPDT is pending.
+  guard: TESTFR uses independent control pending; the executor permits it while
+    STARTDT/STOPDT is pending.
   actions: []
 - from: stopping
   to: stopping
   message: test_con
   response: ''
-  guard: TESTFR is independent of transfer phase; the current single-pending runtime
-    may still block a send while STARTDT/STOPDT is pending.
+  guard: TESTFR uses independent control pending; the executor permits it while
+    STARTDT/STOPDT is pending.
   actions: []
 - from: interrogating
   to: interrogating
   message: s_ack
   response: ''
-  guard: S-format acknowledgement during the declared interrogation phase; N(R) must
-    be supplied consistently with actual received I frames.
+  guard: S-format acknowledgement during the declared interrogation phase; the executor
+    binds N(R) to the actual received I-frame progress.
   actions: []
 - from: interrogation_data
   to: interrogation_data
   message: s_ack
   response: ''
-  guard: S-format acknowledgement during the declared interrogation phase; N(R) must
-    be supplied consistently with actual received I frames.
+  guard: S-format acknowledgement during the declared interrogation phase; the executor
+    binds N(R) to the actual received I-frame progress.
   actions: []
 limits:
   max_messages: 32

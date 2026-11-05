@@ -165,12 +165,15 @@ def identity_key(item):
     return tuple(item[name] for name in ('run_id', 'segment_id', 'candidate_id', 'exec_id'))
 
 
-def candidate_evidence(directory, example, feedback):
+def candidate_evidence(directory, seed_packets, feedback):
     """Qualify existing v3 captures only; never run a target or manufacture IDs.
 
     Capture budgets can omit later executions. Unjoined feedback is reported and
     excluded from evidence; it cannot be promoted to a successful sampled edit.
     """
+    # Byte arguments remain the one-message baseline used by offline contract tests.
+    if isinstance(seed_packets, bytes):
+        seed_packets = [seed_packets]
     eligible, errors, excluded, seen = {}, [], [], set()
     all_stems = []
     for metadata in sorted(directory.glob('*.json')):
@@ -268,19 +271,25 @@ def candidate_evidence(directory, example, feedback):
             continue
         if sidecar['target_state'] > 0:
             nonzero.append(stem)
-        # Only the initial queue seed has the known one-record baseline. Later
+        # Only the initial queue seed has the known immutable baseline. Later
         # parent seeds require their own immutable baseline before claiming edits.
         if sidecar['parent_seed_id'] != 0:
             continue
         layer = sidecar['layer']
         if layer == 'HEAD':
-            changed = (len(packets) == 1 and packets[0][4:6] != example[4:6] and
-                       packets[0][6:] == example[6:])
+            changed = (len(packets) == len(seed_packets) and
+                       all(packet[:4] == original[:4] and packet[6:] == original[6:]
+                           for packet, original in zip(packets, seed_packets)) and
+                       any(packet[4:6] != original[4:6]
+                           for packet, original in zip(packets, seed_packets)))
         elif layer == 'CONTENT':
-            changed = (len(packets) == 1 and packets[0][4:6] == example[4:6] and
-                       packets[0][6:] != example[6:])
+            changed = (len(packets) == len(seed_packets) and
+                       all(packet[0] == original[0] and packet[3:6] == original[3:6]
+                           for packet, original in zip(packets, seed_packets)) and
+                       any(packet[6:] != original[6:]
+                           for packet, original in zip(packets, seed_packets)))
         else:
-            changed = len(packets) != 1
+            changed = len(packets) != len(seed_packets)
         if changed:
             edits[layer].append(stem)
     missing = [value[0] for key, value in eligible.items() if key not in joined]
@@ -321,7 +330,9 @@ def run(args):
     example = bytes.fromhex(json.loads(spec.read_text())['messages'][0]['example_hex'])
     corpus = work / 'in'
     corpus.mkdir()
-    (corpus / 'pulse.replay').write_bytes(len(example).to_bytes(4, 'little') + example)
+    seed_packets = [example] * args.seed_messages
+    seed_records = b''.join(len(packet).to_bytes(4, 'little') + packet for packet in seed_packets)
+    (corpus / 'pulse.replay').write_bytes(seed_records)
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
         probe.bind(('127.0.0.1', 0))
         port = probe.getsockname()[1]
@@ -329,8 +340,9 @@ def run(args):
     trace = work / 'wire.jsonl'
     command = ['setarch', os.uname().machine, '-R', str(ROOT / 'afl-fuzz'), '-d',
                '-i', str(corpus), '-o', str(output), '-N', f'udp://127.0.0.1/{port}',
-               '-D', '50000', '-W', '10', '-w', '1000', '-r', '10', '-K',
-               '-m', 'none', '-t', '1000', '--random-seed', str(args.seed),
+               '-D', str(args.startup_usecs), '-W', str(args.poll_wait_ms),
+               '-w', str(args.socket_timeout_us), '-r', str(args.state_poll_wait_ms), '-K',
+               '-m', 'none', '-t', str(args.exec_timeout_ms), '--random-seed', str(args.seed),
                '--generic-spec', str(spec), '--mutation-mode', 'valid',
                '--mutation-layers', 'head,content,sequence', '--protocol-schedule', 'adaptive',
                '--protocol-save-candidates', '128']
@@ -368,7 +380,7 @@ def run(args):
     schedule = json.loads((output / 'protocol_schedule.json').read_text())
     feedback = [json.loads(line) for line in (output / 'protocol_mutations.jsonl').read_text().splitlines()]
     traffic = [json.loads(line) for line in trace.read_text().splitlines()]
-    evidence = candidate_evidence(output / 'protocol-candidates', example, feedback)
+    evidence = candidate_evidence(output / 'protocol-candidates', seed_packets, feedback)
     candidates = evidence['candidates']
     baseline = json.loads((output / 'experiment_baseline.json').read_text())
     final = read_stats(output / 'fuzzer_stats')
@@ -441,7 +453,9 @@ def run(args):
     }
     metric_definitions.update(response_metric_definitions(stats))
     report = dict(checks=checks, passed=all(checks.values()), state_aware=args.state_aware,
-                  seed=args.seed, seconds=args.seconds, received_packets=len(traffic),
+                  seed=args.seed, seed_messages=args.seed_messages,
+                  seed_records_sha256=hashlib.sha256(seed_records).hexdigest(),
+                  seconds=args.seconds, received_packets=len(traffic),
                   structured_samples=len(candidates), candidate_evidence=evidence, baseline=baseline, protocol=stats,
                   schedule=schedule, build=build, command=command,
                   source_sha256={name: source_after[name].get('sha256') for name in LEGACY_SOURCES},
@@ -462,8 +476,17 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True, help='new evidence directory')
     parser.add_argument('--seconds', type=float, default=12, help='fuzz time after calibration')
     parser.add_argument('--seed', type=int, default=20261027)
+    parser.add_argument('--seed-messages', type=int, choices=range(1, 5), default=1)
     parser.add_argument('--state-aware', action='store_true')
+    parser.add_argument('--startup-usecs', type=int, default=100000)
+    parser.add_argument('--poll-wait-ms', type=int, default=50)
+    parser.add_argument('--socket-timeout-us', type=int, default=50000)
+    parser.add_argument('--state-poll-wait-ms', type=int, default=50)
+    parser.add_argument('--exec-timeout-ms', type=int, default=5000)
     args = parser.parse_args()
     if not 1 <= args.seconds <= 600 or not 0 <= args.seed <= 0xffffffff:
         parser.error('seconds must be 1..600 and seed must be uint32')
+    if min(args.startup_usecs, args.poll_wait_ms, args.socket_timeout_us,
+           args.state_poll_wait_ms, args.exec_timeout_ms) <= 0:
+        parser.error('startup, polling, socket and execution budgets must be positive')
     raise SystemExit(run(args))

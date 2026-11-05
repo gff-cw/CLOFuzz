@@ -30,7 +30,9 @@ BACNET_RUNTIME_TYPES = {"uint8", "uint16", "uint24", "uint32", "uint64",
                         "bytes", "string", "bacnet_tags"}
 RUNTIME_TYPES = set(TYPES)
 BACNET_OCTET_LOCATORS = {"bvlc.type", "bvlc.function", "npdu.version", "npdu.control",
-                         "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu"}
+                         "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu", "apdu.reason"}
+BACNET_PARAMETER_LOCATORS = {"bacnet.iam.device", "bacnet.iam.max_apdu", "bacnet.iam.segmentation",
+                              "bacnet.iam.vendor", "bacnet.error.class", "bacnet.error.code"}
 SCALAR_STRATEGIES = {"enum", "boundary", "bitflip", "arithmetic"}
 # These properties document a model; no expression in them is evaluated.
 STATIC_METADATA = {
@@ -196,13 +198,15 @@ def bacnet_example_fields(seed, where):
     elif kind in {2, 3, 5, 6, 7}:
         require(n - p >= 3 and (seed[p] & 15) <= (1 if kind == 7 else 0),
                 where + ": truncated/segmented response APDU")
-        result.update({"apdu.invoke": (p + 1, 1), "apdu.service": (p + 2, 1)})
+        result.update({"apdu.invoke": (p + 1, 1),
+                       "apdu.reason" if kind in {6, 7} else "apdu.service": (p + 2, 1)})
         p += 3
     else:
         raise SpecError(where + ": unsupported runtime APDU type")
     result["apdu.content"] = (p, n - p)
-    tags, stack = [], []
+    tags, stack, elements = [], [], []
     while p < n:
+        start, depth = p, len(stack)
         header = seed[p]; p += 1
         number, context, lvt = header >> 4, bool(header & 8), header & 7
         if number == 15:
@@ -232,11 +236,16 @@ def bacnet_example_fields(seed, where):
         if closing:
             require(stack and stack.pop() == number, where + ": mismatched closing tag")
         tags.append((number, context, opening or closing, p, length))
-        if context and not opening and not closing and number in {0, 1, 2}:
-            result.setdefault(("bacnet.object", "bacnet.property", "bacnet.array")[number], (p, length))
         p += length
+        elements.append(dict(number=number, context=context, opening=opening, closing=closing,
+                             offset=p-length, length=length, start=start, end=p, depth=depth))
     require(not stack, where + ": missing closing tag")
-    service = seed[result["apdu.service"][0]]
+    service = seed[result["apdu.service"][0]] if kind not in {6, 7} else None
+    if kind in {0, 3} and service == 12:
+        for element in elements:
+            if element["depth"] == 0 and element["context"] and not element["opening"] and not element["closing"] and element["number"] in {0, 1, 2}:
+                result.setdefault(("bacnet.object", "bacnet.property", "bacnet.array")[element["number"]],
+                                  (element["offset"], element["length"]))
     if (kind, service) in {(1, 8), (0, 12)}:
         expected = 0 if kind == 1 and not tags else 2
         require(len(tags) in ({0, 2} if kind == 1 else {2, 3}), where + ": invalid service tag count")
@@ -249,6 +258,38 @@ def bacnet_example_fields(seed, where):
         if kind == 1 and expected:
             values = [int.from_bytes(seed[o:o + w], "big") for _, _, _, o, w in tags]
             require(0 <= values[0] <= values[1] <= 4194303, where + ": invalid Who-Is limits")
+    if (kind, service) == (1, 0):
+        require(len(tags) == 4 and [entry[0] for entry in tags] == [12, 2, 9, 2], where + ": invalid I-Am parameter types")
+        names = ("device", "max_apdu", "segmentation", "vendor")
+        for i, (number, context, container, offset, width) in enumerate(tags):
+            require(not context and not container and 1 <= width <= 4 and (i != 0 or width == 4), where + ": invalid I-Am parameter width")
+            value = int.from_bytes(seed[offset:offset+width], "big")
+            require((i != 0 or value >> 22 == 8) and (i not in {1, 3} or value <= 65535)
+                    and (i != 2 or value <= 3), where + ": invalid I-Am parameter value")
+            result["bacnet.iam." + names[i]] = (offset, width)
+    if (kind, service) == (5, 12):
+        require(len(tags) == 2, where + ": invalid Error parameter count")
+        for name, (number, context, container, offset, width) in zip(("class", "code"), tags):
+            require(number == 9 and not context and not container and 1 <= width <= 4, where + ": invalid Error parameter")
+            result["bacnet.error." + name] = (offset, width)
+    if (kind, service) == (3, 12):
+        require(len(elements) >= 5, where + ": incomplete ReadProperty ACK")
+        at = 0
+        for wanted in (0, 1):
+            item = elements[at]; at += 1
+            require(item["context"] and not item["opening"] and not item["closing"] and item["number"] == wanted
+                    and 1 <= item["length"] <= 4 and (wanted != 0 or item["length"] == 4), where + ": invalid ACK property reference")
+        if elements[at]["context"] and not elements[at]["opening"] and not elements[at]["closing"] and elements[at]["number"] == 2:
+            require(1 <= elements[at]["length"] <= 4, where + ": invalid ACK array index")
+            at += 1
+        opening, closing = elements[at], elements[-1]
+        require(opening["context"] and opening["opening"] and opening["number"] == 3
+                and closing["context"] and closing["closing"] and closing["number"] == 3
+                and closing["depth"] == 1 and at + 2 < len(elements)
+                and all(item["depth"] >= 1 for item in elements[at+1:-1]), where + ": invalid ACK value container")
+        result["bacnet.value"] = (opening["end"], closing["start"] - opening["end"])
+    if kind in {6, 7}:
+        require(result["apdu.content"][1] == 0, where + ": trailing Reject/Abort bytes")
     return result, kind, service
 
 
@@ -431,7 +472,8 @@ def validate(protocol, state):
                 if codec == "bacnet":
                     require(f["locator"] in {"bvlc.type", "bvlc.function", "bvlc.length", "npdu.version", "npdu.control",
                             "apdu.type", "apdu.service", "apdu.invoke", "apdu.max_apdu", "apdu.content",
-                            "bacnet.object", "bacnet.property", "bacnet.array"} or f["locator"].startswith("abs:"),
+                            "apdu.reason", "bacnet.object", "bacnet.property", "bacnet.array", "bacnet.value"}
+                            | BACNET_PARAMETER_LOCATORS or f["locator"].startswith("abs:"),
                             where + ": unsupported runtime locator")
                     if f["locator"] in BACNET_OCTET_LOCATORS:
                         require(f["type"] == "uint8", where + ": BACnet octet locator requires uint8")
@@ -442,7 +484,12 @@ def validate(protocol, state):
                     if f["locator"] in {"bacnet.property", "bacnet.array"}:
                         require(f["type"] in {"uint8", "uint16", "uint24", "uint32"},
                                 where + ": BACnet unsigned context locator requires uint8..uint32")
-                    if f["locator"] == "apdu.content":
+                    if f["locator"] in BACNET_PARAMETER_LOCATORS:
+                        require(f["type"] in {"uint8", "uint16", "uint24", "uint32"},
+                                where + ": BACnet application parameter requires uint8..uint32")
+                    if f["locator"] == "bacnet.iam.device":
+                        require(f["type"] == "uint32", where + ": I-Am Device identifier requires uint32")
+                    if f["locator"] in {"apdu.content", "bacnet.value"}:
                         require(f["width"] == 0, where + ": APDU content locator requires a variable field")
             if f["locator"].startswith("abs:"):
                 try: offset = int(f["locator"][4:])
@@ -566,6 +613,9 @@ def validate(protocol, state):
                 if dep["op"] == "sequence_number":
                     require(sm == mid and sf in {"$message", dep["target"]},
                             f"{mid}: sequence_number uses its target's own previous value")
+                    if codec == "iec104" and fields[mid][dep["target"]]["locator"] in {"abs:2", "abs:4"}:
+                        require(dep.get("unit", 1) == 2,
+                                f"{mid}: IEC104 connection sequence uses shifted UInt16 unit=2")
             # Message size and codec-managed tag lengths are structural leaves.
             if sf != "$message" and dep["op"] not in {"correlate_request_response", "sequence_number"}:
                 graph.setdefault((mid, dep["target"]), []).append((sm, sf))

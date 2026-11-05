@@ -5,7 +5,7 @@ from pathlib import Path
 import struct
 import yaml
 from proto_spec_compiler import compile_spec
-from protocol_seed_planner import write_model_corpus
+from protocol_seed_planner import refresh_saved_model_corpus
 from protocol_model_details import enrich, mms_profile, opcua_profile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,14 +72,16 @@ def emit(pid, name, version, scope, codec, messages, states, transitions, url, s
     status_note = ("" if codec == "bacnet" else "\n\nLatest test acceptance is recorded in "
                    "[task recovery](../../docs/task-recovery.md); fixture presence does not imply acceptance.")
     (out/'README.md').write_text(f"# {name}\n\nVersion: {version}.\n\nScope: {p['scope']}\n\nSupport: {p['support']['level']}. Complete fixtures: {complete}/{len(p['messages'])}; runtime request encoders: {sum(m['runtime_encode'] for m in p['messages'])}. BACnet is the industrial protocol implementation used for live integration; the five TCP profiles also have instrumented local fixture tests; see `docs/bacnet-integration-test.md`.{status_note}\n\nExcluded: {'; '.join(p['support']['excluded'])}.\n\nComplete means all bytes for the declared message/profile are present and checked by `tests/protocol/test_model_completeness.py`; it does not assert whole-standard conformance or successful exchanges with arbitrary products. A message marked `fragment` must never be presented as a valid service. `runtime_encode` records existing C runtime capability and is not an encoder selection switch. Nested `structure_model` trees and state guard/action strings are static descriptions.\n\nEach field names a source ID and confidence; `evidence.yaml` records sources and access limits. The six-protocol completeness matrix, corrections and verification limits are in `docs/protocol-model-audit.md`.\n\nNon-BACnet description compilation builds the bounded native validator with `CC` (or `cc`); a C11 compiler, `protocol_codecs.h`, `tools/native_protocol_codecs.py`, and all five `protocol_codec_*.c` sources are required. StateAFL links the codecs directly and runs no Python during mutation.\n\nRegenerate with `python3 tools/generate_protocol_models.py`; check complete fixtures with `python3 tests/protocol/test_model_completeness.py`; compile independently with `python3 tools/proto_spec_compiler.py --protocol protocols/{pid}/protocol_spec.yaml --state protocols/{pid}/state_transition.yaml --output-dir /tmp/{pid}`.\n")
-    write_model_corpus(out,p,st,result)
+    # Publish corpus provenance through the same saved-bundle refresh used for
+    # committed packages, including its source/IR identity verification.
+    refresh_saved_model_corpus(out)
     with (out/'README.md').open('a',encoding='utf-8') as readme:
-        readme.write('\n`fixtures/requests/` preserves single-message request fixtures. '
-                     '`seeds/` contains only request sequences reachable from the model initial state, '
-                     'projecting the expected response after each request. `seed_manifest.json` records '
-                     'request IDs, states, replay limits and exclusions. This proves model reachability '
-                     'only; it does not prove actual target sessions, guards, external prerequisites '
-                     'or response-derived runtime bindings. No response bytes are inserted into seeds.\n')
+        readme.write('\n`fixtures/requests/` preserves original single-message request fixtures. '
+                     '`seeds/` contains only request sequences reachable from the declared model initial state, '
+                     'projecting the expected response once after each request. `seed_manifest.json` records '
+                     'request IDs, states, replay limits and exclusions. This is a model-level proof only; '
+                     'actual target sessions, guards, external prerequisites and response-derived bindings '
+                     'have not been validated by this static corpus conversion. Response bytes are not inserted into seeds.\n')
 
 
 def main():
